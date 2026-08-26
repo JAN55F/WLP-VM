@@ -1,0 +1,142 @@
+/*
+(1)一般测试
+   执行命令: "csc","csc exe"
+*/
+using System;
+class Test
+{
+      static void Main()
+      {
+           Console.WriteLine("Hello Twzy");
+      }
+}
+
+/*
+(2)输入测试
+   执行命令: "csc arg:hello\sworld arg:twzy","csc exe arg:hello\sworld arg:twzy"
+   输出：
+   hello world
+   twzy
+*/
+using System;
+class Test
+{
+      static void Main()
+     {
+          Console.WriteLine(Console.ReadLine());
+          Console.WriteLine(Console.ReadLine());
+     }
+}
+
+/*
+(3)循环输入测试(测试CMD模式)
+   执行命令: "csc wd","csc exe wd"
+*/
+using System;
+class Test
+{
+
+    static void Main()
+       {
+         while(true)
+         {
+             Console.WriteLine("\r\n--"+Console.ReadLine());
+         }
+
+       }
+}
+
+
+/*
+(4)类测试
+   执行命令: "csc","csc exe","csc wd","csc exe wd"
+*/
+using System;
+class Test
+{
+      static void Main()
+     {
+           Test2 t=new Test2();
+            
+           Console.WriteLine(t.s);
+      }
+
+}
+class Test2
+{
+   public string s="测试这个类";
+
+}
+
+/*
+(5)窗体测试
+   执行命令: "csc winexe"
+*/
+using System;
+using System.Text;
+using System.Windows.Forms;
+
+class Program
+{
+    static void Main()
+    {
+       //代码
+       Application.Run(new Form());
+    }
+}
+
+/*
+(6)数据结构测试（背包问题）
+   执行命令: "csc","csc exe"
+*/
+using System;
+using System.Text;
+class Program
+{
+    static void Main()
+    {
+        int capacity = 5;
+        int[] size = new int[] { 3, 2, 4, 1 };
+        int[] values = new int[] { 6, 7, 12, 1 };
+        int[] totval = new int[capacity + 1];// 存在零重量的情况
+        int n = values.Length;
+        int[] u = new int[capacity + 1];
+        StringBuilder max=new StringBuilder();
+        StringBuilder wei=new StringBuilder();
+        for (int j = 0; j < n; j++)//物品数量
+        {
+
+            for (int i = 0; i <= capacity; i++)//背包允许存放的物件重量[0--max_NUM]
+            {
+
+                if (i >= size[j])//如果所存物品的空间允许
+                {
+
+                    if (totval[i] < (totval[i - size[j]] + values[j]))//整个表达式为 f[i]=max{f[i-size[j]]+value[j],f[i]}
+                    {
+                        totval[i] = totval[i - size[j]] + values[j];
+                        u[i] =u[i-size [j]] +size[j];
+
+                    }
+
+                }
+
+            }
+            foreach (int s in totval)
+            {
+                max.AppendFormat("{0:D4}  ",s);
+            }
+            max.AppendLine();
+            foreach (int s in u)
+            {
+                wei.AppendFormat("{0:D4}  ",s);
+            }
+            wei.AppendLine();
+        }
+        Console.WriteLine(max.ToString());
+        Console.WriteLine("--------------------------");
+        Console.WriteLine(wei.ToString());
+        Console.WriteLine("可获得最大价值为: " + totval[capacity]);
+        Console.WriteLine("最佳重量为: " + u[capacity]);
+    }
+}
