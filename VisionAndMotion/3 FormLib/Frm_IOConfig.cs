@@ -126,10 +126,11 @@ namespace VMPro
             {
                 //节点上要显示参数名、参数类型和参数当前值
                 string temp = Regex.Split(pi.ToString(), " ")[0];
+                Type propertyType = pi.PropertyType;
 
 
                 TreeNode node = new TreeNode();
-                if (temp=="VMPro.XYU")
+                if (propertyType == typeof(XYU))
                 {
                     node = nodes.Add("", "<List<XYU>>  " + pi.Name);
                     node.Tag = DataType.Pose;
@@ -177,10 +178,10 @@ namespace VMPro
                     node.Tag = DataType.XY;
                     node.ForeColor = Color.Black;
                 }
-                else if (temp == "System.Collections.Generic.List`1[VMPro.XYU]")
+                else if (propertyType == typeof(List<XYU>))
                 {
                     node = nodes.Add("", "<List<XYU>>  " + pi.Name);
-                    node.Tag = DataType.XY;
+                    node.Tag = DataType.Pose;
                     node.ForeColor = Color.Black ;
                 }
                 else

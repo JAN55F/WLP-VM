@@ -90,6 +90,10 @@ namespace VMPro
         /// </summary>
         internal List<ViewWindow.Model.ROI> L_regions = new List<ViewWindow.Model.ROI>();
         /// <summary>
+        /// 绘制搜索区域时的跟随基准位姿。
+        /// </summary>
+        internal List<XYU> templatePose = new List<XYU>();
+        /// <summary>
         /// 区域处理操作集合
         /// </summary>
         internal List<PreProcessing> L_prePorcessing = new List<PreProcessing>();
@@ -110,6 +114,52 @@ namespace VMPro
                 return _searchRegion;
             }
             set { _searchRegion = value; }
+        }
+
+        /// <summary>
+        /// 将当前跟随输入保存为搜索区域的学习基准位姿。
+        /// </summary>
+        internal void CaptureTemplatePoseFromCurrentInput()
+        {
+            if (toolPar.InputPar.跟随 == null || toolPar.InputPar.跟随.Count == 0)
+                return;
+
+            XYU currentPose = toolPar.InputPar.跟随[0];
+            XYU pose = new XYU();
+            pose.Point.X = currentPose.Point.X;
+            pose.Point.Y = currentPose.Point.Y;
+            pose.U = currentPose.U;
+
+            templatePose.Clear();
+            templatePose.Add(pose);
+        }
+
+        /// <summary>
+        /// 获取本次运行使用的搜索区域。内部 ROI 可以随模板位姿平移和旋转，
+        /// 外部输入区域及整幅图像保持原有行为。
+        /// </summary>
+        private HObject GetRuntimeSearchRegion()
+        {
+            HObject baseRegion = SearchRegion;
+            if (searchRegionType == RegionType.AllImage ||
+                searchRegionType == RegionType.整幅图像 ||
+                searchRegionType == RegionType.InputRegion ||
+                L_regions == null || L_regions.Count == 0 ||
+                baseRegion == null ||
+                templatePose == null || templatePose.Count == 0 ||
+                toolPar.InputPar.跟随 == null || toolPar.InputPar.跟随.Count == 0)
+                return baseRegion;
+
+            XYU basePose = templatePose[0];
+            XYU currentPose = toolPar.InputPar.跟随[0];
+            HTuple homMat2D;
+            HOperatorSet.VectorAngleToRigid(basePose.Point.X, basePose.Point.Y, basePose.U,
+                                            currentPose.Point.X, currentPose.Point.Y, currentPose.U,
+                                            out homMat2D);
+
+            HObject runtimeRegion;
+            HOperatorSet.AffineTransRegion(baseRegion, out runtimeRegion, homMat2D, "nearest_neighbor");
+            return runtimeRegion;
         }
 
 
@@ -330,6 +380,7 @@ namespace VMPro
         {
             try
             {
+                bool roiCreated = false;
                 if (Frm_BlobAnalyseTool.Instance.cbx_searchRegionType.TextStr == "整幅图像")
                     return;
                 HOperatorSet.SetLineStyle(Frm_BlobAnalyseTool.Instance.hWindow_Final1.HWindowHalconID, new HTuple());
@@ -351,6 +402,7 @@ namespace VMPro
                         {
                             this.L_regions.Clear();
                             Frm_BlobAnalyseTool.Instance.hWindow_Final1.viewWindow.genRect1(200.0, 200.0, 600.0, 800.0, ref this.L_regions);
+                            roiCreated = true;
                         }
                         searchRegionType = RegionType.Rectangle1;
                         break;
@@ -364,6 +416,7 @@ namespace VMPro
                         {
                             this.L_regions.Clear();
                             Frm_BlobAnalyseTool.Instance.hWindow_Final1.viewWindow.genRect2(400.0, 500.0, 0, 300.0, 200.0, ref this.L_regions);
+                            roiCreated = true;
                         }
                         searchRegionType = RegionType.Rectangle2;
                         break;
@@ -377,6 +430,7 @@ namespace VMPro
                         {
                             this.L_regions.Clear();
                             Frm_BlobAnalyseTool.Instance.hWindow_Final1.viewWindow.genCircle(400.0, 500.0, 200.0, ref this.L_regions);
+                            roiCreated = true;
                         }
                         searchRegionType = RegionType.Circle;
                         break;
@@ -422,6 +476,8 @@ namespace VMPro
                         break;
                 }
                 Frm_BlobAnalyseTool.Instance.regions = this.L_regions;
+                if (roiCreated)
+                    CaptureTemplatePoseFromCurrentInput();
             }
             catch (Exception ex)
             {
@@ -464,10 +520,12 @@ namespace VMPro
                         Frm_BlobAnalyseTool.Instance.hWindow_Final1.HobjectToHimage(toolPar.InputPar.图像);
                     }
 
+                    HObject runtimeSearchRegion = GetRuntimeSearchRegion();
+
                     //截取出搜索区域图像
                     if (searchRegionType != RegionType.AllImage)
                     {
-                        HOperatorSet.ReduceDomain(toolPar.InputPar.图像, SearchRegion, out   searchRegionImage);
+                        HOperatorSet.ReduceDomain(toolPar.InputPar.图像, runtimeSearchRegion, out   searchRegionImage);
                     }
 
                     //开始阈值分割
@@ -564,10 +622,7 @@ namespace VMPro
                         }
                         else
                         {
-                            if (Frm_BlobAnalyseTool.Instance.Visible)
-                                Frm_BlobAnalyseTool.Instance.hWindow_Final1.viewWindow.displayROI(L_regions);
-                            else
-                                GetImageWindowControl().hwc_imageWindow.DispObj(SearchRegion, "blue");
+                            GetImageWindowControl().hwc_imageWindow.DispObj(runtimeSearchRegion, "blue");
                         }
                     }
 
@@ -865,6 +920,14 @@ namespace VMPro
             {
                 get { return _搜索区域; }
                 set { _搜索区域 = value; }
+            }
+
+            private List<XYU> _跟随 = new List<XYU>();
+
+            public List<XYU> 跟随
+            {
+                get { return _跟随; }
+                set { _跟随 = value; }
             }
         }
         [Serializable]

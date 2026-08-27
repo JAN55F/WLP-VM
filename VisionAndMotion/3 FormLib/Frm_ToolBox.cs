@@ -473,6 +473,15 @@ namespace VMPro
                         }
                         //自动链接输入项
                         AutoConnectSource(jobName, itemNode);
+
+                        itemNode = toolNode.Nodes.Add("", Project.Instance.configuration.language == Language.English ? "<--Pose" : "<--跟随", 34, 34);
+                        itemNode.ForeColor = Color.DarkMagenta;
+                        itemNode.Tag = DataType.Pose;
+                        if (toolInfo1 == null)
+                        {
+                            toolInfo.input.Add(new ToolIO(Project.Instance.configuration.language == Language.English ? "Pose" : "跟随", "", DataType.Pose));
+                        }
+                        AutoConnectSource(jobName, itemNode);
                         break;
                     #endregion
 
@@ -1291,12 +1300,12 @@ namespace VMPro
                         //自动链接输入项
                         AutoConnectSource(jobName, itemNode);
 
-                        itemNode = toolNode.Nodes.Add("", Project.Instance.configuration.language == Language.English ? "<--OutputImage" : "<--跟随", 34, 34);
+                        itemNode = toolNode.Nodes.Add("", Project.Instance.configuration.language == Language.English ? "<--Pose" : "<--跟随", 34, 34);
                         itemNode.ForeColor = Color.DarkMagenta;
                         itemNode.Tag = DataType.Pose;
                         if (toolInfo1 == null)
                         {
-                            toolInfo.input.Add(new ToolIO(Project.Instance.configuration.language == Language.English ? "OutputImage" : "跟随", "", DataType.Pose));
+                            toolInfo.input.Add(new ToolIO(Project.Instance.configuration.language == Language.English ? "Pose" : "跟随", "", DataType.Pose));
                         }
                         //自动链接输入项
                         AutoConnectSource(jobName, itemNode);
@@ -1354,12 +1363,12 @@ namespace VMPro
                         //自动链接输入项
                         AutoConnectSource(jobName, itemNode);
 
-                        itemNode = toolNode.Nodes.Add("", Project.Instance.configuration.language == Language.English ? "<--OutputImage" : "<--跟随", 34, 34);
+                        itemNode = toolNode.Nodes.Add("", Project.Instance.configuration.language == Language.English ? "<--Pose" : "<--跟随", 34, 34);
                         itemNode.ForeColor = Color.DarkMagenta;
                         itemNode.Tag = DataType.Pose;
                         if (toolInfo1 == null)
                         {
-                            toolInfo.input.Add(new ToolIO(Project.Instance.configuration.language == Language.English ? "OutputImage" : "跟随", "", DataType.Pose));
+                            toolInfo.input.Add(new ToolIO(Project.Instance.configuration.language == Language.English ? "Pose" : "跟随", "", DataType.Pose));
                         }
                         //自动链接输入项
                         AutoConnectSource(jobName, itemNode);

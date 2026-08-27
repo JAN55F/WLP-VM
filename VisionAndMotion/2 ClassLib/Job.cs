@@ -1323,6 +1323,47 @@ namespace VMPro
         #region 流程操作
 
         /// <summary>
+        /// 兼容旧版流程：统一所有跟随端口与模板匹配位置输出的位姿类型。
+        /// </summary>
+        internal void EnsureBlobFollowInput()
+        {
+            for (int i = 0; i < L_toolList.Count; i++)
+            {
+                ToolInfo toolInfo = L_toolList[i];
+                if (toolInfo.toolType == ToolType.Match)
+                {
+                    for (int j = 0; j < toolInfo.output.Count; j++)
+                    {
+                        if (toolInfo.output[j].IOName == "位置" || toolInfo.output[j].IOName == "Position")
+                            toolInfo.output[j].ioType = DataType.Pose;
+                    }
+                }
+
+                if (toolInfo.toolType != ToolType.BlobAnalyse &&
+                    toolInfo.toolType != ToolType.FindLine &&
+                    toolInfo.toolType != ToolType.FindCircle)
+                    continue;
+
+                bool hasFollowInput = false;
+                for (int j = 0; j < toolInfo.input.Count; j++)
+                {
+                    if (toolInfo.input[j].IOName == "跟随" || toolInfo.input[j].IOName == "Pose")
+                    {
+                        hasFollowInput = true;
+                        toolInfo.input[j].ioType = DataType.Pose;
+                        break;
+                    }
+                }
+
+                if (!hasFollowInput)
+                {
+                    string inputName = Project.Instance.configuration.language == Language.English ? "Pose" : "跟随";
+                    toolInfo.input.Add(new ToolIO(inputName, "", DataType.Pose));
+                }
+            }
+        }
+
+        /// <summary>
         /// 添加新流程
         /// </summary>
         internal static void CreateJob()
@@ -1451,6 +1492,7 @@ namespace VMPro
                 Stream stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None);
                 Job job = (Job)formatter.Deserialize(stream);
                 stream.Close();
+                job.EnsureBlobFollowInput();
 
                 foreach (TabPage item in Frm_Job.Instance.tbc_jobs.TabPages)
                 {
@@ -1565,6 +1607,7 @@ namespace VMPro
         {
             try
             {
+                job.EnsureBlobFollowInput();
                 foreach (TabPage item in Frm_Job.Instance.tbc_jobs.TabPages)
                 {
                     if (item.Text == job.jobName)
@@ -1698,6 +1741,7 @@ namespace VMPro
         {
             try
             {
+                job.EnsureBlobFollowInput();
                 foreach (TabPage item in Frm_Job.Instance.tbc_jobs.TabPages)
                 {
                     if (item.Text == job.jobName)
@@ -2056,6 +2100,7 @@ namespace VMPro
         {
             try
             {
+                job.EnsureBlobFollowInput();
                 TreeView tvw_job = new TreeView();
                 tvw_job.Scrollable = true;
                 tvw_job.ItemHeight = 26;
@@ -3773,6 +3818,7 @@ namespace VMPro
             foreach (PropertyInfo pi in t.GetType().GetProperties(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public))
             {
                 string temp = Regex.Split(pi.ToString(), " ")[0];
+                Type propertyType = pi.PropertyType;
                 //if (temp == "HalconDotNet.HObject"
                 //    || temp == "VisionAndMotionPro.XYU"
                 //    )
@@ -3786,7 +3832,7 @@ namespace VMPro
 
 
 
-                if (temp.Contains("VisionAndMotionPro.XYU"))
+                if (propertyType == typeof(XYU) || propertyType == typeof(List<XYU>))
                     toolStripItem.Tag = DataType.Pose;
                 else if (temp == "VisionAndMotionPro.HObject")
                     toolStripItem.Tag = DataType.Image;
@@ -3804,8 +3850,8 @@ namespace VMPro
 
                 //////toolStripItem.Click += new EventHandler(Add_output);
 
-                ////临时添加
-                if (temp == "System.Collections.Generic.List`1[VisionAndMotionPro.XYU]")
+                // List<XYU> 本身就是可连接的位姿结果，不能再递归展开为 List 的内部属性。
+                if (propertyType == typeof(List<XYU>))
                     continue;
 
                 object value = pi.GetValue(t, null);
@@ -10097,6 +10143,7 @@ namespace VMPro
                             continue;
                         }
                         findLineTool.ClearLastInput();
+                        findLineTool.toolPar.InputPar.跟随 = null;
 
                         for (int j = 0; j < inputItemNum; j++)
                         {
@@ -10104,6 +10151,9 @@ namespace VMPro
                             string sourceFrom = L_toolList[i].GetInput(inputItem).value.ToString();
                             if (sourceFrom == string.Empty)
                             {
+                                // 跟随可选；未连接时按工具内保存的固定 ROI 查线。
+                                if (inputItem == "Pose" || inputItem == "跟随")
+                                    continue;
                                 findLineTool.toolRunStatu = ToolRunStatu.输入项未链接源;
                                 treeNode.ToolTipText = findLineTool.toolRunStatu.ToString();
                                 treeNode.ForeColor = Color.Red;
@@ -10185,20 +10235,22 @@ namespace VMPro
                             treeNode.ForeColor = Color.DarkGray;
                             continue;
                         }
+                        // 跟随可选；先清除上一轮残留，避免断开连线后仍使用旧位姿。
+                        findCircleTool.toolPar.InputPar.跟随 = null;
                         for (int j = 0; j < inputItemNum; j++)
                         {
                             string inputItemName = L_toolList[i].input[j].IOName;
                             string sourceFrom = L_toolList[i].GetInput(inputItemName).value.ToString();
                             if (sourceFrom == string.Empty)
                             {
+                                if (inputItemName == "跟随" || inputItemName == "Pose")
+                                    continue;
                                 findCircleTool.toolRunStatu = ToolRunStatu.输入项未链接源;
                                 treeNode.ToolTipText = findCircleTool.toolRunStatu.ToString();
                                 treeNode.ForeColor = Color.Red;
                                 Frm_Main.Instance.OutputMsg(string.Format("工具 [{0}] 运行失败，原因： {1}", L_toolList[i].toolName, findCircleTool.toolRunStatu.ToString()), Color.Red);
                                 return L_result;
                             }
-
-                            findCircleTool.toolPar.InputPar.跟随 = null;
                             if (inputItemName == "图像")
                             {
                                 // 解析图像输入连接，把上游 HObject 写入圆查找输入。
@@ -10223,7 +10275,7 @@ namespace VMPro
                                 findCircleTool.toolPar.InputPar.图像 = FindToolInfoByName(sourceToolName).GetOutput(toolItem).value as HObject;
                                 GetToolIONodeByNodeText(L_toolList[i].toolName, "<--" + inputItemName + sourceFrom).ToolTipText = FormatShowTip(findCircleTool.toolPar.InputPar.图像);
                             }
-                            else if (inputItemName == "跟随")
+                            else if (inputItemName == "跟随" || inputItemName == "Pose")
                             {
                                 // 解析跟随输入连接。没有跟随时工具按固定 ROI 找圆。
                                 string sourceToolName = sourceFrom.Split(new char[] { '.' })[0];
@@ -10326,6 +10378,12 @@ namespace VMPro
                             string sourceFrom = L_toolList[i].GetInput(inputItem).value.ToString();
                             if (sourceFrom == string.Empty)
                             {
+                                // 跟随是可选输入；未连接时按固定搜索区域运行。
+                                if (inputItem == "跟随" || inputItem == "Pose")
+                                {
+                                    blobAnalyseTool.toolPar.InputPar.跟随 = null;
+                                    continue;
+                                }
                                 ((BlobAnalyseTool)(L_toolList[i].tool)).toolRunStatu = (Project.Instance.configuration.language == Language.English ? ToolRunStatu.Not_Assign_Input_Source : ToolRunStatu.输入项未链接源);
                                 treeNode.ToolTipText = blobAnalyseTool.toolRunStatu.ToString();
                                 treeNode.ForeColor = Color.Red;
@@ -10364,6 +10422,14 @@ namespace VMPro
                                     sourceValueIsEmpty = true;
                                     break;
                                 }
+                            }
+                            else if (inputItem == "跟随" || inputItem == "Pose")
+                            {
+                                string sourceToolName = Regex.Split(sourceFrom, "->")[0];
+                                sourceToolName = sourceToolName.Substring(3, Regex.Split(sourceFrom, "->")[0].Length - 3);
+                                string toolItem = Regex.Split(sourceFrom, "->")[1];
+                                blobAnalyseTool.toolPar.InputPar.跟随 = FindToolInfoByName(sourceToolName).GetOutput(toolItem).value as List<XYU>;
+                                GetToolNodeByNodeText(inputItem + sourceFrom).ToolTipText = FormatShowTip(blobAnalyseTool.toolPar.InputPar.跟随);
                             }
                         }
                         if (sourceValueIsEmpty)

@@ -53,6 +53,7 @@ namespace VMPro
                 {
                     string name = roi.GetType().Name;
                     this.regions[index] = roi;
+                    blobAnalyseTool.CaptureTemplatePoseFromCurrentInput();
                 }
             }
             catch (Exception ex)

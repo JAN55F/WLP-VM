@@ -124,6 +124,7 @@ namespace VMPro
                     job.L_toolList[i].tool = (ToolBase)formatter.Deserialize(stream);
                     stream.Close();
                 }
+                job.EnsureBlobFollowInput();
                 return job;
             }
             catch (Exception ex)
@@ -150,6 +151,7 @@ namespace VMPro
                 Stream stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None);
                 Job job = (Job)formatter.Deserialize(stream);
                 stream.Close();
+                job.EnsureBlobFollowInput();
 
                 foreach (TabPage item in Frm_Job.Instance.tbc_jobs.TabPages)
                 {
