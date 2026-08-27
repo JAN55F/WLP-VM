@@ -6694,12 +6694,43 @@ namespace VMPro
                                 Frm_ProcessingItem1.blobAnalyseTool = blobAnalyseTool;
                                 Application.DoEvents();
 
+                                // 打开工具窗口时也解析图像和跟随输入；否则界面始终显示原始 ROI，
+                                // 即使正式流程中已连接模板匹配位置也看不到当前工件位置下的查找框。
+                                inputItemNum = L_toolList[i].input.Count;
+                                for (int j = 0; j < inputItemNum; j++)
+                                {
+                                    string inputItemName = L_toolList[i].input[j].IOName;
+                                    string sourceFrom = L_toolList[i].GetInput(inputItemName).value.ToString();
+                                    if (sourceFrom == string.Empty)
+                                        continue;
+
+                                    string sourceToolName = Regex.Split(sourceFrom, "->")[0];
+                                    sourceToolName = sourceToolName.Substring(3, Regex.Split(sourceFrom, "->")[0].Length - 3);
+                                    string toolItem = Regex.Split(sourceFrom, "->")[1];
+                                    object sourceValue = FindToolInfoByName(sourceToolName).GetOutput(toolItem).value;
+
+                                    if (inputItemName == "图像" || inputItemName == "InputImage")
+                                        blobAnalyseTool.toolPar.InputPar.图像 = sourceValue as HObject;
+                                    else if (inputItemName == "跟随" || inputItemName == "Pose")
+                                        blobAnalyseTool.toolPar.InputPar.跟随 = sourceValue as List<XYU>;
+                                }
+                                blobAnalyseTool.EnsureTemplatePoseFromCurrentInput();
+
                                 if (blobAnalyseTool.toolPar.InputPar.图像 != null)
+                                {
                                     Frm_BlobAnalyseTool.Instance.hWindow_Final1.HobjectToHimage(blobAnalyseTool.toolPar.InputPar.图像);
+                                    HObject runtimeSearchRegion = blobAnalyseTool.GetRuntimeSearchRegion();
+                                    if (blobAnalyseTool.searchRegionType != RegionType.AllImage &&
+                                        blobAnalyseTool.searchRegionType != RegionType.整幅图像 &&
+                                        runtimeSearchRegion != null)
+                                        Frm_BlobAnalyseTool.Instance.hWindow_Final1.DispObj(runtimeSearchRegion, "blue");
+                                }
                                 else
                                     Frm_BlobAnalyseTool.Instance.hWindow_Final1.ClearWindow();
 
-                                Frm_BlobAnalyseTool.Instance.hWindow_Final1.viewWindow.displayROI(blobAnalyseTool.L_regions);
+                                // 未启用跟随时保留可编辑的原始 ROI；已启用时上方已绘制实际运行区域。
+                                if (blobAnalyseTool.toolPar.InputPar.跟随 == null || blobAnalyseTool.toolPar.InputPar.跟随.Count == 0)
+                                    Frm_BlobAnalyseTool.Instance.hWindow_Final1.viewWindow.displayROI(blobAnalyseTool.L_regions);
 
                                 Frm_BlobAnalyseTool.Instance.dgv_selectItem.Rows.Clear();
                                 for (int j = 0; j < blobAnalyseTool.L_select.Count; j++)

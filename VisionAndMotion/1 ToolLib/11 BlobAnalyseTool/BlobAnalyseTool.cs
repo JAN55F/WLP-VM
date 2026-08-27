@@ -121,7 +121,9 @@ namespace VMPro
         /// </summary>
         internal void CaptureTemplatePoseFromCurrentInput()
         {
-            if (toolPar.InputPar.跟随 == null || toolPar.InputPar.跟随.Count == 0)
+            if (toolPar == null || toolPar.InputPar == null ||
+                toolPar.InputPar.跟随 == null || toolPar.InputPar.跟随.Count == 0 ||
+                toolPar.InputPar.跟随[0] == null || toolPar.InputPar.跟随[0].Point == null)
                 return;
 
             XYU currentPose = toolPar.InputPar.跟随[0];
@@ -130,15 +132,29 @@ namespace VMPro
             pose.Point.Y = currentPose.Point.Y;
             pose.U = currentPose.U;
 
+            if (templatePose == null)
+                templatePose = new List<XYU>();
             templatePose.Clear();
             templatePose.Add(pose);
+        }
+
+        /// <summary>
+        /// 旧流程没有保存跟随基准时，以第一次拿到的模板匹配位姿作为基准。
+        /// 后续每次运行均相对此基准变换搜索区域。
+        /// </summary>
+        internal void EnsureTemplatePoseFromCurrentInput()
+        {
+            if (templatePose != null && templatePose.Count > 0)
+                return;
+
+            CaptureTemplatePoseFromCurrentInput();
         }
 
         /// <summary>
         /// 获取本次运行使用的搜索区域。内部 ROI 可以随模板位姿平移和旋转，
         /// 外部输入区域及整幅图像保持原有行为。
         /// </summary>
-        private HObject GetRuntimeSearchRegion()
+        internal HObject GetRuntimeSearchRegion()
         {
             HObject baseRegion = SearchRegion;
             if (searchRegionType == RegionType.AllImage ||
@@ -147,11 +163,14 @@ namespace VMPro
                 L_regions == null || L_regions.Count == 0 ||
                 baseRegion == null ||
                 templatePose == null || templatePose.Count == 0 ||
+                templatePose[0] == null || templatePose[0].Point == null ||
                 toolPar.InputPar.跟随 == null || toolPar.InputPar.跟随.Count == 0)
                 return baseRegion;
 
             XYU basePose = templatePose[0];
             XYU currentPose = toolPar.InputPar.跟随[0];
+            if (currentPose == null || currentPose.Point == null)
+                return baseRegion;
             HTuple homMat2D;
             HOperatorSet.VectorAngleToRigid(basePose.Point.X, basePose.Point.Y, basePose.U,
                                             currentPose.Point.X, currentPose.Point.Y, currentPose.U,
@@ -520,6 +539,9 @@ namespace VMPro
                         Frm_BlobAnalyseTool.Instance.hWindow_Final1.HobjectToHimage(toolPar.InputPar.图像);
                     }
 
+                    // 新建或旧版流程在首次取得跟随输入时记录 ROI 的学习基准。
+                    // 不能每次覆盖，否则查找框始终以当前位姿为基准而看起来没有跟随。
+                    EnsureTemplatePoseFromCurrentInput();
                     HObject runtimeSearchRegion = GetRuntimeSearchRegion();
 
                     //截取出搜索区域图像
@@ -630,11 +652,17 @@ namespace VMPro
                     {
                         if (regionDrawMode == FillMode.Fill)
                         {
-                            SetDraw("fill");
+                            if (runTool)
+                                HOperatorSet.SetDraw(Frm_BlobAnalyseTool.Instance.hWindow_Final1.HWindowHalconID, "fill");
+                            else
+                                SetDraw("fill");
                         }
                         else
                         {
-                            SetDraw("margin");
+                            if (runTool)
+                                HOperatorSet.SetDraw(Frm_BlobAnalyseTool.Instance.hWindow_Final1.HWindowHalconID, "margin");
+                            else
+                                SetDraw("margin");
                         }
                         if (runTool)
                             Frm_BlobAnalyseTool.Instance.hWindow_Final1.DispObj(resultRegion, "green");
