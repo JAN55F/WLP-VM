@@ -211,6 +211,7 @@ namespace VMPro
         Mitsubishi,
         Siemens,
         AB,
+        Inovance,
     }
 
     /// <summary>

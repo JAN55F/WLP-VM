@@ -4,8 +4,7 @@ using System.Collections.Generic;
 namespace VMPro
 {
     /// <summary>
-    /// PLC设备配置（可序列化）�?
-    /// CipCommunication 本身不可序列化，因此通过静态字�? L_cipComm 持有连接对象�?
+    /// PLC设备配置；运行期的通讯对象不参与序列化。
     /// </summary>
     [Serializable]
     internal class PLCDevice
@@ -19,6 +18,10 @@ namespace VMPro
         internal string IpAddress  = "192.168.0.1";
         internal int    Port       = 44818;
         internal byte   Slot       = 0;
+        // 旧项目没有保存品牌，反序列化旧流程时保持 AB/CIP 的原有行为。
+        internal PLCBrand Brand    = PLCBrand.AB;
+        // 汇川系列：AM、H3U、H5U、Easy。旧项目默认 H3U，以保持此前汇川接入的行为。
+        internal string InovanceSeries = "H3U";
         internal bool   AutoConnectAfterStart    = false;
         internal bool   AutoDisconnectBeforeClose = true;
 
@@ -36,7 +39,7 @@ namespace VMPro
         }
 
         /// <summary>
-        /// 静态字典，键为设备名，值为 CipCommunication 实例（不参与序列化）�?
+        /// 静态字典：设备名对应运行期通讯实例。
         /// </summary>
         [NonSerialized]
         internal static Dictionary<string, CipCommunication> L_cipComm =
@@ -104,7 +107,7 @@ namespace VMPro
         }
 
         /// <summary>
-        /// 用当�? IP/Port/Slot 重建 CipCommunication 实例�?
+        /// 用当前 IP、端口、品牌和系列重建通讯实例。
         /// </summary>
         internal void Rebuild()
         {
@@ -114,13 +117,13 @@ namespace VMPro
             {
                 try { old.Dispose(); } catch { }
             }
-            var comm = new CipCommunication(IpAddress, Port);
+            var comm = new CipCommunication(IpAddress, Port, Brand, InovanceSeries);
             comm.SetSlot(Slot);
             L_cipComm[Name] = comm;
         }
 
         /// <summary>
-        /// 连接 PLC，返回是否成功�?
+        /// 连接 PLC，返回是否成功。
         /// </summary>
         internal bool Connect(out string errorMsg)
         {
@@ -143,7 +146,7 @@ namespace VMPro
         }
 
         /// <summary>
-        /// 断开 PLC 连接�?
+        /// 断开 PLC 连接。
         /// </summary>
         internal void Disconnect()
         {
@@ -160,7 +163,7 @@ namespace VMPro
         }
 
         /// <summary>
-        /// 断开并释放资源，从静态字典中移除�?
+        /// 断开、释放资源，并从运行期字典中移除。
         /// </summary>
         internal void Close()
         {

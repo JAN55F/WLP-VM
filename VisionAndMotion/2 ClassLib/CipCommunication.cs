@@ -2,6 +2,7 @@
 using System.Threading.Tasks;
 using HslCommunication;
 using HslCommunication.Profinet.AllenBradley;
+using HslCommunication.Profinet.Inovance;
 
 namespace VMPro
 {
@@ -13,8 +14,10 @@ namespace VMPro
 public class CipCommunication : IDisposable
 {
     private readonly AllenBradleyNet _plc;
+    private readonly InovanceTcpNet _inovancePlc;
     private bool _disposed;
     private bool _isConnected;
+    private readonly PLCBrand _brand;
 
     public bool IsConnected
     {
@@ -28,14 +31,29 @@ public class CipCommunication : IDisposable
     /// </summary>
     /// <param name="ipAddress">PLC IP address, e.g. "192.168.0.100"</param>
     /// <param name="port">PLC port, default 44818 for EtherNet/IP</param>
-    public CipCommunication(string ipAddress, int port = 44818)
+    public CipCommunication(string ipAddress, int port = 44818, PLCBrand brand = PLCBrand.AB, string inovanceSeries = "H3U")
     {
         if (ipAddress == null)
             throw new ArgumentNullException("ipAddress");
 
         IpAddress = ipAddress;
         Port = port;
-        _plc = new AllenBradleyNet(ipAddress, port);
+        _brand = brand;
+        if (brand == PLCBrand.Inovance)
+            _inovancePlc = new InovanceTcpNet(ParseInovanceSeries(inovanceSeries), ipAddress, port, 1);
+        else
+            _plc = new AllenBradleyNet(ipAddress, port);
+    }
+
+    private static InovanceSeries ParseInovanceSeries(string series)
+    {
+        if (string.Equals(series, "AM", StringComparison.OrdinalIgnoreCase))
+            return InovanceSeries.AM;
+        if (string.Equals(series, "H5U", StringComparison.OrdinalIgnoreCase))
+            return InovanceSeries.H5U;
+        if (string.Equals(series, "Easy", StringComparison.OrdinalIgnoreCase))
+            return InovanceSeries.Easy;
+        return InovanceSeries.H3U;
     }
 
     /// <summary>
@@ -46,6 +64,8 @@ public class CipCommunication : IDisposable
     {
         if (string.IsNullOrEmpty(routerPath))
             throw new ArgumentNullException("routerPath");
+        if (_brand != PLCBrand.AB)
+            throw new InvalidOperationException("仅 AB PLC 支持 CIP 路由路径设置。");
         _plc.MessageRouter = new HslCommunication.Profinet.AllenBradley.MessageRouter(routerPath);
     }
 
@@ -54,7 +74,8 @@ public class CipCommunication : IDisposable
     /// </summary>
     public void SetSlot(byte slot)
     {
-        _plc.Slot = slot;
+        if (_brand == PLCBrand.AB)
+            _plc.Slot = slot;
     }
 
     /// <summary>
@@ -65,7 +86,7 @@ public class CipCommunication : IDisposable
         if (_disposed)
             return new OperateResult("Object has been disposed.");
 
-        var result = _plc.ConnectServer();
+        OperateResult result = _brand == PLCBrand.Inovance ? _inovancePlc.ConnectServer() : _plc.ConnectServer();
         if (result.IsSuccess)
             _isConnected = true;
         return result;
@@ -79,7 +100,11 @@ public class CipCommunication : IDisposable
         if (_disposed)
             return new OperateResult("Object has been disposed.");
 
-        var result = await _plc.ConnectServerAsync();
+        OperateResult result;
+        if (_brand == PLCBrand.Inovance)
+            result = await _inovancePlc.ConnectServerAsync();
+        else
+            result = await _plc.ConnectServerAsync();
         if (result.IsSuccess)
             _isConnected = true;
         return result;
@@ -93,7 +118,7 @@ public class CipCommunication : IDisposable
         if (_disposed || !IsConnected)
             return new OperateResult();
 
-        var result = _plc.ConnectClose();
+        OperateResult result = _brand == PLCBrand.Inovance ? _inovancePlc.ConnectClose() : _plc.ConnectClose();
         _isConnected = false;
         return result;
     }
@@ -103,13 +128,13 @@ public class CipCommunication : IDisposable
     public OperateResult<bool> ReadBool(string address)
     {
         EnsureConnected();
-        return _plc.ReadBool(address);
+        return _brand == PLCBrand.Inovance ? _inovancePlc.ReadBool(address) : _plc.ReadBool(address);
     }
 
     public OperateResult WriteBool(string address, bool value)
     {
         EnsureConnected();
-        return _plc.Write(address, value);
+        return _brand == PLCBrand.Inovance ? _inovancePlc.Write(address, value) : _plc.Write(address, value);
     }
 
     public OperateResult<bool[]> ReadBoolArray(string address, ushort length)
@@ -155,13 +180,13 @@ public class CipCommunication : IDisposable
     public OperateResult<short> ReadInt16(string address)
     {
         EnsureConnected();
-        return _plc.ReadInt16(address);
+        return _brand == PLCBrand.Inovance ? _inovancePlc.ReadInt16(address) : _plc.ReadInt16(address);
     }
 
     public OperateResult WriteInt16(string address, short value)
     {
         EnsureConnected();
-        return _plc.Write(address, value);
+        return _brand == PLCBrand.Inovance ? _inovancePlc.Write(address, value) : _plc.Write(address, value);
     }
 
     public OperateResult<short[]> ReadInt16Array(string address, ushort length)
@@ -181,13 +206,13 @@ public class CipCommunication : IDisposable
     public OperateResult<int> ReadInt32(string address)
     {
         EnsureConnected();
-        return _plc.ReadInt32(address);
+        return _brand == PLCBrand.Inovance ? _inovancePlc.ReadInt32(address) : _plc.ReadInt32(address);
     }
 
     public OperateResult WriteInt32(string address, int value)
     {
         EnsureConnected();
-        return _plc.Write(address, value);
+        return _brand == PLCBrand.Inovance ? _inovancePlc.Write(address, value) : _plc.Write(address, value);
     }
 
     public OperateResult<int[]> ReadInt32Array(string address, ushort length)
@@ -207,13 +232,13 @@ public class CipCommunication : IDisposable
     public OperateResult<float> ReadFloat(string address)
     {
         EnsureConnected();
-        return _plc.ReadFloat(address);
+        return _brand == PLCBrand.Inovance ? _inovancePlc.ReadFloat(address) : _plc.ReadFloat(address);
     }
 
     public OperateResult WriteFloat(string address, float value)
     {
         EnsureConnected();
-        return _plc.Write(address, value);
+        return _brand == PLCBrand.Inovance ? _inovancePlc.Write(address, value) : _plc.Write(address, value);
     }
 
     public OperateResult<float[]> ReadFloatArray(string address, ushort length)
@@ -233,13 +258,13 @@ public class CipCommunication : IDisposable
     public OperateResult<double> ReadDouble(string address)
     {
         EnsureConnected();
-        return _plc.ReadDouble(address);
+        return _brand == PLCBrand.Inovance ? _inovancePlc.ReadDouble(address) : _plc.ReadDouble(address);
     }
 
     public OperateResult WriteDouble(string address, double value)
     {
         EnsureConnected();
-        return _plc.Write(address, value);
+        return _brand == PLCBrand.Inovance ? _inovancePlc.Write(address, value) : _plc.Write(address, value);
     }
 
     public OperateResult<double[]> ReadDoubleArray(string address, ushort length)
@@ -259,13 +284,13 @@ public class CipCommunication : IDisposable
     public OperateResult<string> ReadString(string address, ushort length)
     {
         EnsureConnected();
-        return _plc.ReadString(address, length);
+        return _brand == PLCBrand.Inovance ? _inovancePlc.ReadString(address, length) : _plc.ReadString(address, length);
     }
 
     public OperateResult WriteString(string address, string value)
     {
         EnsureConnected();
-        return _plc.Write(address, value);
+        return _brand == PLCBrand.Inovance ? _inovancePlc.Write(address, value) : _plc.Write(address, value);
     }
 
     // -- Raw / Custom ------------------------------------
@@ -421,7 +446,9 @@ public class CipCommunication : IDisposable
         _isConnected = false;
         try
         {
-            if (_plc != null)
+            if (_brand == PLCBrand.Inovance && _inovancePlc != null)
+                _inovancePlc.ConnectClose();
+            else if (_plc != null)
                 _plc.ConnectClose();
         }
         catch

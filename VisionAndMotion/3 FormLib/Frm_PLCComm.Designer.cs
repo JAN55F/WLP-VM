@@ -30,6 +30,8 @@
         {
             this.comboBox1 = new System.Windows.Forms.ComboBox();
             this.label1 = new System.Windows.Forms.Label();
+            this.cbo_inovanceSeries = new System.Windows.Forms.ComboBox();
+            this.lbl_inovanceSeries = new System.Windows.Forms.Label();
             this.btn_readPLC = new System.Windows.Forms.Button();
             this.btn_writePLC = new System.Windows.Forms.Button();
             this.textBox1 = new System.Windows.Forms.TextBox();
@@ -63,12 +65,36 @@
             "西门子(S7-200 Smart,S7-1500)",
             "AB(1769-L36ERM)",
             "松下",
-            "三菱"});
+            "三菱",
+            "汇川(H3U,H5U Modbus TCP)"});
             this.comboBox1.Location = new System.Drawing.Point(16, 249);
             this.comboBox1.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
             this.comboBox1.Name = "comboBox1";
             this.comboBox1.Size = new System.Drawing.Size(262, 25);
             this.comboBox1.TabIndex = 0;
+            this.comboBox1.SelectedIndexChanged += new System.EventHandler(this.comboBox1_SelectedIndexChanged);
+            //
+            // lbl_inovanceSeries
+            //
+            this.lbl_inovanceSeries.AutoSize = true;
+            this.lbl_inovanceSeries.Location = new System.Drawing.Point(16, 281);
+            this.lbl_inovanceSeries.Name = "lbl_inovanceSeries";
+            this.lbl_inovanceSeries.Size = new System.Drawing.Size(56, 17);
+            this.lbl_inovanceSeries.TabIndex = 18;
+            this.lbl_inovanceSeries.Text = "汇川系列";
+            this.lbl_inovanceSeries.Visible = false;
+            //
+            // cbo_inovanceSeries
+            //
+            this.cbo_inovanceSeries.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.cbo_inovanceSeries.FormattingEnabled = true;
+            this.cbo_inovanceSeries.Items.AddRange(new object[] { "AM", "H3U", "H5U", "Easy" });
+            this.cbo_inovanceSeries.Location = new System.Drawing.Point(98, 278);
+            this.cbo_inovanceSeries.Name = "cbo_inovanceSeries";
+            this.cbo_inovanceSeries.Size = new System.Drawing.Size(180, 25);
+            this.cbo_inovanceSeries.TabIndex = 19;
+            this.cbo_inovanceSeries.Visible = false;
+            this.cbo_inovanceSeries.SelectedIndexChanged += new System.EventHandler(this.cbo_inovanceSeries_SelectedIndexChanged);
             // 
             // label1
             // 
@@ -81,7 +107,7 @@
             // 
             // btn_readPLC
             // 
-            this.btn_readPLC.Location = new System.Drawing.Point(16, 356);
+            this.btn_readPLC.Location = new System.Drawing.Point(16, 386);
             this.btn_readPLC.Name = "btn_readPLC";
             this.btn_readPLC.Size = new System.Drawing.Size(119, 54);
             this.btn_readPLC.TabIndex = 2;
@@ -91,7 +117,7 @@
             // 
             // btn_writePLC
             // 
-            this.btn_writePLC.Location = new System.Drawing.Point(159, 356);
+            this.btn_writePLC.Location = new System.Drawing.Point(159, 386);
             this.btn_writePLC.Name = "btn_writePLC";
             this.btn_writePLC.Size = new System.Drawing.Size(119, 54);
             this.btn_writePLC.TabIndex = 3;
@@ -109,7 +135,7 @@
             // 
             // textBox2
             // 
-            this.textBox2.Location = new System.Drawing.Point(158, 310);
+            this.textBox2.Location = new System.Drawing.Point(158, 340);
             this.textBox2.Name = "textBox2";
             this.textBox2.Size = new System.Drawing.Size(120, 23);
             this.textBox2.TabIndex = 5;
@@ -117,7 +143,7 @@
             // label2
             // 
             this.label2.AutoSize = true;
-            this.label2.Location = new System.Drawing.Point(155, 291);
+            this.label2.Location = new System.Drawing.Point(155, 321);
             this.label2.Name = "label2";
             this.label2.Size = new System.Drawing.Size(68, 17);
             this.label2.TabIndex = 6;
@@ -126,7 +152,7 @@
             // label3
             // 
             this.label3.AutoSize = true;
-            this.label3.Location = new System.Drawing.Point(13, 293);
+            this.label3.Location = new System.Drawing.Point(13, 323);
             this.label3.Name = "label3";
             this.label3.Size = new System.Drawing.Size(80, 17);
             this.label3.TabIndex = 8;
@@ -142,7 +168,7 @@
             "Int16",
             "Int32",
             "Bit"});
-            this.comboBox2.Location = new System.Drawing.Point(16, 310);
+            this.comboBox2.Location = new System.Drawing.Point(16, 340);
             this.comboBox2.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
             this.comboBox2.Name = "comboBox2";
             this.comboBox2.Size = new System.Drawing.Size(120, 25);
@@ -151,7 +177,7 @@
             // label4
             // 
             this.label4.AutoSize = true;
-            this.label4.Location = new System.Drawing.Point(13, 430);
+            this.label4.Location = new System.Drawing.Point(13, 460);
             this.label4.Name = "label4";
             this.label4.Size = new System.Drawing.Size(68, 17);
             this.label4.TabIndex = 11;
@@ -159,7 +185,7 @@
             // 
             // textBox3
             // 
-            this.textBox3.Location = new System.Drawing.Point(75, 427);
+            this.textBox3.Location = new System.Drawing.Point(75, 457);
             this.textBox3.Name = "textBox3";
             this.textBox3.Size = new System.Drawing.Size(203, 23);
             this.textBox3.TabIndex = 10;
@@ -289,7 +315,7 @@
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 17F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.Color.White;
-            this.ClientSize = new System.Drawing.Size(622, 462);
+            this.ClientSize = new System.Drawing.Size(622, 492);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.None;
             this.Controls.Add(this.label8);
             this.Controls.Add(this.groupBox1);
@@ -299,6 +325,8 @@
             this.Controls.Add(this.label3);
             this.Controls.Add(this.label2);
             this.Controls.Add(this.textBox2);
+            this.Controls.Add(this.cbo_inovanceSeries);
+            this.Controls.Add(this.lbl_inovanceSeries);
             this.Controls.Add(this.textBox1);
             this.Controls.Add(this.btn_writePLC);
             this.Controls.Add(this.btn_readPLC);
@@ -321,6 +349,8 @@
 
         private System.Windows.Forms.ComboBox comboBox1;
         private System.Windows.Forms.Label label1;
+        private System.Windows.Forms.ComboBox cbo_inovanceSeries;
+        private System.Windows.Forms.Label lbl_inovanceSeries;
         private System.Windows.Forms.Button btn_readPLC;
         private System.Windows.Forms.Button btn_writePLC;
         private System.Windows.Forms.TextBox textBox1;

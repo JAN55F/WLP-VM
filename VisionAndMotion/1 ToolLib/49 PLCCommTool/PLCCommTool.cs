@@ -38,6 +38,14 @@ namespace VMPro
         /// <summary>设为 true 可放弃当前阻塞等待，令工具以成功状态返回</summary>
         internal volatile bool quitWait = false;
 
+        private bool IsJobStopRequested()
+        {
+            if (string.IsNullOrEmpty(jobName))
+                return false;
+            Job job = Job.FindJobByName(jobName);
+            return job != null && job.IsStopRequested;
+        }
+
         /// <summary>工具参数（输入/输出项）</summary>
         internal ToolPar toolPar = new ToolPar();
 
@@ -111,10 +119,12 @@ namespace VMPro
                                     string.Format("[PLCComm] 工具 [{0}] 等待 [{1}] 的值变为 [{2}]...", toolName, Address, ExpectValue), Color.Black);
                                 while (true)
                                 {
-                                    if (quitWait)
+                                    if (quitWait || IsJobStopRequested())
                                     {
                                         quitWait = false;
-                                        toolRunStatu = ToolRunStatu.成功;
+                                        toolRunStatu = ToolRunStatu.用户取消;
+                                        Frm_Main.Instance.OutputMsg(
+                                            string.Format("[PLCComm] 工具 [{0}] 已取消等待", toolName), Color.DarkOrange);
                                         return;
                                     }
                                     string readVal;

@@ -93,6 +93,7 @@ namespace VMPro
                             return;
                         }
 
+                        stopRequested = false;
                         isRunLoop = true;
                     }
                     //if (Machine .machineRunStatu !=MachineRunStatu .Running )
@@ -173,6 +174,7 @@ namespace VMPro
                     //Frm_Job.Instance.btn_runOnce.BackgroundImage = Resources.ButtonUp;
                     Application.DoEvents();
 
+                    RequestStop();
                     isRunLoop = false;
                     Thread.Sleep(20);
                     bool loopIsStopping = loopRunThread != null && loopRunThread.IsAlive;
@@ -235,6 +237,11 @@ namespace VMPro
         private Thread loopRunThread;
         [NonSerialized]
         private int activeRunCount;
+        /// <summary>
+        /// 协作式停止请求。停止不会强杀工作线程，避免 HALCON/相机/通讯 SDK 在非安全点被中断而崩溃。
+        /// </summary>
+        [NonSerialized]
+        private volatile bool stopRequested;
 
         internal bool IsExecutionActive
         {
@@ -1363,6 +1370,22 @@ namespace VMPro
             }
         }
 
+        internal bool IsStopRequested
+        {
+            get { return stopRequested; }
+        }
+
+        private void RequestStop()
+        {
+            stopRequested = true;
+            // PLC 等待期望值是流程中的可无限等待项；收到停止请求后主动唤醒。
+            for (int i = 0; i < L_toolList.Count; i++)
+            {
+                if (L_toolList[i].toolType == ToolType.PLCComm)
+                    ((PLCCommTool)L_toolList[i].tool).quitWait = true;
+            }
+        }
+
         /// <summary>
         /// 添加新流程
         /// </summary>
@@ -1991,6 +2014,7 @@ namespace VMPro
                     return false;
                 }
                 isRunOnceBusy = true;
+                stopRequested = false;
             }
             SetRunButtonEnabled(false);
             return true;
@@ -8640,6 +8664,12 @@ namespace VMPro
                 Application.DoEvents();
                 for (int i = 0; i < L_toolList.Count && (runToToolIndex < 0 || i <= runToToolIndex); i++)
                 {
+                    if (IsStopRequested)
+                    {
+                        jobRunStatu = JobRunStatu.Fail;
+                        Frm_Main.Instance.OutputMsg(string.Format("流程 [{0}] 已停止", jobName), Color.DarkOrange);
+                        break;
+                    }
                     toolIndex++;
                     TreeNode treeNode = GetToolNodeByNodeText(L_toolList[i].toolName);
                     inputItemNum = (L_toolList[i]).input.Count;

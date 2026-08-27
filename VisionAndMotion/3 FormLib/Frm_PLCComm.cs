@@ -13,6 +13,7 @@ namespace VMPro
             InitializeComponent();
             comboBox2.SelectedIndex = 0;
             comboBox1.SelectedIndex = 2; // 默认 AB
+            cbo_inovanceSeries.SelectedIndex = 1; // 默认 H3U
         }
 
         protected override void OnFormClosing(FormClosingEventArgs e)
@@ -40,11 +41,54 @@ namespace VMPro
         internal void LoadPar(PLCDevice device)
         {
             _device = device;
+            comboBox1.SelectedIndex = device.Brand == PLCBrand.Inovance ? 5 : 2;
+            SelectInovanceSeries(device.InovanceSeries);
+            UpdateInovanceSeriesVisibility();
             textBox4.Text = device.IpAddress;
             textBox5.Text = device.Port.ToString();
             ckb_autoConnectAfterStart.Checked = device.AutoConnectAfterStart;
             ckb_autoDisconnectBeforeClose.Checked = device.AutoDisconnectBeforeClose;
             UpdateStatus();
+        }
+
+        private PLCBrand GetSelectedBrand()
+        {
+            return comboBox1.Text.StartsWith("汇川") ? PLCBrand.Inovance : PLCBrand.AB;
+        }
+
+        private void SelectInovanceSeries(string series)
+        {
+            int index = cbo_inovanceSeries.FindStringExact(string.IsNullOrEmpty(series) ? "H3U" : series);
+            cbo_inovanceSeries.SelectedIndex = index >= 0 ? index : 1;
+        }
+
+        private void UpdateInovanceSeriesVisibility()
+        {
+            bool isInovance = GetSelectedBrand() == PLCBrand.Inovance;
+            lbl_inovanceSeries.Visible = isInovance;
+            cbo_inovanceSeries.Visible = isInovance;
+        }
+
+        private void comboBox1_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (_device == null)
+                return;
+
+            _device.Brand = GetSelectedBrand();
+            UpdateInovanceSeriesVisibility();
+            if (_device.Brand == PLCBrand.Inovance && textBox5.Text.Trim() == "44818")
+                textBox5.Text = "502";
+            if (_device.Brand == PLCBrand.Inovance)
+                _device.InovanceSeries = cbo_inovanceSeries.Text;
+            SetPrompt(_device.Brand == PLCBrand.Inovance ? "汇川 " + _device.InovanceSeries + " 使用 Modbus TCP，默认端口 502" : "AB PLC 使用 CIP，默认端口 44818", Color.Black, false);
+        }
+
+        private void cbo_inovanceSeries_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (_device == null || GetSelectedBrand() != PLCBrand.Inovance)
+                return;
+            _device.InovanceSeries = cbo_inovanceSeries.Text;
+            SetPrompt("已选择汇川 PLC 系列：" + _device.InovanceSeries, Color.Black, false);
         }
 
         private void UpdateStatus()
@@ -197,6 +241,9 @@ namespace VMPro
             // 更新设备参数
             _device.IpAddress = textBox4.Text.Trim();
             _device.Port = port;
+            _device.Brand = GetSelectedBrand();
+            if (_device.Brand == PLCBrand.Inovance)
+                _device.InovanceSeries = cbo_inovanceSeries.Text;
             if (string.IsNullOrEmpty(_device.IpAddress))
             {
                 SetPrompt("IP地址不能为空", Color.Red, true);
@@ -277,12 +324,12 @@ namespace VMPro
             }
 
             string brand = comboBox1.Text;
-            if (!brand.StartsWith("AB"))
+            if (!brand.StartsWith("AB") && !brand.StartsWith("汇川"))
             {
                 Frm_MessageBox.Instance.MessageBoxShow(
                     Project.Instance.configuration.language == Language.English
-                        ? "Only AB (Allen-Bradley) PLCs are currently supported via CIP."
-                        : "\r\n当前仅支持 AB (Allen-Bradley) PLC 的 CIP 通讯");
+                        ? "Only AB (CIP) and Inovance (Modbus TCP) PLCs are currently supported."
+                        : "\r\n当前支持 AB（CIP）和汇川（Modbus TCP）PLC 通讯");
                 return;
             }
 
@@ -357,12 +404,12 @@ namespace VMPro
             }
 
             string brand = comboBox1.Text;
-            if (!brand.StartsWith("AB"))
+            if (!brand.StartsWith("AB") && !brand.StartsWith("汇川"))
             {
                 Frm_MessageBox.Instance.MessageBoxShow(
                     Project.Instance.configuration.language == Language.English
-                        ? "Only AB (Allen-Bradley) PLCs are currently supported via CIP."
-                        : "\r\n当前仅支持 AB (Allen-Bradley) PLC 的 CIP 通讯");
+                        ? "Only AB (CIP) and Inovance (Modbus TCP) PLCs are currently supported."
+                        : "\r\n当前支持 AB（CIP）和汇川（Modbus TCP）PLC 通讯");
                 return;
             }
 

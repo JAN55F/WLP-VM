@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Text;
@@ -182,16 +183,18 @@ namespace VMPro
             {
                 ushort axisIndex = (ushort)FindAxisByName(axisName.ToString()).actNo;
                 Wmx3Lib_cm.AxisControl.SetServoOn(axisIndex, 1);
-                while (true)
+                Stopwatch wait = Stopwatch.StartNew();
+                while (wait.ElapsedMilliseconds < 5000)
                 {
                     Wmx3Lib_cm.GetStatus(ref CmStatus);
-                    if (CmStatus.AxesStatus[0].ServoOn)
+                    if (CmStatus.AxesStatus[axisIndex].ServoOn)
                     {
-                        break;
+                        return;
                     }
 
                     System.Threading.Thread.Sleep(100);
                 }
+                Log.SaveError(new TimeoutException("WMX 轴上电超时：" + axisName));
             }
             catch (Exception ex)
             {
@@ -207,17 +210,19 @@ namespace VMPro
             try
             {
                 ushort axisIndex = (ushort)FindAxisByName(axisName.ToString()).actNo;
-                Wmx3Lib_cm.AxisControl.SetServoOn(0, 0);
-                while (true)
+                Wmx3Lib_cm.AxisControl.SetServoOn(axisIndex, 0);
+                Stopwatch wait = Stopwatch.StartNew();
+                while (wait.ElapsedMilliseconds < 5000)
                 {
                     Wmx3Lib_cm.GetStatus(ref CmStatus);
-                    if (!CmStatus.AxesStatus[0].ServoOn)
+                    if (!CmStatus.AxesStatus[axisIndex].ServoOn)
                     {
-                        break;
+                        return;
                     }
 
                     System.Threading.Thread.Sleep(100);
                 }
+                Log.SaveError(new TimeoutException("WMX 轴下电超时：" + axisName));
             }
             catch (Exception ex)
             {
