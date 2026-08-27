@@ -78,6 +78,11 @@ namespace VMPro
         /// </summary>
         internal FillMode regionDrawMode = FillMode.Margin;
         /// <summary>
+        /// 流程运行时是否在本工具绘制前重绘主图像。
+        /// 同一流程中连续的斑点工具只允许第一个重绘，后续工具需要在同一图层上叠加显示。
+        /// </summary>
+        internal bool clearMainImageBeforeDraw = true;
+        /// <summary>
         /// 显示外接圆的填充模式
         /// </summary>
         internal FillMode outCircleDrawMode = FillMode.Margin;
@@ -538,6 +543,12 @@ namespace VMPro
                     {
                         Frm_BlobAnalyseTool.Instance.hWindow_Final1.HobjectToHimage(toolPar.InputPar.图像);
                     }
+                    else if (clearMainImageBeforeDraw)
+                    {
+                        // 每轮流程仅由第一个斑点工具重绘背景，以清除上一轮遗留的图层。
+                        // 后续斑点工具必须叠加到同一窗口，不能再次清屏。
+                        GetImageWindowControl().hwc_imageWindow.HobjectToHimage(toolPar.InputPar.图像);
+                    }
 
                     // 新建或旧版流程在首次取得跟随输入时记录 ROI 的学习基准。
                     // 不能每次覆盖，否则查找框始终以当前位姿为基准而看起来没有跟随。
@@ -638,38 +649,48 @@ namespace VMPro
                     //显示搜索区域
                     if (searchRegionType != RegionType.AllImage && displaySearchRegion)
                     {
+                        HTuple displayWindow = runTool ? Frm_BlobAnalyseTool.Instance.hWindow_Final1.HWindowHalconID : GetImageWindowControl().hwc_imageWindow.HWindowHalconID;
+                        // 搜索区域始终按轮廓画，不能继承上一轮结果区域的 fill 状态。
+                        HOperatorSet.SetDraw(displayWindow, "margin");
+                        HOperatorSet.SetLineWidth(displayWindow, lineWidth);
                         if (searchRegionType == RegionType.InputRegion)
                         {
-                            GetImageWindowControl().hwc_imageWindow.DispObj(toolPar.InputPar.搜索区域, "blue");
+                            if (runTool)
+                                Frm_BlobAnalyseTool.Instance.hWindow_Final1.DispObj(toolPar.InputPar.搜索区域, "blue");
+                            else
+                            {
+                                HOperatorSet.SetColor(displayWindow, "blue");
+                                HOperatorSet.DispObj(toolPar.InputPar.搜索区域, displayWindow);
+                            }
                         }
                         else
                         {
-                            GetImageWindowControl().hwc_imageWindow.DispObj(runtimeSearchRegion, "blue");
+                            if (runTool)
+                                Frm_BlobAnalyseTool.Instance.hWindow_Final1.DispObj(runtimeSearchRegion, "blue");
+                            else
+                            {
+                                HOperatorSet.SetColor(displayWindow, "blue");
+                                HOperatorSet.DispObj(runtimeSearchRegion, displayWindow);
+                            }
                         }
                     }
 
                     if (displayRegion)
                     {
+                        HTuple displayWindow = runTool ? Frm_BlobAnalyseTool.Instance.hWindow_Final1.HWindowHalconID : GetImageWindowControl().hwc_imageWindow.HWindowHalconID;
                         if (regionDrawMode == FillMode.Fill)
-                        {
-                            if (runTool)
-                                HOperatorSet.SetDraw(Frm_BlobAnalyseTool.Instance.hWindow_Final1.HWindowHalconID, "fill");
-                            else
-                                SetDraw("fill");
-                        }
+                            HOperatorSet.SetDraw(displayWindow, "fill");
                         else
-                        {
-                            if (runTool)
-                                HOperatorSet.SetDraw(Frm_BlobAnalyseTool.Instance.hWindow_Final1.HWindowHalconID, "margin");
-                            else
-                                SetDraw("margin");
-                        }
+                            HOperatorSet.SetDraw(displayWindow, "margin");
                         if (runTool)
                             Frm_BlobAnalyseTool.Instance.hWindow_Final1.DispObj(resultRegion, "green");
                         else
                         {
-                            SetLineWidth(1);
-                            ShowObj(resultRegion, "green");
+                            HOperatorSet.SetLineWidth(displayWindow, 1);
+                            // 不使用 ToolBase.ShowObj：它会额外绘制 Job.www，导致填充/轮廓状态
+                            // 与当前主图像窗口不一致，多个斑点工具会互相串显示属性。
+                            HOperatorSet.SetColor(displayWindow, "green");
+                            HOperatorSet.DispObj(resultRegion, displayWindow);
                         }
                     }
                     outputRegion = resultRegion;
@@ -687,10 +708,11 @@ namespace VMPro
                         //显示外接圆
                         if (displayOutCircle)
                         {
+                            HTuple displayWindow = runTool ? Frm_BlobAnalyseTool.Instance.hWindow_Final1.HWindowHalconID : GetImageWindowControl().hwc_imageWindow.HWindowHalconID;
                             if (outCircleDrawMode == FillMode.Fill)
-                                HOperatorSet.SetDraw(GetImageWindowControl().hwc_imageWindow.HWindowHalconID, "fill");
+                                HOperatorSet.SetDraw(displayWindow, "fill");
                             else
-                                HOperatorSet.SetDraw(GetImageWindowControl().hwc_imageWindow.HWindowHalconID, "margin");
+                                HOperatorSet.SetDraw(displayWindow, "margin");
                             HTuple row2, col2, radius2;
                             HOperatorSet.SmallestCircle(region, out row2, out col2, out radius2);
                             HObject circle;
@@ -698,7 +720,10 @@ namespace VMPro
                             if (runTool)
                                 Frm_BlobAnalyseTool.Instance.hWindow_Final1.DispObj(circle, "green");
                             else
-                                GetImageWindowControl().hwc_imageWindow.DispObj(circle, "green");
+                            {
+                                HOperatorSet.SetColor(displayWindow, "green");
+                                HOperatorSet.DispObj(circle, displayWindow);
+                            }
                         }
 
                         HTuple area3, row3, col3;
@@ -722,7 +747,12 @@ namespace VMPro
                             if (runTool)
                                 Frm_BlobAnalyseTool.Instance.hWindow_Final1.DispObj(cross, "blue");
                             else
-                                GetImageWindowControl().hwc_imageWindow.DispObj(cross, "blue");
+                            {
+                                HTuple displayWindow = GetImageWindowControl().hwc_imageWindow.HWindowHalconID;
+                                HOperatorSet.SetDraw(displayWindow, "margin");
+                                HOperatorSet.SetColor(displayWindow, "blue");
+                                HOperatorSet.DispObj(cross, displayWindow);
+                            }
                         }
 
                     }

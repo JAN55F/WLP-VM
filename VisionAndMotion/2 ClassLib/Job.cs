@@ -8634,6 +8634,9 @@ namespace VMPro
                 jobRunStatu = JobRunStatu.Succeed;
                 List<object> L_result = new List<object>();
                 int toolIndex = -1;
+                // 同一轮流程的多个斑点工具共享主图像窗口：第一个负责清除旧图层，
+                // 后续工具在同一背景上叠加，避免前一个结果被清掉或显示属性相互串扰。
+                bool blobMainImagePrepared = false;
                 Application.DoEvents();
                 for (int i = 0; i < L_toolList.Count && (runToToolIndex < 0 || i <= runToToolIndex); i++)
                 {
@@ -10465,7 +10468,10 @@ namespace VMPro
                         }
                         if (sourceValueIsEmpty)
                             break;
+                        blobAnalyseTool.clearMainImageBeforeDraw = !blobMainImagePrepared;
                         blobAnalyseTool.Run(false, false, L_toolList[i].toolName);
+                        if (blobAnalyseTool.toolRunStatu == (Project.Instance.configuration.language == Language.English ? ToolRunStatu.Succeed : ToolRunStatu.成功))
+                            blobMainImagePrepared = true;
                         if (blobAnalyseTool.toolRunStatu != (Project.Instance.configuration.language == Language.English ? ToolRunStatu.Succeed : ToolRunStatu.成功))
                         {
                             if (!Configuration.SpeedMode)
