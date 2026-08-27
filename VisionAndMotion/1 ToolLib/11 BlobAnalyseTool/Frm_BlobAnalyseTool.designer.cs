@@ -534,7 +534,7 @@ namespace VMPro
             0,
             0,
             0});
-            this.textBox1.Location = new System.Drawing.Point(48, 209);
+            this.textBox1.Location = new System.Drawing.Point(91, 303);
             this.textBox1.Margin = new System.Windows.Forms.Padding(2, 3, 2, 3);
             this.textBox1.MaximumSize = new System.Drawing.Size(180, 15);
             this.textBox1.MaxValue = new decimal(new int[] {
@@ -549,17 +549,17 @@ namespace VMPro
             0,
             0});
             this.textBox1.Name = "textBox1";
-            this.textBox1.Size = new System.Drawing.Size(69, 15);
+            this.textBox1.Size = new System.Drawing.Size(86, 15);
             this.textBox1.TabIndex = 103;
             this.textBox1.Value = 1D;
             this.textBox1.Leave += new System.EventHandler(this.textBox1_Leave_1);
             // 
             // btn_saveRegion
             // 
-            this.btn_saveRegion.Location = new System.Drawing.Point(97, 52);
+            this.btn_saveRegion.Location = new System.Drawing.Point(168, 67);
             this.btn_saveRegion.Margin = new System.Windows.Forms.Padding(2);
             this.btn_saveRegion.Name = "btn_saveRegion";
-            this.btn_saveRegion.Size = new System.Drawing.Size(39, 14);
+            this.btn_saveRegion.Size = new System.Drawing.Size(82, 25);
             this.btn_saveRegion.TabIndex = 107;
             this.btn_saveRegion.Text = "区域另存";
             this.btn_saveRegion.UseVisualStyleBackColor = true;
@@ -568,19 +568,19 @@ namespace VMPro
             // panel12
             // 
             this.panel12.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(26)))), ((int)(((byte)(106)))), ((int)(((byte)(175)))));
-            this.panel12.Location = new System.Drawing.Point(6, 230);
+            this.panel12.Location = new System.Drawing.Point(6, 326);
             this.panel12.Margin = new System.Windows.Forms.Padding(2);
             this.panel12.Name = "panel12";
-            this.panel12.Size = new System.Drawing.Size(147, 1);
+            this.panel12.Size = new System.Drawing.Size(248, 1);
             this.panel12.TabIndex = 154;
             // 
             // panel13
             // 
             this.panel13.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(26)))), ((int)(((byte)(106)))), ((int)(((byte)(175)))));
-            this.panel13.Location = new System.Drawing.Point(152, 10);
+            this.panel13.Location = new System.Drawing.Point(254, 10);
             this.panel13.Margin = new System.Windows.Forms.Padding(2);
             this.panel13.Name = "panel13";
-            this.panel13.Size = new System.Drawing.Size(1, 219);
+            this.panel13.Size = new System.Drawing.Size(1, 315);
             this.panel13.TabIndex = 155;
             // 
             // panel14
@@ -589,17 +589,17 @@ namespace VMPro
             this.panel14.Location = new System.Drawing.Point(6, 10);
             this.panel14.Margin = new System.Windows.Forms.Padding(2);
             this.panel14.Name = "panel14";
-            this.panel14.Size = new System.Drawing.Size(1, 219);
+            this.panel14.Size = new System.Drawing.Size(1, 315);
             this.panel14.TabIndex = 153;
             // 
             // panel15
             // 
             this.panel15.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(26)))), ((int)(((byte)(106)))), ((int)(((byte)(175)))));
             this.panel15.Controls.Add(this.label10);
-            this.panel15.Location = new System.Drawing.Point(6, 177);
+            this.panel15.Location = new System.Drawing.Point(6, 244);
             this.panel15.Margin = new System.Windows.Forms.Padding(2);
             this.panel15.Name = "panel15";
-            this.panel15.Size = new System.Drawing.Size(147, 11);
+            this.panel15.Size = new System.Drawing.Size(248, 20);
             this.panel15.TabIndex = 152;
             // 
             // label10
@@ -607,7 +607,7 @@ namespace VMPro
             this.label10.AutoSize = true;
             this.label10.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
             this.label10.ForeColor = System.Drawing.Color.White;
-            this.label10.Location = new System.Drawing.Point(2, 1);
+            this.label10.Location = new System.Drawing.Point(6, 2);
             this.label10.Margin = new System.Windows.Forms.Padding(2, 0, 2, 0);
             this.label10.Name = "label10";
             this.label10.Size = new System.Drawing.Size(32, 17);
@@ -618,7 +618,7 @@ namespace VMPro
             // 
             this.label11.AutoSize = true;
             this.label11.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.label11.Location = new System.Drawing.Point(116, 212);
+            this.label11.Location = new System.Drawing.Point(184, 302);
             this.label11.Margin = new System.Windows.Forms.Padding(2, 0, 2, 0);
             this.label11.Name = "label11";
             this.label11.Size = new System.Drawing.Size(35, 17);
@@ -628,7 +628,7 @@ namespace VMPro
             // label12
             // 
             this.label12.AutoSize = true;
-            this.label12.Location = new System.Drawing.Point(12, 212);
+            this.label12.Location = new System.Drawing.Point(15, 302);
             this.label12.Margin = new System.Windows.Forms.Padding(2, 0, 2, 0);
             this.label12.Name = "label12";
             this.label12.Size = new System.Drawing.Size(68, 17);
@@ -644,17 +644,17 @@ namespace VMPro
             "从左至右且从上至下",
             "从上至下且从右至左",
             "从左至右且从下至上"});
-            this.comboBox1.Location = new System.Drawing.Point(49, 194);
+            this.comboBox1.Location = new System.Drawing.Point(91, 270);
             this.comboBox1.Margin = new System.Windows.Forms.Padding(2);
             this.comboBox1.Name = "comboBox1";
-            this.comboBox1.Size = new System.Drawing.Size(86, 25);
+            this.comboBox1.Size = new System.Drawing.Size(159, 25);
             this.comboBox1.TabIndex = 148;
             this.comboBox1.SelectedIndexChanged += new System.EventHandler(this.comboBox1_SelectedIndexChanged);
             // 
             // label13
             // 
             this.label13.AutoSize = true;
-            this.label13.Location = new System.Drawing.Point(12, 195);
+            this.label13.Location = new System.Drawing.Point(15, 273);
             this.label13.Margin = new System.Windows.Forms.Padding(2, 0, 2, 0);
             this.label13.Name = "label13";
             this.label13.Size = new System.Drawing.Size(68, 17);
@@ -664,10 +664,10 @@ namespace VMPro
             // tbx_lineWidth
             // 
             this.tbx_lineWidth.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.tbx_lineWidth.Location = new System.Drawing.Point(46, 69);
+            this.tbx_lineWidth.Location = new System.Drawing.Point(91, 69);
             this.tbx_lineWidth.Margin = new System.Windows.Forms.Padding(2);
             this.tbx_lineWidth.Name = "tbx_lineWidth";
-            this.tbx_lineWidth.Size = new System.Drawing.Size(46, 23);
+            this.tbx_lineWidth.Size = new System.Drawing.Size(62, 23);
             this.tbx_lineWidth.TabIndex = 104;
             this.tbx_lineWidth.TextChanged += new System.EventHandler(this.tbx_lineWidth_TextChanged);
             // 
@@ -675,7 +675,7 @@ namespace VMPro
             // 
             this.label5.AutoSize = true;
             this.label5.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.label5.Location = new System.Drawing.Point(9, 70);
+            this.label5.Location = new System.Drawing.Point(15, 72);
             this.label5.Margin = new System.Windows.Forms.Padding(2, 0, 2, 0);
             this.label5.Name = "label5";
             this.label5.Size = new System.Drawing.Size(68, 17);
@@ -686,7 +686,7 @@ namespace VMPro
             // 
             this.ckb_displaySearchRegion.AutoSize = true;
             this.ckb_displaySearchRegion.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.ckb_displaySearchRegion.Location = new System.Drawing.Point(10, 39);
+            this.ckb_displaySearchRegion.Location = new System.Drawing.Point(15, 15);
             this.ckb_displaySearchRegion.Margin = new System.Windows.Forms.Padding(2);
             this.ckb_displaySearchRegion.Name = "ckb_displaySearchRegion";
             this.ckb_displaySearchRegion.Size = new System.Drawing.Size(99, 21);
@@ -699,7 +699,7 @@ namespace VMPro
             // 
             this.ckb_displayCross.AutoSize = true;
             this.ckb_displayCross.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.ckb_displayCross.Location = new System.Drawing.Point(10, 54);
+            this.ckb_displayCross.Location = new System.Drawing.Point(15, 40);
             this.ckb_displayCross.Margin = new System.Windows.Forms.Padding(2);
             this.ckb_displayCross.Name = "ckb_displayCross";
             this.ckb_displayCross.Size = new System.Drawing.Size(111, 21);
@@ -714,11 +714,11 @@ namespace VMPro
             this.groupBox3.Controls.Add(this.rdo_regionFillMode);
             this.groupBox3.Controls.Add(this.ckb_displayRegion);
             this.groupBox3.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.groupBox3.Location = new System.Drawing.Point(10, 87);
+            this.groupBox3.Location = new System.Drawing.Point(10, 102);
             this.groupBox3.Margin = new System.Windows.Forms.Padding(2);
             this.groupBox3.Name = "groupBox3";
             this.groupBox3.Padding = new System.Windows.Forms.Padding(2);
-            this.groupBox3.Size = new System.Drawing.Size(142, 50);
+            this.groupBox3.Size = new System.Drawing.Size(240, 64);
             this.groupBox3.TabIndex = 103;
             this.groupBox3.TabStop = false;
             this.groupBox3.Text = "结果区域";
@@ -726,7 +726,7 @@ namespace VMPro
             // rdo_regionMarginMode
             // 
             this.rdo_regionMarginMode.AutoSize = true;
-            this.rdo_regionMarginMode.Location = new System.Drawing.Point(87, 33);
+            this.rdo_regionMarginMode.Location = new System.Drawing.Point(136, 35);
             this.rdo_regionMarginMode.Margin = new System.Windows.Forms.Padding(2);
             this.rdo_regionMarginMode.Name = "rdo_regionMarginMode";
             this.rdo_regionMarginMode.Size = new System.Drawing.Size(50, 21);
@@ -738,7 +738,7 @@ namespace VMPro
             // rdo_regionFillMode
             // 
             this.rdo_regionFillMode.AutoSize = true;
-            this.rdo_regionFillMode.Location = new System.Drawing.Point(24, 33);
+            this.rdo_regionFillMode.Location = new System.Drawing.Point(71, 35);
             this.rdo_regionFillMode.Margin = new System.Windows.Forms.Padding(2);
             this.rdo_regionFillMode.Name = "rdo_regionFillMode";
             this.rdo_regionFillMode.Size = new System.Drawing.Size(50, 21);
@@ -752,7 +752,7 @@ namespace VMPro
             // 
             this.ckb_displayRegion.AutoSize = true;
             this.ckb_displayRegion.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.ckb_displayRegion.Location = new System.Drawing.Point(24, 16);
+            this.ckb_displayRegion.Location = new System.Drawing.Point(16, 16);
             this.ckb_displayRegion.Margin = new System.Windows.Forms.Padding(2);
             this.ckb_displayRegion.Name = "ckb_displayRegion";
             this.ckb_displayRegion.Size = new System.Drawing.Size(99, 21);
@@ -767,11 +767,11 @@ namespace VMPro
             this.groupBox2.Controls.Add(this.rdo_outCircleFillMode);
             this.groupBox2.Controls.Add(this.ckb_DisplayOutCircle);
             this.groupBox2.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.groupBox2.Location = new System.Drawing.Point(10, 140);
+            this.groupBox2.Location = new System.Drawing.Point(10, 173);
             this.groupBox2.Margin = new System.Windows.Forms.Padding(2);
             this.groupBox2.Name = "groupBox2";
             this.groupBox2.Padding = new System.Windows.Forms.Padding(2);
-            this.groupBox2.Size = new System.Drawing.Size(142, 48);
+            this.groupBox2.Size = new System.Drawing.Size(240, 64);
             this.groupBox2.TabIndex = 100;
             this.groupBox2.TabStop = false;
             this.groupBox2.Text = "结果区域外接圆";
@@ -779,7 +779,7 @@ namespace VMPro
             // rdo_outCircleMarginMode
             // 
             this.rdo_outCircleMarginMode.AutoSize = true;
-            this.rdo_outCircleMarginMode.Location = new System.Drawing.Point(87, 33);
+            this.rdo_outCircleMarginMode.Location = new System.Drawing.Point(136, 35);
             this.rdo_outCircleMarginMode.Margin = new System.Windows.Forms.Padding(2);
             this.rdo_outCircleMarginMode.Name = "rdo_outCircleMarginMode";
             this.rdo_outCircleMarginMode.Size = new System.Drawing.Size(50, 21);
@@ -791,7 +791,7 @@ namespace VMPro
             // rdo_outCircleFillMode
             // 
             this.rdo_outCircleFillMode.AutoSize = true;
-            this.rdo_outCircleFillMode.Location = new System.Drawing.Point(24, 33);
+            this.rdo_outCircleFillMode.Location = new System.Drawing.Point(71, 35);
             this.rdo_outCircleFillMode.Margin = new System.Windows.Forms.Padding(2);
             this.rdo_outCircleFillMode.Name = "rdo_outCircleFillMode";
             this.rdo_outCircleFillMode.Size = new System.Drawing.Size(50, 21);
@@ -805,7 +805,7 @@ namespace VMPro
             // 
             this.ckb_DisplayOutCircle.AutoSize = true;
             this.ckb_DisplayOutCircle.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.ckb_DisplayOutCircle.Location = new System.Drawing.Point(24, 17);
+            this.ckb_DisplayOutCircle.Location = new System.Drawing.Point(16, 16);
             this.ckb_DisplayOutCircle.Margin = new System.Windows.Forms.Padding(2);
             this.ckb_DisplayOutCircle.Name = "ckb_DisplayOutCircle";
             this.ckb_DisplayOutCircle.Size = new System.Drawing.Size(87, 21);
