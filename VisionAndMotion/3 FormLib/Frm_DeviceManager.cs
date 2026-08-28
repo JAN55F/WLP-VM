@@ -50,6 +50,9 @@ namespace VMPro
         internal Frm_DeviceManager()
         {
             InitializeComponent();
+            // 此窗口需要支持查看较宽的 PLC 参数和通讯日志，不能沿用设计器中的固定最大尺寸。
+            MaximumSize = Size.Empty;
+            MinimumSize = new Size(1050, 650);
             BuildSimpleDeviceManagerUi();
             RefreshDeviceList();
         }
@@ -58,10 +61,12 @@ namespace VMPro
         {
             panel3.Controls.Clear();
             panel3.BackColor = Color.FromArgb(248, 250, 252);
+            panel3.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
 
             Panel leftPanel = new Panel();
             leftPanel.Location = new Point(10, 12);
-            leftPanel.Size = new Size(210, 455);
+            leftPanel.Size = new Size(210, panel3.ClientSize.Height - 24);
+            leftPanel.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left;
             leftPanel.BorderStyle = BorderStyle.FixedSingle;
             leftPanel.BackColor = Color.White;
             panel3.Controls.Add(leftPanel);
@@ -78,7 +83,8 @@ namespace VMPro
 
             lst_deviceListSimple = new ListBox();
             lst_deviceListSimple.Location = new Point(8, 40);
-            lst_deviceListSimple.Size = new Size(192, 334);
+            lst_deviceListSimple.Size = new Size(192, leftPanel.ClientSize.Height - 121);
+            lst_deviceListSimple.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             lst_deviceListSimple.IntegralHeight = false;
             lst_deviceListSimple.Font = new Font("微软雅黑", 9F, FontStyle.Regular);
             lst_deviceListSimple.BorderStyle = BorderStyle.FixedSingle;
@@ -87,8 +93,9 @@ namespace VMPro
 
             cbo_deviceTypeSimple = new ComboBox();
             cbo_deviceTypeSimple.DropDownStyle = ComboBoxStyle.DropDownList;
-            cbo_deviceTypeSimple.Location = new Point(8, 386);
+            cbo_deviceTypeSimple.Location = new Point(8, leftPanel.ClientSize.Height - 69);
             cbo_deviceTypeSimple.Size = new Size(118, 25);
+            cbo_deviceTypeSimple.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             cbo_deviceTypeSimple.Font = new Font("微软雅黑", 9F, FontStyle.Regular);
             cbo_deviceTypeSimple.Items.Add("PLC");
             cbo_deviceTypeSimple.Items.Add("TCP服务端");
@@ -101,8 +108,9 @@ namespace VMPro
 
             Button addButton = new Button();
             addButton.Text = "添加";
-            addButton.Location = new Point(132, 385);
+            addButton.Location = new Point(132, leftPanel.ClientSize.Height - 70);
             addButton.Size = new Size(68, 28);
+            addButton.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
             addButton.BackColor = Color.FromArgb(18, 150, 219);
             addButton.ForeColor = Color.White;
             addButton.Font = new Font("微软雅黑", 9F, FontStyle.Regular);
@@ -114,8 +122,9 @@ namespace VMPro
 
             Button deleteButton = new Button();
             deleteButton.Text = "删除";
-            deleteButton.Location = new Point(132, 417);
+            deleteButton.Location = new Point(132, leftPanel.ClientSize.Height - 38);
             deleteButton.Size = new Size(68, 28);
+            deleteButton.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
             deleteButton.BackColor = Color.FromArgb(102, 112, 133);
             deleteButton.ForeColor = Color.White;
             deleteButton.Font = new Font("微软雅黑", 9F, FontStyle.Regular);
@@ -127,14 +136,16 @@ namespace VMPro
 
             pnl_formPnl = new Panel();
             pnl_formPnl.Location = new Point(230, 12);
-            pnl_formPnl.Size = new Size(515, 415);
+            pnl_formPnl.Size = new Size(panel3.ClientSize.Width - 240, panel3.ClientSize.Height - 70);
+            pnl_formPnl.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             pnl_formPnl.BorderStyle = BorderStyle.FixedSingle;
             pnl_formPnl.BackColor = Color.White;
             panel3.Controls.Add(pnl_formPnl);
 
             lbl_tipSimple = new System.Windows.Forms.Label();
             lbl_tipSimple.AutoSize = true;
-            lbl_tipSimple.Location = new Point(230, 446);
+            lbl_tipSimple.Location = new Point(230, panel3.ClientSize.Height - 30);
+            lbl_tipSimple.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
             lbl_tipSimple.ForeColor = Color.FromArgb(52, 64, 84);
             lbl_tipSimple.Font = new Font("微软雅黑", 9F, FontStyle.Regular);
             lbl_tipSimple.Text = "提示：请选择或添加设备";
@@ -143,8 +154,9 @@ namespace VMPro
 
             Button closeButton = new Button();
             closeButton.Text = "关闭";
-            closeButton.Location = new Point(652, 438);
+            closeButton.Location = new Point(panel3.ClientSize.Width - 94, panel3.ClientSize.Height - 40);
             closeButton.Size = new Size(94, 31);
+            closeButton.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
             closeButton.BackColor = Color.FromArgb(18, 150, 219);
             closeButton.ForeColor = Color.White;
             closeButton.Font = new Font("微软雅黑", 9F, FontStyle.Regular);

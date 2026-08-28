@@ -63,7 +63,7 @@ namespace VMPro
             this.panel3.Controls.Add(this.panel2);
             this.panel3.Location = new System.Drawing.Point(2, 26);
             this.panel3.Name = "panel3";
-            this.panel3.Size = new System.Drawing.Size(753, 478);
+            this.panel3.Size = new System.Drawing.Size(1046, 622);
             this.panel3.TabIndex = 117;
             // 
             // lbl_tip
@@ -283,11 +283,10 @@ namespace VMPro
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 12F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(26)))), ((int)(((byte)(106)))), ((int)(((byte)(175)))));
-            this.ClientSize = new System.Drawing.Size(757, 506);
+            this.ClientSize = new System.Drawing.Size(1050, 650);
             this.Controls.Add(this.panel3);
             this.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.MaximumSize = new System.Drawing.Size(757, 506);
-            this.MinimumSize = new System.Drawing.Size(757, 506);
+            this.MinimumSize = new System.Drawing.Size(1050, 650);
             this.Name = "Frm_DeviceManager";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "通讯及设备";
