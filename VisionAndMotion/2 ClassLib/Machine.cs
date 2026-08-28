@@ -105,15 +105,24 @@ namespace VMPro
 
                 Frm_Main.Instance.Init_Tool_Tips();
                 Application.DoEvents();
-                Frm_Main.Instance.Opacity = 0;
 
                 //设置环境变量，防止因Halcon版本问题弹出关于HalconRoot的报错  
                 //SetEnvironmentVariable("HALCONROOT", "TEST");
 
-                //安装华文新魏字体
-                if (!File.Exists(@"C:\Windows\Fonts\STXINWEI.TTF"))
-                    //File.Copy(Application.StartupPath + "\\STXINWEI.TTF", @"C:\Windows\Fonts\STXINWEI.TTF");
-                    Process.Start(Application.StartupPath + "\\STXINWEI.TTF");
+                // Install the bundled font silently when it is available. Starting the font file
+                // through the shell opens a Windows window while the application is initializing.
+                string fontPath = Application.StartupPath + "\\STXINWEI.TTF";
+                if (!File.Exists(@"C:\Windows\Fonts\STXINWEI.TTF") && File.Exists(fontPath))
+                {
+                    try
+                    {
+                        File.Copy(fontPath, @"C:\Windows\Fonts\STXINWEI.TTF", false);
+                    }
+                    catch
+                    {
+                        // Font installation requires system permissions; application startup continues with fallback fonts.
+                    }
+                }
 
 
                 //初始化配置文件

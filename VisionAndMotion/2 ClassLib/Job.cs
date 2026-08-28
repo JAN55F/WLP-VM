@@ -2357,27 +2357,33 @@ namespace VMPro
                 if (Frm_Job.Instance.tbc_jobs.TabPages.Count < 1)
                     return;
 
-                Frm_ConfirmBox.Instance.lbl_info.Text = (Project.Instance.configuration.language == Language.English ? "Are you sure you want to delete current job?" : string.Format("确定要删除流程 [{0}] 吗？", Frm_Job.Instance.tbc_jobs.SelectedTab.Text));
+                TabPage jobPage = Frm_Job.Instance.tbc_jobs.SelectedTab;
+                string jobName = jobPage.Text;
+                Frm_ConfirmBox.Instance.lbl_info.Text = (Project.Instance.configuration.language == Language.English ? "Are you sure you want to delete current job?" : string.Format("确定要删除流程 [{0}] 吗？", jobName));
                 Frm_ConfirmBox.Instance.ShowDialog();
                 if (Frm_ConfirmBox.Instance.Result == ConfirmBoxResult.Yes)
                 {
-                    string jobName = Frm_Job.Instance.tbc_jobs.SelectedTab.Text;
-                    Job.RemoveJobByName(jobName);
-                    for (int i = 0; i < Frm_Job.Instance.tbc_jobs.TabPages.Count; i++)
+                    int pageIndex = Frm_Job.Instance.tbc_jobs.TabPages.IndexOf(jobPage);
+                    if (pageIndex < 0)
+                        return;
+
+                    string currentJobName = string.Empty;
+                    // Select the preceding job before removing the current page. The selection
+                    // event queries the job list, so it must not observe a deleted job.
+                    if (Frm_Job.Instance.tbc_jobs.TabPages.Count > 1)
                     {
-                        if (Frm_Job.Instance.tbc_jobs.TabPages[i].Text == jobName)
-                        {
-                            Frm_Job.Instance.tbc_jobs.TabPages.Remove(Frm_Job.Instance.tbc_jobs.TabPages[i]);
-
-                            if (i == Frm_Job.Instance.tbc_jobs.TabPages.Count)               //移除尾部流程
-                                Frm_Job.Instance.tbc_jobs.SelectedIndex = i - 1;
-                            else
-                                Frm_Job.Instance.tbc_jobs.SelectedIndex = i;
-
-                            break;
-                        }
+                        int targetIndex = pageIndex > 0 ? pageIndex - 1 : 1;
+                        Frm_Job.Instance.tbc_jobs.SelectedIndex = targetIndex;
+                        currentJobName = Frm_Job.Instance.tbc_jobs.SelectedTab.Text;
                     }
-                    Frm_Main.Instance.OutputMsg(string.Format("流程 [{0}] 删除成功", jobName), Color.Black);
+                    Frm_Job.Instance.tbc_jobs.TabPages.Remove(jobPage);
+                    Job.RemoveJobByName(jobName);
+                    string jobFilePath = Application.StartupPath + "\\Config\\Project\\Vision\\Job\\" + jobName + ".job";
+                    if (File.Exists(jobFilePath))
+                        File.Delete(jobFilePath);
+                    Frm_Main.Instance.OutputMsg(currentJobName == string.Empty
+                        ? string.Format("已删除流程 [{0}]，当前无可用流程", jobName)
+                        : string.Format("已删除流程 [{0}]，当前流程已切换为 [{1}]", jobName, currentJobName), Color.Black);
                 }
             }
             catch (Exception ex)

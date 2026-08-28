@@ -3332,40 +3332,7 @@ namespace VMPro
 
         private void 删除ToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            try
-            {
-                if (!Permission.CheckPermission(PermissionLevel.Developer))
-                    return;
-
-                if (Frm_Job.Instance.tbc_jobs.TabPages.Count < 1)
-                {
-                    Frm_Output.Instance.OutputMsg("当前项目中未添加任何方案", Color.Red);
-                    return;
-                }
-                Frm_ConfirmBox.Instance.lbl_info.Text = Project.Instance.configuration.language == Language.English ? "Are you sure you want to delete current job?" : "确定要删除当前流程吗？";
-                Frm_ConfirmBox.Instance.ShowDialog();
-                if (Frm_ConfirmBox.Instance.Result != ConfirmBoxResult.Yes)
-                {
-                    return;
-                }
-                string jobName = Frm_Job.Instance.tbc_jobs.SelectedTab.Text;
-                Job.RemoveJobByName(jobName);
-                for (int i = 0; i < Frm_Job.Instance.tbc_jobs.TabPages.Count; i++)
-                {
-                    if (Frm_Job.Instance.tbc_jobs.TabPages[i].Text == jobName)
-                    {
-                        //Frm_Job.Instance.tbc_jobs.TabPages.RemoveByKey(jobName );
-                        Frm_Job.Instance.tbc_jobs.TabPages.RemoveAt(i);
-                    }
-                }
-                if (File.Exists(Application.StartupPath + "\\Config\\Project\\Vision\\Job\\" + jobName + ".job"))
-                    File.Delete(Application.StartupPath + "\\Config\\Project\\Vision\\Job\\" + jobName + ".job");
-                Frm_Main.Instance.OutputMsg("流程删除成功", Color.Black);
-            }
-            catch (Exception ex)
-            {
-                Log.SaveError(ex);
-            }
+            Job.DeleteJob();
         }
 
         private void 读取图像ToolStripMenuItem_Click(object sender, EventArgs e)
@@ -3907,40 +3874,7 @@ namespace VMPro
 
         private void toolStripButton22_Click(object sender, EventArgs e)
         {
-            try
-            {
-                if (!Permission.CheckPermission(PermissionLevel.Developer))
-                    return;
-
-                if (Frm_Job.Instance.tbc_jobs.TabPages.Count < 1)
-                {
-                    Frm_Output.Instance.OutputMsg("当前项目中未添加任何方案", Color.Red);
-                    return;
-                }
-                Frm_ConfirmBox.Instance.lbl_info.Text = Project.Instance.configuration.language == Language.English ? "Are you sure you want to delete current job?" : "确定要删除当前流程吗？";
-                Frm_ConfirmBox.Instance.ShowDialog();
-                if (Frm_ConfirmBox.Instance.Result != ConfirmBoxResult.Yes)
-                {
-                    return;
-                }
-                string jobName = Frm_Job.Instance.tbc_jobs.SelectedTab.Text;
-                Job.RemoveJobByName(jobName);
-                for (int i = 0; i < Frm_Job.Instance.tbc_jobs.TabPages.Count; i++)
-                {
-                    if (Frm_Job.Instance.tbc_jobs.TabPages[i].Text == jobName)
-                    {
-                        //Frm_Job.Instance.tbc_jobs.TabPages.RemoveByKey(jobName );
-                        Frm_Job.Instance.tbc_jobs.TabPages.RemoveAt(i);
-                    }
-                }
-                if (File.Exists(Application.StartupPath + "\\Config\\Project\\Vision\\Job\\" + jobName + ".job"))
-                    File.Delete(Application.StartupPath + "\\Config\\Project\\Vision\\Job\\" + jobName + ".job");
-                Frm_Main.Instance.OutputMsg("流程删除成功", Color.Black);
-            }
-            catch (Exception ex)
-            {
-                Log.SaveError(ex);
-            }
+            Job.DeleteJob();
         }
 
         private void toolStripButton29_Click(object sender, EventArgs e)

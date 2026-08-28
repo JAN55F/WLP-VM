@@ -110,12 +110,16 @@ namespace VMPro
                 Frm_Monitor.Instance.dgv_monitor.Rows.Clear();
                 if (Frm_Job.Instance.tbc_jobs.RowCount > 0)
                 {
-                    if (Job.FindJobByName(Frm_Job.Instance.tbc_jobs.SelectedTab.Text).isRunLoop)
+                    Job currentJob = Job.FindJobByName(Frm_Job.Instance.tbc_jobs.SelectedTab.Text);
+                    if (currentJob == null)
+                        return;
+
+                    if (currentJob.isRunLoop)
                         Frm_Job.Instance.Text = "流程编辑器    Runing...";
                     else
                         Frm_Job.Instance.Text = "流程编辑器";
 
-                    if (Machine.machineRunStatu == MachineRunStatu.Running && Job.FindJobByName(tbc_jobs.SelectedTab.Text).jobRunMode == JobRunMode.LoopRunAfterStart)
+                    if (Machine.machineRunStatu == MachineRunStatu.Running && currentJob.jobRunMode == JobRunMode.LoopRunAfterStart)
                     {
                         btn_runLoop.Text = "连续运行";
                         btn_runLoop.Enabled = false;
@@ -133,7 +137,7 @@ namespace VMPro
                         Frm_Main.Instance.toolStripButton12.Enabled = true;
                         Frm_Main.Instance.toolStripButton35.Enabled = true;
                         Frm_Main.Instance.toolStripButton16.Enabled = true;
-                        if (Job.FindJobByName(tbc_jobs.SelectedTab.Text).isRunLoop)
+                        if (currentJob.isRunLoop)
                             btn_runLoop.Text = "停止运行";
                         else
                             btn_runLoop.Text = "连续运行";
