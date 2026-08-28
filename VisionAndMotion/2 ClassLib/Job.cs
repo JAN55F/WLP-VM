@@ -94,6 +94,7 @@ namespace VMPro
                         }
 
                         stopRequested = false;
+                        ResetPlcWaitCancellation();
                         isRunLoop = true;
                     }
                     //if (Machine .machineRunStatu !=MachineRunStatu .Running )
@@ -181,7 +182,7 @@ namespace VMPro
                     Frm_Job.Instance.btn_runLoop.Text = loopIsStopping
                         ? (Project.Instance.configuration.language == Language.English ? "Stopping..." : "正在停止...")
                         : (Project.Instance.configuration.language == Language.English ? "Run Loop" : "连续运行");
-                    Frm_Main.Instance.toolStripButton11.Enabled = true;
+                    Frm_Main.Instance.toolStripButton11.Enabled = !loopIsStopping;
                     Frm_Main.Instance.toolStripButton12.Text = loopIsStopping ? "正在停止..." : "连续运行";
                     Frm_Job.Instance.btn_runOnce.Enabled = !loopIsStopping;
                 }
@@ -2015,6 +2016,7 @@ namespace VMPro
                 }
                 isRunOnceBusy = true;
                 stopRequested = false;
+                ResetPlcWaitCancellation();
             }
             SetRunButtonEnabled(false);
             return true;
@@ -2026,6 +2028,18 @@ namespace VMPro
                 isRunOnceBusy = false;
             }
             SetRunButtonEnabled(true);
+        }
+        /// <summary>
+        /// 仅在上一轮执行已经完全退出后，清除 PLC 等待取消标记。
+        /// 不能在 PLC 工具 Run() 入口清除，否则会与正在退出的连续运行争用该标记。
+        /// </summary>
+        private void ResetPlcWaitCancellation()
+        {
+            for (int i = 0; i < L_toolList.Count; i++)
+            {
+                if (L_toolList[i].toolType == ToolType.PLCComm)
+                    ((PLCCommTool)L_toolList[i].tool).quitWait = false;
+            }
         }
         private static void SetRunButtonEnabled(bool enabled)
         {
@@ -2056,6 +2070,7 @@ namespace VMPro
                 {
                     Frm_Job.Instance.btn_runLoop.Text = Project.Instance.configuration.language == Language.English ? "Run Loop" : "连续运行";
                     Frm_Job.Instance.btn_runLoop.Enabled = true;
+                    Frm_Main.Instance.toolStripButton11.Enabled = true;
                     Frm_Main.Instance.toolStripButton12.Text = "连续运行";
                 };
 
@@ -2063,6 +2078,22 @@ namespace VMPro
                     Frm_Job.Instance.btn_runLoop.BeginInvoke(update);
                 else
                     update();
+            }
+            catch (Exception ex)
+            {
+                Log.SaveError(ex);
+            }
+        }
+        /// <summary>
+        /// 仅允许 UI 线程泵消息。流程/设备执行线程不再调用 DoEvents，避免在 HALCON
+        /// 正在处理图像时重入窗体消息导致原生栈溢出。
+        /// </summary>
+        private static void ProcessRunUiEvents()
+        {
+            try
+            {
+                if (Frm_Main.Instance.IsHandleCreated && !Frm_Main.Instance.InvokeRequired)
+                    Application.DoEvents();
             }
             catch (Exception ex)
             {
@@ -8667,7 +8698,7 @@ namespace VMPro
                 // 同一轮流程的多个斑点工具共享主图像窗口：第一个负责清除旧图层，
                 // 后续工具在同一背景上叠加，避免前一个结果被清掉或显示属性相互串扰。
                 bool blobMainImagePrepared = false;
-                Application.DoEvents();
+                ProcessRunUiEvents();
                 for (int i = 0; i < L_toolList.Count && (runToToolIndex < 0 || i <= runToToolIndex); i++)
                 {
                     if (IsStopRequested)
@@ -13140,7 +13171,7 @@ namespace VMPro
                         recordElapseTime = jobElapsedTime.ElapsedMilliseconds;
                         treeNode.ToolTipText = string.Format("状态：{0}\r\n耗时：{1}ms\r\n说明：{2}", ((ToolBase)L_toolList[i].tool).toolRunStatu.ToString(), elapseTime, L_toolList[i].toolTipInfo);
                     }
-                    Application.DoEvents();
+                    ProcessRunUiEvents();
                 }
                 for (int i = toolIndex + 1; i < L_toolList.Count; i++)
                 {
@@ -13183,7 +13214,7 @@ namespace VMPro
                 //////if (Machine.machineRunStatu == MachineRunStatu.Running && !Configuration.SpeedMode)
                 //////    Frm_Main.Instance.OutputMsg("", Color.Black);
                 GC.Collect();
-                Application.DoEvents();
+                ProcessRunUiEvents();
                 return L_result;
             }
             catch (Exception ex)
