@@ -78,9 +78,9 @@
             | System.Windows.Forms.AnchorStyles.Right)));
             this.panel2.BackColor = System.Drawing.Color.White;
             this.panel2.Controls.Add(this.tableLayoutPanel1);
-            this.panel2.Location = new System.Drawing.Point(2, 26);
+            this.panel2.Location = new System.Drawing.Point(8, 32);
             this.panel2.Name = "panel2";
-            this.panel2.Size = new System.Drawing.Size(882, 553);
+            this.panel2.Size = new System.Drawing.Size(870, 541);
             this.panel2.TabIndex = 116;
             // 
             // tableLayoutPanel1
@@ -94,9 +94,8 @@
             this.tableLayoutPanel1.Name = "tableLayoutPanel1";
             this.tableLayoutPanel1.RowCount = 2;
             this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 65F));
-            this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 20F));
-            this.tableLayoutPanel1.Size = new System.Drawing.Size(882, 553);
+            this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 56F));
+            this.tableLayoutPanel1.Size = new System.Drawing.Size(870, 541);
             this.tableLayoutPanel1.TabIndex = 114;
             // 
             // panel6
@@ -104,9 +103,9 @@
             this.panel6.Controls.Add(this.button10);
             this.panel6.Controls.Add(this.panel5);
             this.panel6.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.panel6.Location = new System.Drawing.Point(3, 491);
+            this.panel6.Location = new System.Drawing.Point(3, 488);
             this.panel6.Name = "panel6";
-            this.panel6.Size = new System.Drawing.Size(876, 59);
+            this.panel6.Size = new System.Drawing.Size(864, 50);
             this.panel6.TabIndex = 90;
             // 
             // button10
@@ -121,7 +120,7 @@
             this.button10.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.button10.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
             this.button10.ForeColor = System.Drawing.Color.White;
-            this.button10.Location = new System.Drawing.Point(792, 17);
+            this.button10.Location = new System.Drawing.Point(788, 11);
             this.button10.Name = "button10";
             this.button10.Size = new System.Drawing.Size(64, 30);
             this.button10.TabIndex = 113;
@@ -138,9 +137,9 @@
             this.panel5.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
             this.panel5.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(26)))), ((int)(((byte)(106)))), ((int)(((byte)(175)))));
-            this.panel5.Location = new System.Drawing.Point(7, 4);
+            this.panel5.Location = new System.Drawing.Point(4, 3);
             this.panel5.Name = "panel5";
-            this.panel5.Size = new System.Drawing.Size(861, 1);
+            this.panel5.Size = new System.Drawing.Size(856, 1);
             this.panel5.TabIndex = 112;
             // 
             // panel3
@@ -155,7 +154,7 @@
             this.panel3.Dock = System.Windows.Forms.DockStyle.Fill;
             this.panel3.Location = new System.Drawing.Point(3, 3);
             this.panel3.Name = "panel3";
-            this.panel3.Size = new System.Drawing.Size(876, 482);
+            this.panel3.Size = new System.Drawing.Size(864, 479);
             this.panel3.TabIndex = 91;
             // 
             // cbx_variableType
@@ -166,7 +165,7 @@
             this.cbx_variableType.Items = new string[] {
         "系统变量",
         "自定义变量"};
-            this.cbx_variableType.Location = new System.Drawing.Point(2, 10);
+            this.cbx_variableType.Location = new System.Drawing.Point(10, 10);
             this.cbx_variableType.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
             this.cbx_variableType.Name = "cbx_variableType";
             this.cbx_variableType.SelectedIndex = -1;
@@ -184,6 +183,8 @@
             this.dataGridView1.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
             | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
+            this.dataGridView1.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.Fill;
+            this.dataGridView1.BackgroundColor = System.Drawing.Color.White;
             this.dataGridView1.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
             this.dataGridView1.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
             this.ColumnSelect,
@@ -192,46 +193,58 @@
             this.Column8,
             this.Column9,
             this.Column10});
-            this.dataGridView1.Location = new System.Drawing.Point(0, 39);
+            this.dataGridView1.Location = new System.Drawing.Point(10, 46);
             this.dataGridView1.Name = "dataGridView1";
             this.dataGridView1.RowHeadersVisible = false;
             this.dataGridView1.RowTemplate.Height = 23;
-            this.dataGridView1.Size = new System.Drawing.Size(763, 443);
+            this.dataGridView1.Size = new System.Drawing.Size(742, 423);
             this.dataGridView1.TabIndex = 118;
             // 
             // ColumnSelect
             // 
             this.ColumnSelect.HeaderText = "选择";
+            this.ColumnSelect.FillWeight = 8F;
+            this.ColumnSelect.MinimumWidth = 55;
             this.ColumnSelect.Name = "ColumnSelect";
             this.ColumnSelect.Width = 50;
             // 
             // Column6
             // 
             this.Column6.HeaderText = "编号";
+            this.Column6.FillWeight = 9F;
+            this.Column6.MinimumWidth = 60;
             this.Column6.Name = "Column6";
             this.Column6.Width = 60;
             // 
             // Column7
             // 
             this.Column7.HeaderText = "类型";
+            this.Column7.FillWeight = 13F;
+            this.Column7.MinimumWidth = 85;
             this.Column7.Name = "Column7";
             this.Column7.Width = 90;
             // 
             // Column8
             // 
             this.Column8.HeaderText = "名称";
+            this.Column8.FillWeight = 20F;
+            this.Column8.MinimumWidth = 120;
             this.Column8.Name = "Column8";
             this.Column8.Width = 140;
             // 
             // Column9
             // 
             this.Column9.HeaderText = "值";
+            this.Column9.FillWeight = 20F;
+            this.Column9.MinimumWidth = 120;
             this.Column9.Name = "Column9";
             this.Column9.Width = 140;
             // 
             // Column10
             // 
             this.Column10.HeaderText = "注释";
+            this.Column10.FillWeight = 30F;
+            this.Column10.MinimumWidth = 150;
             this.Column10.Name = "Column10";
             this.Column10.Width = 260;
             // 
@@ -247,7 +260,7 @@
             this.button9.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.button9.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
             this.button9.ForeColor = System.Drawing.Color.White;
-            this.button9.Location = new System.Drawing.Point(772, 236);
+            this.button9.Location = new System.Drawing.Point(764, 432);
             this.button9.Name = "button9";
             this.button9.Size = new System.Drawing.Size(87, 30);
             this.button9.TabIndex = 116;
@@ -261,7 +274,7 @@
             // 
             // button8
             // 
-            this.button8.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
+            this.button8.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.button8.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("button8.BackgroundImage")));
             this.button8.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Stretch;
             this.button8.Cursor = System.Windows.Forms.Cursors.Hand;
@@ -271,7 +284,7 @@
             this.button8.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.button8.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
             this.button8.ForeColor = System.Drawing.Color.White;
-            this.button8.Location = new System.Drawing.Point(772, 153);
+            this.button8.Location = new System.Drawing.Point(764, 166);
             this.button8.Name = "button8";
             this.button8.Size = new System.Drawing.Size(87, 30);
             this.button8.TabIndex = 115;
@@ -285,7 +298,7 @@
             // 
             // button7
             // 
-            this.button7.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
+            this.button7.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.button7.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("button7.BackgroundImage")));
             this.button7.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Stretch;
             this.button7.Cursor = System.Windows.Forms.Cursors.Hand;
@@ -295,7 +308,7 @@
             this.button7.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.button7.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
             this.button7.ForeColor = System.Drawing.Color.White;
-            this.button7.Location = new System.Drawing.Point(772, 115);
+            this.button7.Location = new System.Drawing.Point(764, 126);
             this.button7.Name = "button7";
             this.button7.Size = new System.Drawing.Size(87, 30);
             this.button7.TabIndex = 114;
@@ -309,7 +322,7 @@
             // 
             // button6
             // 
-            this.button6.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
+            this.button6.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.button6.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("button6.BackgroundImage")));
             this.button6.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Stretch;
             this.button6.Cursor = System.Windows.Forms.Cursors.Hand;
@@ -319,7 +332,7 @@
             this.button6.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.button6.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
             this.button6.ForeColor = System.Drawing.Color.White;
-            this.button6.Location = new System.Drawing.Point(772, 77);
+            this.button6.Location = new System.Drawing.Point(764, 86);
             this.button6.Name = "button6";
             this.button6.Size = new System.Drawing.Size(87, 30);
             this.button6.TabIndex = 113;
@@ -333,7 +346,7 @@
             // 
             // button5
             // 
-            this.button5.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
+            this.button5.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.button5.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("button5.BackgroundImage")));
             this.button5.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Stretch;
             this.button5.Cursor = System.Windows.Forms.Cursors.Hand;
@@ -343,7 +356,7 @@
             this.button5.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.button5.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
             this.button5.ForeColor = System.Drawing.Color.White;
-            this.button5.Location = new System.Drawing.Point(772, 39);
+            this.button5.Location = new System.Drawing.Point(764, 46);
             this.button5.Name = "button5";
             this.button5.Size = new System.Drawing.Size(87, 30);
             this.button5.TabIndex = 112;
@@ -363,7 +376,7 @@
             this.ClientSize = new System.Drawing.Size(886, 581);
             this.Controls.Add(this.panel2);
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
-            this.MinimumSize = new System.Drawing.Size(380, 120);
+            this.MinimumSize = new System.Drawing.Size(760, 480);
             this.Name = "Frm_GlobalVariable";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "模板匹配";

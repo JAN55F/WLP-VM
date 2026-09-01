@@ -18,6 +18,7 @@ namespace VMPro
         private ListBox lst_deviceListSimple;
         private ComboBox cbo_deviceTypeSimple;
         private System.Windows.Forms.Label lbl_tipSimple;
+        private readonly HashSet<Form> adaptiveDeviceForms = new HashSet<Form>();
 
         private class SimpleDeviceItem
         {
@@ -511,42 +512,42 @@ namespace VMPro
                     EnsureDefaultTcpServer();
                     TCPSever defaultTcpSever = FindTcpServer(DefaultTcpServerName);
                     if (defaultTcpSever == null) return;
-                    ShowChildForm(Frm_TCPServer.Instance, CurForm.TCPSever, DockStyle.Top);
+                    ShowChildForm(Frm_TCPServer.Instance, CurForm.TCPSever, DockStyle.Fill);
                     Frm_TCPServer.Instance.LoadPar(defaultTcpSever);
                     SetTip("已选择默认TCP服务端：" + DefaultTcpServerName, Color.Green);
                     break;
                 case "TCPSever":
                     TCPSever tcpSever = FindTcpServer(deviceName);
                     if (tcpSever == null) return;
-                    ShowChildForm(Frm_TCPServer.Instance, CurForm.TCPSever, DockStyle.Top);
+                    ShowChildForm(Frm_TCPServer.Instance, CurForm.TCPSever, DockStyle.Fill);
                     Frm_TCPServer.Instance.LoadPar(tcpSever);
                     SetTip("已选择TCP服务端：" + deviceName, Color.Green);
                     break;
                 case "TCPClient":
                     TCPClient tcpClient = FindTcpClient(deviceName);
                     if (tcpClient == null) return;
-                    ShowChildForm(Frm_TCPClient.Instance, CurForm.TCPClient, DockStyle.Top);
+                    ShowChildForm(Frm_TCPClient.Instance, CurForm.TCPClient, DockStyle.Fill);
                     Frm_TCPClient.Instance.LoadPar(tcpClient);
                     SetTip("已选择TCP客户端：" + deviceName, Color.Green);
                     break;
                 case "LightController":
                     LightController_Base lightController = FindLightController(deviceName);
                     if (lightController == null) return;
-                    ShowChildForm(Frm_LightController.Instance, CurForm.LightController, DockStyle.Top);
+                    ShowChildForm(Frm_LightController.Instance, CurForm.LightController, DockStyle.Fill);
                     Frm_LightController.Instance.LoadPar(lightController);
                     SetTip("已选择光源控制器：" + deviceName, Color.Green);
                     break;
                 case "Scaner":
                     Scaner scaner = FindScaner(deviceName);
                     if (scaner == null) return;
-                    ShowChildForm(Frm_Scaner.Instance, CurForm.Scaner, DockStyle.Top);
+                    ShowChildForm(Frm_Scaner.Instance, CurForm.Scaner, DockStyle.Fill);
                     Frm_Scaner.Instance.LoadPar(scaner);
                     SetTip("已选择扫码枪：" + deviceName, Color.Green);
                     break;
                 case "Serial":
                     Serial serial = FindSerial(deviceName);
                     if (serial == null) return;
-                    ShowChildForm(Frm_Serial.Instance, CurForm.Serial, DockStyle.Top);
+                    ShowChildForm(Frm_Serial.Instance, CurForm.Serial, DockStyle.Fill);
                     Frm_Serial.Instance.LoadPar(serial);
                     SetTip("已选择串口通讯：" + deviceName, Color.Green);
                     break;
@@ -562,12 +563,95 @@ namespace VMPro
                 form.TopLevel = false;
                 form.Parent = pnl_formPnl;
                 form.Dock = dockStyle;
+                EnableAdaptiveDeviceLayout(form);
                 form.Show();
             }
             else
             {
                 form.Visible = true;
                 form.BringToFront();
+            }
+            ArrangeEmbeddedDeviceForm(form);
+        }
+
+        private void EnableAdaptiveDeviceLayout(Form form)
+        {
+            if (adaptiveDeviceForms.Add(form))
+                form.Resize += EmbeddedDeviceForm_Resize;
+
+            // 设备页由管理器承载，不应再受各自设计器初始尺寸的限制。
+            form.MinimumSize = Size.Empty;
+            form.AutoScroll = true;
+            ArrangeEmbeddedDeviceForm(form);
+        }
+
+        private void EmbeddedDeviceForm_Resize(object sender, EventArgs e)
+        {
+            ArrangeEmbeddedDeviceForm(sender as Form);
+        }
+
+        private static Control FindDeviceControl(Form form, string name)
+        {
+            if (form == null || string.IsNullOrEmpty(name))
+                return null;
+            return form.Controls[name];
+        }
+
+        private void ArrangeEmbeddedDeviceForm(Form form)
+        {
+            if (form == null || form.ClientSize.Width < 350 || form.ClientSize.Height < 180)
+                return;
+
+            Control separator = FindDeviceControl(form, "panel8");
+            Control output = FindDeviceControl(form, "tbx_log");
+            if (output == null)
+                output = FindDeviceControl(form, "tbx_output");
+
+            // TCP、串口和扫码枪页面共用“左侧参数 + 右侧日志”的布局。
+            if (separator != null && output != null)
+            {
+                const int leftWidth = 220;
+                const int logLeft = 246;
+                const int rightMargin = 18;
+                const int logTop = 44;
+                const int sendBottom = 54;
+
+                separator.SetBounds(leftWidth, 10, 1, form.ClientSize.Height - 20);
+                output.SetBounds(logLeft, logTop, Math.Max(160, form.ClientSize.Width - logLeft - rightMargin), Math.Max(100, form.ClientSize.Height - logTop - 92));
+
+                Control logTitle = FindDeviceControl(form, "label5") ?? FindDeviceControl(form, "label9");
+                if (logTitle != null)
+                    logTitle.Location = new Point(logLeft, 18);
+
+                Control clearLog = FindDeviceControl(form, "lnk_clearLog") ?? FindDeviceControl(form, "lnk_clear");
+                if (clearLog != null)
+                    clearLog.Location = new Point(form.ClientSize.Width - clearLog.Width - rightMargin, 18);
+
+                Control sendText = FindDeviceControl(form, "tbx_sendMessage") ?? FindDeviceControl(form, "tbx_sendMsg");
+                Control sendButton = FindDeviceControl(form, "btn_send");
+                if (sendButton != null)
+                    sendButton.Location = new Point(form.ClientSize.Width - sendButton.Width - rightMargin, form.ClientSize.Height - sendBottom);
+                if (sendText != null)
+                {
+                    int sendWidth = form.ClientSize.Width - logLeft - rightMargin - (sendButton == null ? 0 : sendButton.Width + 10);
+                    sendText.SetBounds(logLeft, form.ClientSize.Height - sendBottom + 1, Math.Max(120, sendWidth), sendText.Height);
+                }
+
+                Control connectedList = FindDeviceControl(form, "lbx_connectedList");
+                if (connectedList != null)
+                    connectedList.SetBounds(6, 240, leftWidth - 18, Math.Max(90, form.ClientSize.Height - 258));
+                return;
+            }
+
+            // PLC 页面：左侧参数不变，右侧信息输出区完整占用可用高度和宽度。
+            Control plcOutput = FindDeviceControl(form, "textBox1");
+            if (plcOutput != null && FindDeviceControl(form, "groupBox1") != null)
+            {
+                const int outputLeft = 298;
+                plcOutput.SetBounds(outputLeft, 44, Math.Max(180, form.ClientSize.Width - outputLeft - 16), Math.Max(180, form.ClientSize.Height - 60));
+                Control outputTitle = FindDeviceControl(form, "label8");
+                if (outputTitle != null)
+                    outputTitle.Location = new Point(outputLeft, 16);
             }
         }
 

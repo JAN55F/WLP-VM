@@ -66,7 +66,7 @@
             "AB(1769-L36ERM)",
             "松下",
             "三菱",
-            "汇川(H3U,H5U Modbus TCP)"});
+            "汇川(Modbus TCP)"});
             this.comboBox1.Location = new System.Drawing.Point(16, 45);
             this.comboBox1.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
             this.comboBox1.Name = "comboBox1";
