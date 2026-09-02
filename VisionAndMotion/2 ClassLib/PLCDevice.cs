@@ -117,7 +117,10 @@ namespace VMPro
             {
                 try { old.Dispose(); } catch { }
             }
-            var comm = new CipCommunication(IpAddress, Port, Brand, InovanceSeries);
+            int effectivePort = Port;
+            if (effectivePort <= 0)
+                effectivePort = Brand == PLCBrand.Inovance ? 502 : 44818;
+            var comm = new CipCommunication(IpAddress, effectivePort, Brand, InovanceSeries);
             comm.SetSlot(Slot);
             L_cipComm[Name] = comm;
         }

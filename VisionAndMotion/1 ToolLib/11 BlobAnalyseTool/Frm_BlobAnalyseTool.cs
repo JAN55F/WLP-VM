@@ -16,6 +16,11 @@ namespace VMPro
     {
         internal Frm_BlobAnalyseTool()
         {
+            // 初始化子控件时可能触发事件并再次访问 Instance；必须先登记当前实例，
+            // 否则会在构造尚未返回前递归创建窗体，最终造成 StackOverflowException。
+            if (_instance == null)
+                _instance = this;
+
             InitializeComponent();
             hWindow_Final1.hWindowControl.MouseUp += Hwindow_MouseUp;
             numericUpDown1.ValueChanged  += numericUpDown1_valueChanged;
@@ -70,7 +75,7 @@ namespace VMPro
             get
             {
                 if (_instance == null)
-                    _instance = new Frm_BlobAnalyseTool();
+                    new Frm_BlobAnalyseTool();
                 return _instance;
             }
         }

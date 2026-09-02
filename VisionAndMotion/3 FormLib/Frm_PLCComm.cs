@@ -41,7 +41,7 @@ namespace VMPro
         internal void LoadPar(PLCDevice device)
         {
             _device = device;
-            comboBox1.SelectedIndex = device.Brand == PLCBrand.Inovance ? 5 : 2;
+            comboBox1.SelectedIndex = device.Brand == PLCBrand.Inovance ? 5 : (device.Brand == PLCBrand.Omron ? 0 : 2);
             SelectInovanceSeries(device.InovanceSeries);
             UpdateInovanceSeriesVisibility();
             textBox4.Text = device.IpAddress;
@@ -53,7 +53,9 @@ namespace VMPro
 
         private PLCBrand GetSelectedBrand()
         {
-            return comboBox1.Text.StartsWith("汇川") ? PLCBrand.Inovance : PLCBrand.AB;
+            if (comboBox1.Text.StartsWith("汇川")) return PLCBrand.Inovance;
+            if (comboBox1.Text.StartsWith("欧姆龙")) return PLCBrand.Omron;
+            return PLCBrand.AB;
         }
 
         private void SelectInovanceSeries(string series)
@@ -78,9 +80,11 @@ namespace VMPro
             UpdateInovanceSeriesVisibility();
             if (_device.Brand == PLCBrand.Inovance && textBox5.Text.Trim() == "44818")
                 textBox5.Text = "502";
+            if (_device.Brand == PLCBrand.Omron && textBox5.Text.Trim() == "9600")
+                textBox5.Text = "44818";
             if (_device.Brand == PLCBrand.Inovance)
                 _device.InovanceSeries = cbo_inovanceSeries.Text;
-            SetPrompt(_device.Brand == PLCBrand.Inovance ? "汇川 " + _device.InovanceSeries + " 使用 Modbus TCP，默认端口 502" : "AB PLC 使用 CIP，默认端口 44818", Color.Black, false);
+            SetPrompt(_device.Brand == PLCBrand.Inovance ? "汇川 " + _device.InovanceSeries + " 使用 Modbus TCP，默认端口 502" : (_device.Brand == PLCBrand.Omron ? "欧姆龙 PLC 使用 EtherNet/IP（CIP），默认端口 44818" : "AB PLC 使用 CIP，默认端口 44818"), Color.Black, false);
         }
 
         private void cbo_inovanceSeries_SelectedIndexChanged(object sender, EventArgs e)
@@ -324,12 +328,12 @@ namespace VMPro
             }
 
             string brand = comboBox1.Text;
-            if (!brand.StartsWith("AB") && !brand.StartsWith("汇川"))
+            if (!brand.StartsWith("AB") && !brand.StartsWith("汇川") && !brand.StartsWith("欧姆龙"))
             {
                 Frm_MessageBox.Instance.MessageBoxShow(
                     Project.Instance.configuration.language == Language.English
                         ? "Only AB (CIP) and Inovance (Modbus TCP) PLCs are currently supported."
-                        : "\r\n当前支持 AB（CIP）和汇川（Modbus TCP）PLC 通讯");
+                        : "\r\n当前支持 AB（CIP）、汇川（Modbus TCP）和欧姆龙（EtherNet/IP）PLC 通讯");
                 return;
             }
 
@@ -404,12 +408,12 @@ namespace VMPro
             }
 
             string brand = comboBox1.Text;
-            if (!brand.StartsWith("AB") && !brand.StartsWith("汇川"))
+            if (!brand.StartsWith("AB") && !brand.StartsWith("汇川") && !brand.StartsWith("欧姆龙"))
             {
                 Frm_MessageBox.Instance.MessageBoxShow(
                     Project.Instance.configuration.language == Language.English
                         ? "Only AB (CIP) and Inovance (Modbus TCP) PLCs are currently supported."
-                        : "\r\n当前支持 AB（CIP）和汇川（Modbus TCP）PLC 通讯");
+                        : "\r\n当前支持 AB（CIP）、汇川（Modbus TCP）和欧姆龙（EtherNet/IP）PLC 通讯");
                 return;
             }
 
