@@ -1409,7 +1409,7 @@ namespace VMPro
                 Frm_InputMessage.Instance.txt_input.DefaultText = "请输入新流程名";
                 Frm_InputMessage.Instance.txt_input.TextStr = string.Empty;
                 //Frm_InputMessage.input = string.Empty;
-                Frm_InputMessage.Instance.ShowDialog();
+                Frm_InputMessage.Instance.ShowDialog(Frm_Main.Instance);
                 string jobName = Frm_InputMessage.input;
                 if (jobName == string.Empty)
                     return;
@@ -1467,7 +1467,6 @@ namespace VMPro
                 Frm_Job.Instance.tbc_jobs.TabPages.Add(jobName);
                 Frm_Job.Instance.tbc_jobs.TabPages[Frm_Job.Instance.tbc_jobs.TabPages.Count - 1].Controls.Add(tvw_job);
                 Frm_Job.Instance.tbc_jobs.SelectedIndex = Frm_Job.Instance.tbc_jobs.TabCount - 1;
-                Application.DoEvents();
 
                 //默认添加Halcon采集接口工具
                 Frm_ToolBox.Instance.AddTool(Project.Instance.configuration.language == Language.English ? "HalconAcqInterface" : "采集图像", null);
@@ -2295,7 +2294,7 @@ namespace VMPro
                 Frm_InputMessage.Instance.btn_confirm.Text = (Project.Instance.configuration.language == Language.English ? "Confirm" : "确定");
                 Frm_InputMessage.Instance.passwordChar = false;
                 Frm_InputMessage.Instance.txt_input.TextStr = string.Empty;
-                Frm_InputMessage.Instance.ShowDialog();
+                Frm_InputMessage.Instance.ShowDialog(Frm_Main.Instance);
                 string newJobName = Frm_InputMessage.input;
                 if (newJobName != string.Empty)
                 {
@@ -2391,7 +2390,7 @@ namespace VMPro
                 TabPage jobPage = Frm_Job.Instance.tbc_jobs.SelectedTab;
                 string jobName = jobPage.Text;
                 Frm_ConfirmBox.Instance.lbl_info.Text = (Project.Instance.configuration.language == Language.English ? "Are you sure you want to delete current job?" : string.Format("确定要删除流程 [{0}] 吗？", jobName));
-                Frm_ConfirmBox.Instance.ShowDialog();
+                Frm_ConfirmBox.Instance.ShowDialog(Frm_Main.Instance);
                 if (Frm_ConfirmBox.Instance.Result == ConfirmBoxResult.Yes)
                 {
                     int pageIndex = Frm_Job.Instance.tbc_jobs.TabPages.IndexOf(jobPage);
@@ -3079,7 +3078,7 @@ namespace VMPro
                 if (level == 0)
                 {
                     Frm_ConfirmBox.Instance.lbl_info.Text = (Project.Instance.configuration.language == Language.English ? "Are you sure you want to delete current job?" : string.Format("确定要删除工具 [{0}] 吗？", nodeText));
-                    Frm_ConfirmBox.Instance.ShowDialog();
+                    Frm_ConfirmBox.Instance.ShowDialog(Frm_Main.Instance);
                     if (Frm_ConfirmBox.Instance.Result != ConfirmBoxResult.Yes)
                         return;
                 }

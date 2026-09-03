@@ -41,7 +41,7 @@ namespace VMPro
         internal void LoadPar(PLCDevice device)
         {
             _device = device;
-            comboBox1.SelectedIndex = device.Brand == PLCBrand.Inovance ? 5 : (device.Brand == PLCBrand.Omron ? 0 : 2);
+            comboBox1.SelectedIndex = device.Brand == PLCBrand.Inovance ? 5 : (device.Brand == PLCBrand.Omron ? 0 : (device.Brand == PLCBrand.Mitsubishi ? 4 : 2));
             SelectInovanceSeries(device.InovanceSeries);
             UpdateInovanceSeriesVisibility();
             textBox4.Text = device.IpAddress;
@@ -49,12 +49,14 @@ namespace VMPro
             ckb_autoConnectAfterStart.Checked = device.AutoConnectAfterStart;
             ckb_autoDisconnectBeforeClose.Checked = device.AutoDisconnectBeforeClose;
             UpdateStatus();
+            UpdateConnectionControlState();
         }
 
         private PLCBrand GetSelectedBrand()
         {
             if (comboBox1.Text.StartsWith("汇川")) return PLCBrand.Inovance;
             if (comboBox1.Text.StartsWith("欧姆龙")) return PLCBrand.Omron;
+            if (comboBox1.Text.StartsWith("三菱")) return PLCBrand.Mitsubishi;
             return PLCBrand.AB;
         }
 
@@ -78,13 +80,15 @@ namespace VMPro
 
             _device.Brand = GetSelectedBrand();
             UpdateInovanceSeriesVisibility();
-            if (_device.Brand == PLCBrand.Inovance && textBox5.Text.Trim() == "44818")
+            if (_device.Brand == PLCBrand.Inovance && (textBox5.Text.Trim() == "44818" || textBox5.Text.Trim() == "5000"))
                 textBox5.Text = "502";
+            if (_device.Brand == PLCBrand.Mitsubishi && (textBox5.Text.Trim() == "44818" || textBox5.Text.Trim() == "502"))
+                textBox5.Text = "5000";
             if (_device.Brand == PLCBrand.Omron && textBox5.Text.Trim() == "9600")
                 textBox5.Text = "44818";
             if (_device.Brand == PLCBrand.Inovance)
                 _device.InovanceSeries = cbo_inovanceSeries.Text;
-            SetPrompt(_device.Brand == PLCBrand.Inovance ? "汇川 " + _device.InovanceSeries + " 使用 Modbus TCP，默认端口 502" : (_device.Brand == PLCBrand.Omron ? "欧姆龙 PLC 使用 EtherNet/IP（CIP），默认端口 44818" : "AB PLC 使用 CIP，默认端口 44818"), Color.Black, false);
+            SetPrompt(_device.Brand == PLCBrand.Inovance ? "汇川 " + _device.InovanceSeries + " 使用 Modbus TCP，默认端口 502" : (_device.Brand == PLCBrand.Omron ? "欧姆龙 PLC 使用 EtherNet/IP（CIP），默认端口 44818" : (_device.Brand == PLCBrand.Mitsubishi ? "三菱 PLC 使用 MC Protocol / SLMP TCP，默认端口 5000" : "AB PLC 使用 CIP，默认端口 44818")), Color.Black, false);
         }
 
         private void cbo_inovanceSeries_SelectedIndexChanged(object sender, EventArgs e)
@@ -104,6 +108,22 @@ namespace VMPro
             }
             bool connected = _device.IsConnected;
             SetPrompt(connected ? "已连接" : "未连接", connected ? Color.Green : Color.Red, false);
+            UpdateConnectionControlState();
+        }
+
+        /// <summary>
+        /// 连接建立后锁定通讯参数，避免界面参数与实际连接不一致。
+        /// 断开后恢复编辑。
+        /// </summary>
+        private void UpdateConnectionControlState()
+        {
+            bool connected = _device != null && _device.IsConnected;
+            comboBox1.Enabled = !connected;
+            cbo_inovanceSeries.Enabled = !connected;
+            textBox4.ReadOnly = connected;
+            textBox5.ReadOnly = connected;
+            btn_connect.Enabled = !connected;
+            btn_disconnect.Enabled = connected;
         }
 
         private void SetPrompt(string msg, Color color, bool writeLog)
@@ -289,8 +309,7 @@ namespace VMPro
             }
             finally
             {
-                btn_connect.Enabled = true;
-                btn_disconnect.Enabled = true;
+                UpdateConnectionControlState();
             }
         }
 
@@ -308,6 +327,7 @@ namespace VMPro
             }
             _device.Disconnect();
             SetPrompt("已断开连接", Color.Red, true);
+            UpdateConnectionControlState();
         }
 
         // -- 读寄存器 ----------------------------------------------
@@ -327,13 +347,14 @@ namespace VMPro
                 return;
             }
 
-            string brand = comboBox1.Text;
-            if (!brand.StartsWith("AB") && !brand.StartsWith("汇川") && !brand.StartsWith("欧姆龙"))
+            PLCBrand brand = GetSelectedBrand();
+            if (brand != PLCBrand.AB && brand != PLCBrand.Inovance &&
+                brand != PLCBrand.Omron && brand != PLCBrand.Mitsubishi)
             {
                 Frm_MessageBox.Instance.MessageBoxShow(
                     Project.Instance.configuration.language == Language.English
-                        ? "Only AB (CIP) and Inovance (Modbus TCP) PLCs are currently supported."
-                        : "\r\n当前支持 AB（CIP）、汇川（Modbus TCP）和欧姆龙（EtherNet/IP）PLC 通讯");
+                        ? "Only AB (CIP), Inovance (Modbus TCP), Omron (EtherNet/IP), and Mitsubishi (MC Protocol) PLCs are currently supported."
+                        : "\r\n当前支持 AB（CIP）、汇川（Modbus TCP）、欧姆龙（EtherNet/IP）和三菱（MC Protocol）PLC 通讯");
                 return;
             }
 
@@ -407,13 +428,14 @@ namespace VMPro
                 return;
             }
 
-            string brand = comboBox1.Text;
-            if (!brand.StartsWith("AB") && !brand.StartsWith("汇川") && !brand.StartsWith("欧姆龙"))
+            PLCBrand brand = GetSelectedBrand();
+            if (brand != PLCBrand.AB && brand != PLCBrand.Inovance &&
+                brand != PLCBrand.Omron && brand != PLCBrand.Mitsubishi)
             {
                 Frm_MessageBox.Instance.MessageBoxShow(
                     Project.Instance.configuration.language == Language.English
-                        ? "Only AB (CIP) and Inovance (Modbus TCP) PLCs are currently supported."
-                        : "\r\n当前支持 AB（CIP）、汇川（Modbus TCP）和欧姆龙（EtherNet/IP）PLC 通讯");
+                        ? "Only AB (CIP), Inovance (Modbus TCP), Omron (EtherNet/IP), and Mitsubishi (MC Protocol) PLCs are currently supported."
+                        : "\r\n当前支持 AB（CIP）、汇川（Modbus TCP）、欧姆龙（EtherNet/IP）和三菱（MC Protocol）PLC 通讯");
                 return;
             }
 

@@ -42,11 +42,22 @@ namespace VMPro
 
         public new DialogResult ShowDialog(IWin32Window owner)
         {
-            return ShowTopMostDialog();
+            return ShowTopMostDialog(owner);
         }
 
         private DialogResult ShowTopMostDialog()
         {
+            return ShowTopMostDialog(null);
+        }
+
+        private DialogResult ShowTopMostDialog(IWin32Window requestedOwner)
+        {
+            // 有明确 owner 时保持 Windows 原有的窗口层级；不设置 TopMost，也不强制激活。
+            // 这适用于流程的新建、克隆、删除等普通编辑操作，避免窗口跳动和闪烁。
+            Form owner = requestedOwner as Form;
+            if (owner != null && !owner.IsDisposed)
+                return base.ShowDialog(owner);
+
             bool oldTopMost = this.TopMost;
             bool oldShowInTaskbar = this.ShowInTaskbar;
             this.TopMost = true;

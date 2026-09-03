@@ -119,7 +119,7 @@ namespace VMPro
             }
             int effectivePort = Port;
             if (effectivePort <= 0)
-                effectivePort = Brand == PLCBrand.Inovance ? 502 : 44818;
+                effectivePort = Brand == PLCBrand.Inovance ? 502 : (Brand == PLCBrand.Mitsubishi ? 5000 : 44818);
             var comm = new CipCommunication(IpAddress, effectivePort, Brand, InovanceSeries);
             comm.SetSlot(Slot);
             L_cipComm[Name] = comm;

@@ -30,7 +30,6 @@ using Tool;
 using System.Xml;
 using HalconDotNet;
 using Newtonsoft.Json;
-using System.Runtime.InteropServices;
 using ShareMemNet;
 
 
@@ -116,8 +115,6 @@ namespace VMPro
                 return _instance;
             }
         }
-
-
 
         /// <summary>
         /// 指示是否允许拖动和缩放
