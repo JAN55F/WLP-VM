@@ -1026,6 +1026,12 @@ namespace VMPro
 
                         foreach (KeyValuePair<TreeNode, TreeNode> item in D_itemAndSource)
                         {
+                            // 项目加载、删除工具或切换流程时，旧连接可能暂时指向已移除的节点。
+                            // 跳过无效连接，避免 CreateLine 对 null.Parent 访问导致流程点击崩溃。
+                            if (item.Key == null || item.Value == null ||
+                                item.Key.TreeView != tree || item.Value.TreeView != tree ||
+                                item.Key.Parent == null || item.Value.Parent == null)
+                                continue;
                             CreateLine(tree, item.Key, item.Value);
                         }
                         Application.DoEvents();
@@ -1053,6 +1059,12 @@ namespace VMPro
         {
             try
             {
+                if (treeview == null || treeview.IsDisposed ||
+                    endNode == null || startNode == null ||
+                    endNode.TreeView != treeview || startNode.TreeView != treeview ||
+                    endNode.Parent == null || startNode.Parent == null)
+                    return;
+
                 //得到起始与结束节点之间所有节点的最大长度  ，保证画线不穿过节点
                 int startNodeParantIndex = startNode.Parent.Index;
                 int endNodeParantIndex = endNode.Parent.Index;
