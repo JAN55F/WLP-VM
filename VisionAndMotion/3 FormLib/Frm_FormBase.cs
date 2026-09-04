@@ -52,11 +52,21 @@ namespace VMPro
 
         private DialogResult ShowTopMostDialog(IWin32Window requestedOwner)
         {
+            // 先记录当前活动窗口（通常是主窗体；弹窗套弹窗时是父弹窗）。
+            // 弹窗被“×/最小化”隐藏后，Windows 会把激活焦点交给不可见的 dummy owner，
+            // 主窗体不会自动回到前台，看起来就像“所有窗口一起消失/程序卡死”，
+            // 因此模态结束后必须手动把焦点还给原来的窗口。
+            Form returnFocus = Form.ActiveForm;
+
             // 有明确 owner 时保持 Windows 原有的窗口层级；不设置 TopMost，也不强制激活。
             // 这适用于流程的新建、克隆、删除等普通编辑操作，避免窗口跳动和闪烁。
             Form owner = requestedOwner as Form;
             if (owner != null && !owner.IsDisposed)
-                return base.ShowDialog(owner);
+            {
+                DialogResult dr = base.ShowDialog(owner);
+                RestoreFocusAfterModal(returnFocus);
+                return dr;
+            }
 
             bool oldTopMost = this.TopMost;
             bool oldShowInTaskbar = this.ShowInTaskbar;
@@ -72,13 +82,37 @@ namespace VMPro
                     this.BringToFront();
                     this.Activate();
 
-                    return base.ShowDialog(topMostOwner);
+                    DialogResult dr = base.ShowDialog(topMostOwner);
+                    RestoreFocusAfterModal(returnFocus);
+                    return dr;
                 }
                 finally
                 {
                     this.TopMost = oldTopMost;
                     this.ShowInTaskbar = oldShowInTaskbar;
                 }
+            }
+        }
+
+        /// <summary>
+        /// 模态弹窗结束后，把激活焦点交还给弹出弹窗之前的窗口（通常是主窗体）。
+        /// 此时主窗体已被重新启用，Activate() 能把它带回前台，避免程序“看起来全没了”。
+        /// </summary>
+        private static void RestoreFocusAfterModal(Form returnFocus)
+        {
+            try
+            {
+                if (returnFocus == null || returnFocus.IsDisposed || !returnFocus.Visible)
+                    return;
+                if (returnFocus == Form.ActiveForm)
+                    return;
+                if (returnFocus.WindowState == FormWindowState.Minimized)
+                    returnFocus.WindowState = FormWindowState.Normal;
+                returnFocus.Activate();
+            }
+            catch
+            {
+                // 焦点还原因任何原因失败都不应影响弹窗本身的返回值
             }
         }
 
@@ -216,6 +250,10 @@ namespace VMPro
 
         private void Frm_ToolBase_FormClosing(object sender, FormClosingEventArgs e)
         {
+            // 弹窗（单例）永远不真正关闭：“×”/Alt+F4 只是隐藏，由 ShowDialog 返回后
+            // 由调用处决定后续逻辑。e.Cancel 同时阻断“owned 窗体关闭→owner”的连锁，
+            // 保证关闭动作只影响弹窗本身、绝不会连带关闭主窗体或退出进程。
+            // 隐藏后主窗体回到前台的逻辑在 ShowTopMostDialog 的 RestoreFocusAfterModal 中。
             this.Hide();
             e.Cancel = true;
         }
@@ -254,7 +292,12 @@ namespace VMPro
 
         private void button1_Click(object sender, EventArgs e)
         {
-            this.WindowState = FormWindowState.Minimized;
+            // 弹窗不能真的执行 WindowState=Minimized：
+            // 弹窗模态期间 ShowInTaskbar=false，最小化后任务栏上没有任何图标可以恢复，
+            // 同时主窗体被模态循环禁用，整个程序表现为“大小窗体全部消失、点什么都没反应”的死状态。
+            // 所以这里改为“收起”：隐藏弹窗并结束模态，控制权立即交还主窗体；
+            // 弹窗是单例不会被销毁，之后从菜单重新打开即可恢复原来的内容。
+            this.Hide();
         }
 
         private void button2_Click(object sender, EventArgs e)
