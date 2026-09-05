@@ -343,7 +343,9 @@ namespace VMPro
                         panel4.Controls.Clear();
                         Frm_BinaryThreshold.Instance.TopLevel = false;
                         Frm_BinaryThreshold.Instance.Parent = panel4;
-                        Frm_BinaryThreshold.Instance.Dock = DockStyle.Top;
+                        Frm_BinaryThreshold.Instance.SetEmbeddedMode(true);
+                        // 参数窗体嵌入右下角面板时填满可用区域，避免仍按 264px 固定宽度绘制导致右侧错位。
+                        Frm_BinaryThreshold.Instance.Dock = DockStyle.Fill;
                         Frm_BinaryThreshold.Instance.Show();
                         Frm_BinaryThreshold.binary = (Binary)imageProprecessingTool.FindItemByName(itemName).item;
                         Frm_BinaryThreshold.Instance.trackBar1.Value = Frm_BinaryThreshold.binary.lowThreshold;

@@ -125,6 +125,20 @@ namespace VMPro
             btn_baseClose.BringToFront();
         }
 
+        /// <summary>
+        /// 将工具窗体嵌入其它面板时隐藏基类自定义标题栏，避免标题按钮覆盖宿主布局。
+        /// </summary>
+        internal void SetEmbeddedMode(bool embedded)
+        {
+            panel1.Visible = !embedded;
+            button100.Visible = !embedded;
+            if (embedded)
+            {
+                FormBorderStyle = FormBorderStyle.None;
+                Padding = Padding.Empty;
+            }
+        }
+
         #region 窗体拖动
         private static bool IsDrag = false;
         private int enterX;

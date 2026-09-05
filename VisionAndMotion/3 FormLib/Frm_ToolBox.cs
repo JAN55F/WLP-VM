@@ -275,7 +275,23 @@ namespace VMPro
                         itemNode.Tag = DataType.Image;
                         if (toolInfo1 == null)
                         {
-                            toolInfo.output.Add(new ToolIO(Project.Instance.configuration.language == Language.English ? "OutputImage" : "输入图像", "", DataType.Image));
+                            // 该节点是输入项，必须加入 input 集合；加入 output 会导致运行时找不到输入图像。
+                            toolInfo.input.Add(new ToolIO(Project.Instance.configuration.language == Language.English ? "OutputImage" : "输入图像", "", DataType.Image));
+
+                            itemNode = toolNode.Nodes.Add("", Project.Instance.configuration.language == Language.English ? "-->Red" : "-->红", 34, 34);
+                            itemNode.ForeColor = Color.Blue;
+                            itemNode.Tag = DataType.Image;
+                            toolInfo.output.Add(new ToolIO(Project.Instance.configuration.language == Language.English ? "Red" : "红", "", DataType.Image));
+
+                            itemNode = toolNode.Nodes.Add("", Project.Instance.configuration.language == Language.English ? "-->Green" : "-->绿", 34, 34);
+                            itemNode.ForeColor = Color.Blue;
+                            itemNode.Tag = DataType.Image;
+                            toolInfo.output.Add(new ToolIO(Project.Instance.configuration.language == Language.English ? "Green" : "绿", "", DataType.Image));
+
+                            itemNode = toolNode.Nodes.Add("", Project.Instance.configuration.language == Language.English ? "-->Blue" : "-->蓝", 34, 34);
+                            itemNode.ForeColor = Color.Blue;
+                            itemNode.Tag = DataType.Image;
+                            toolInfo.output.Add(new ToolIO(Project.Instance.configuration.language == Language.English ? "Blue" : "蓝", "", DataType.Image));
                         }
                         break;
                     #endregion

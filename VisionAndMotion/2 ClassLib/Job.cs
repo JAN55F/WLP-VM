@@ -8720,6 +8720,12 @@ namespace VMPro
                     }
                     toolIndex++;
                     TreeNode treeNode = GetToolNodeByNodeText(L_toolList[i].toolName);
+
+                    // 兼容早期版本：彩图转RGB曾把“输入图像”错误写入 output 集合。
+                    // 运行前修正数据结构，确保旧流程无需删除重建即可正常运行。
+                    if (L_toolList[i].toolType == ToolType.ColorToRGB)
+                        NormalizeColorToRgbTool(L_toolList[i], treeNode);
+
                     inputItemNum = (L_toolList[i]).input.Count;
                     outputItemNum = (L_toolList[i]).output.Count;
                     bool sourceValueIsEmpty = false;      //此变量判断输入源值是否为空，若为空就终止流程执行
@@ -8808,7 +8814,9 @@ namespace VMPro
                                 Frm_Main.Instance.OutputMsg(string.Format("工具 [{0}] 运行失败，原因： {1}", L_toolList[i].toolName, imageProprecessingTool.toolRunStatu.ToString()), Color.Red);
                                 return L_result;
                             }
-                            if (inputItemName == "输入图像" || inputItemName == "InputImage")
+                            // 不同版本/语言的流程可能保存为“输入图像”、“InputImage”或“OutputImage”。
+                            // 三种名称都表示彩图转RGB的输入图像。
+                            if (inputItemName == "输入图像" || inputItemName == "InputImage" || inputItemName == "OutputImage")
                             {
                                 string sourceToolName = Regex.Split(sourceFrom, "->")[0];
                                 sourceToolName = sourceToolName.Substring(3, Regex.Split(sourceFrom, "->")[0].Length - 3);
@@ -13237,6 +13245,109 @@ namespace VMPro
             {
                 Interlocked.Decrement(ref activeRunCount);
             }
+        }
+
+        private void NormalizeColorToRgbTool(ToolInfo toolInfo, TreeNode toolNode)
+        {
+            if (toolInfo == null)
+                return;
+            if (toolInfo.input == null)
+                toolInfo.input = new List<ToolIO>();
+            if (toolInfo.output == null)
+                toolInfo.output = new List<ToolIO>();
+
+            string inputName = Project.Instance.configuration.language == Language.English ? "OutputImage" : "输入图像";
+            string[] inputAliases = new string[] { inputName, "输入图像", "InputImage", "OutputImage" };
+            ToolIO misplacedInput = null;
+            for (int i = toolInfo.output.Count - 1; i >= 0; i--)
+            {
+                ToolIO item = toolInfo.output[i];
+                if (item == null || !inputAliases.Contains(item.IOName))
+                    continue;
+                if (misplacedInput == null)
+                    misplacedInput = item;
+                toolInfo.output.RemoveAt(i);
+            }
+
+            ToolIO input = null;
+            for (int i = 0; i < toolInfo.input.Count; i++)
+            {
+                if (toolInfo.input[i] != null && inputAliases.Contains(toolInfo.input[i].IOName))
+                {
+                    input = toolInfo.input[i];
+                    break;
+                }
+            }
+            if (input == null)
+            {
+                input = misplacedInput ?? new ToolIO(inputName, "", DataType.Image);
+                input.IOName = inputName;
+                input.ioType = DataType.Image;
+                toolInfo.input.Insert(0, input);
+            }
+
+            AddColorToRgbOutput(toolInfo, "红", "Red");
+            AddColorToRgbOutput(toolInfo, "绿", "Green");
+            AddColorToRgbOutput(toolInfo, "蓝", "Blue");
+
+            if (toolNode == null)
+                return;
+
+            string displayInput = Project.Instance.configuration.language == Language.English ? "<--OutputImage" : "<--输入图像";
+            bool hasInputNode = false;
+            for (int i = 0; i < toolNode.Nodes.Count; i++)
+            {
+                TreeNode node = toolNode.Nodes[i];
+                if (node.Text.StartsWith(displayInput))
+                    hasInputNode = true;
+                else if (node.Text.StartsWith("-->输入图像") || node.Text.StartsWith("-->InputImage") || node.Text.StartsWith("-->OutputImage"))
+                {
+                    // 旧流程把输入错误保存成了输出节点，复用该节点可保留界面上的连接关系。
+                    node.Text = displayInput + (input.value == null ? string.Empty : input.value.ToString());
+                    node.ForeColor = Color.DarkMagenta;
+                    node.Tag = DataType.Image;
+                    hasInputNode = true;
+                }
+            }
+                    hasInputNode = true;
+            if (!hasInputNode)
+            {
+                TreeNode node = toolNode.Nodes.Insert(0, "", displayInput, 34, 34);
+                node.ForeColor = Color.DarkMagenta;
+                node.Tag = DataType.Image;
+            }
+
+            AddColorToRgbOutputNode(toolNode, "红", "Red");
+            AddColorToRgbOutputNode(toolNode, "绿", "Green");
+            AddColorToRgbOutputNode(toolNode, "蓝", "Blue");
+        }
+
+        private void AddColorToRgbOutput(ToolInfo toolInfo, string chineseName, string englishName)
+        {
+            string name = Project.Instance.configuration.language == Language.English ? englishName : chineseName;
+            for (int i = 0; i < toolInfo.output.Count; i++)
+            {
+                ToolIO item = toolInfo.output[i];
+                if (item != null && (item.IOName == name || item.IOName == chineseName || item.IOName == englishName))
+                {
+                    item.IOName = name;
+                    item.ioType = DataType.Image;
+                    return;
+                }
+            }
+            toolInfo.output.Add(new ToolIO(name, "", DataType.Image));
+        }
+
+        private void AddColorToRgbOutputNode(TreeNode toolNode, string chineseName, string englishName)
+        {
+            string name = Project.Instance.configuration.language == Language.English ? englishName : chineseName;
+            string display = "-->" + name;
+            for (int i = 0; i < toolNode.Nodes.Count; i++)
+                if (toolNode.Nodes[i].Text == display)
+                    return;
+            TreeNode node = toolNode.Nodes.Add("", display, 34, 34);
+            node.ForeColor = Color.Blue;
+            node.Tag = DataType.Image;
         }
 
         /// <summary>
