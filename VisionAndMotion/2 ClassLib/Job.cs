@@ -3711,6 +3711,7 @@ namespace VMPro
             {
                 ToolInfo toolInfo = Project.Instance.curEngine.FindJobByName(Frm_Job.Instance.tbc_jobs.SelectedTab.Text).FindToolInfoByName(toolName);
                 Frm_IOConfig.result1 = GetToolParForIOEdit(toolInfo);
+                Frm_IOConfig.Instance.toolInfoForEdit = toolInfo;
                 Frm_IOConfig.Instance.jobName = this.jobName;
                 Frm_IOConfig.Instance.Show();
 

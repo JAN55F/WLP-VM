@@ -26,6 +26,8 @@ namespace VMPro
         }
 
         internal static ToolParBase result1 = new ToolParBase();
+        // 部分工具（如彩图转RGB）没有 toolPar，而是直接通过 ToolInfo 保存输入输出终端。
+        internal ToolInfo toolInfoForEdit;
 
         /// <summary>
         /// 窗体对象实例
@@ -105,10 +107,11 @@ namespace VMPro
 
         public void Load()
         {
-
-
             treeView1.Nodes.Clear();
-            GetValue(treeView1.Nodes, result1);
+            if (toolInfoForEdit != null)
+                LoadToolIO(treeView1.Nodes, toolInfoForEdit);
+            else
+                GetValue(treeView1.Nodes, result1);
             if (treeView1.Nodes.Count == 0)
             {
                 button1.Visible = false;
@@ -116,6 +119,47 @@ namespace VMPro
             }
             treeView1.ExpandAll();
             treeView1.SelectedNode = treeView1.Nodes[0];
+        }
+
+        private void LoadToolIO(TreeNodeCollection nodes, ToolInfo toolInfo)
+        {
+            TreeNode inputRoot = nodes.Add("", "输入");
+            inputRoot.Tag = DataType.String;
+            for (int i = 0; toolInfo.input != null && i < toolInfo.input.Count; i++)
+            {
+                ToolIO item = toolInfo.input[i];
+                if (item == null)
+                    continue;
+                TreeNode node = inputRoot.Nodes.Add("", FormatToolIOName(item));
+                node.Tag = item.ioType;
+                node.ForeColor = Color.Black;
+            }
+
+            // 保持与原参数树一致：索引 0、1 为输入分组，索引 2 为输出分组。
+            TreeNode inputExtraRoot = nodes.Add("", "输入参数");
+            inputExtraRoot.Tag = DataType.String;
+            TreeNode outputRoot = nodes.Add("", "输出");
+            outputRoot.Tag = DataType.String;
+            for (int i = 0; toolInfo.output != null && i < toolInfo.output.Count; i++)
+            {
+                ToolIO item = toolInfo.output[i];
+                if (item == null)
+                    continue;
+                TreeNode node = outputRoot.Nodes.Add("", FormatToolIOName(item));
+                node.Tag = item.ioType;
+                node.ForeColor = Color.Black;
+            }
+        }
+
+        private string FormatToolIOName(ToolIO item)
+        {
+            if (item.ioType == DataType.Image)
+                return "<HObject>  " + item.IOName;
+            if (item.ioType == DataType.Region)
+                return "<HRegion>  " + item.IOName;
+            if (item.ioType == DataType.Pose)
+                return "<XY>  " + item.IOName;
+            return "<String>  " + item.IOName;
         }
 
 
