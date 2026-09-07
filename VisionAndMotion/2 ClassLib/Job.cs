@@ -8589,6 +8589,19 @@ namespace VMPro
                     return pi.GetValue(obj, null);
                 }
             }
+            //链式取值（如输出名"点 . Y"）中间结果是集合时，取第一个元素再取同名属性，
+            //否则 List 上找不到 Y 属性会返回空 object，下游字符串化后变成 "System.Object"。
+            System.Collections.IList list = obj as System.Collections.IList;
+            if (list != null && !(obj is string) && list.Count > 0 && list[0] != null)
+            {
+                foreach (PropertyInfo pi in list[0].GetType().GetProperties(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public))
+                {
+                    if (pi.Name == name)
+                    {
+                        return pi.GetValue(list[0], null);
+                    }
+                }
+            }
             return new object();
         }
 
