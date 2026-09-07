@@ -55,6 +55,8 @@ namespace VMPro
             this.Column7 = new System.Windows.Forms.DataGridViewCheckBoxColumn();
             this.contextMenuStrip2 = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.tsm_deletePreprocessingItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.cms_deleteSelectItem = new System.Windows.Forms.ContextMenuStrip(this.components);
+            this.tsm_deleteSelectItem = new System.Windows.Forms.ToolStripMenuItem();
             this.tabPage2 = new System.Windows.Forms.TabPage();
             this.textBox1 = new Controls.CNumericUpDown();
             this.btn_saveRegion = new System.Windows.Forms.Button();
@@ -123,6 +125,7 @@ namespace VMPro
             this.toolStrip2.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.dgv_processingItem)).BeginInit();
             this.contextMenuStrip2.SuspendLayout();
+            this.cms_deleteSelectItem.SuspendLayout();
             this.tabPage2.SuspendLayout();
             this.panel15.SuspendLayout();
             this.groupBox3.SuspendLayout();
@@ -326,6 +329,7 @@ namespace VMPro
             this.Column4,
             this.Column8,
             this.Column5});
+            this.dgv_selectItem.ContextMenuStrip = this.cms_deleteSelectItem;
             this.dgv_selectItem.Location = new System.Drawing.Point(8, 137);
             this.dgv_selectItem.Margin = new System.Windows.Forms.Padding(2);
             this.dgv_selectItem.Name = "dgv_selectItem";
@@ -334,6 +338,7 @@ namespace VMPro
             this.dgv_selectItem.Size = new System.Drawing.Size(248, 297);
             this.dgv_selectItem.TabIndex = 93;
             this.dgv_selectItem.CellValueChanged += new System.Windows.Forms.DataGridViewCellEventHandler(this.dgv_selectItem_CellValueChanged);
+            this.dgv_selectItem.CellMouseDown += new System.Windows.Forms.DataGridViewCellMouseEventHandler(this.dgv_selectItem_CellMouseDown);
             // 
             // label124
             // 
@@ -496,6 +501,21 @@ namespace VMPro
             this.tsm_deletePreprocessingItem.Size = new System.Drawing.Size(100, 22);
             this.tsm_deletePreprocessingItem.Text = "删除";
             this.tsm_deletePreprocessingItem.Click += new System.EventHandler(this.tsm_deletePreprocessingItem_Click);
+            // 
+            // cms_deleteSelectItem
+            // 
+            this.cms_deleteSelectItem.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.tsm_deleteSelectItem});
+            this.cms_deleteSelectItem.Name = "cms_deleteSelectItem";
+            this.cms_deleteSelectItem.Size = new System.Drawing.Size(101, 26);
+            this.cms_deleteSelectItem.Opening += new System.ComponentModel.CancelEventHandler(this.cms_deleteSelectItem_Opening);
+            // 
+            // tsm_deleteSelectItem
+            // 
+            this.tsm_deleteSelectItem.Name = "tsm_deleteSelectItem";
+            this.tsm_deleteSelectItem.Size = new System.Drawing.Size(100, 22);
+            this.tsm_deleteSelectItem.Text = "删除";
+            this.tsm_deleteSelectItem.Click += new System.EventHandler(this.tsm_deleteSelectItem_Click);
             // 
             // tabPage2
             // 
@@ -1241,6 +1261,7 @@ namespace VMPro
             this.toolStrip2.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.dgv_processingItem)).EndInit();
             this.contextMenuStrip2.ResumeLayout(false);
+            this.cms_deleteSelectItem.ResumeLayout(false);
             this.tabPage2.ResumeLayout(false);
             this.tabPage2.PerformLayout();
             this.panel15.ResumeLayout(false);
@@ -1284,6 +1305,8 @@ namespace VMPro
         private System.Windows.Forms.TabPage tabPage3;
         private System.Windows.Forms.ContextMenuStrip contextMenuStrip2;
         private System.Windows.Forms.ToolStripMenuItem tsm_deletePreprocessingItem;
+        private System.Windows.Forms.ContextMenuStrip cms_deleteSelectItem;
+        private System.Windows.Forms.ToolStripMenuItem tsm_deleteSelectItem;
         internal System.Windows.Forms.CheckBox ckb_displayCross;
         internal System.Windows.Forms.CheckBox ckb_displaySearchRegion;
         public System.Windows.Forms.TextBox tbx_lineWidth;

@@ -35,6 +35,67 @@ namespace VMPro
                 AlignTitleButtons();
         }
 
+        #region 任务栏入口：让模态弹窗拥有独立的任务栏按钮
+        // 弹窗模态显示时 owned 于（不可见的）dummy owner，而按 Windows 规则，
+        // owned 窗口默认不会出现在任务栏上——这正是“弹窗打开后任务栏没有任何入口、
+        // 最小化后再也找不回来”的根因。这里用 WS_EX_APPWINDOW + ShowInTaskbar=true
+        // 双保险：无论 owner 是谁，弹窗在打开期间都在任务栏上拥有属于自己的按钮（侧体），
+        // 最小化后随时可以点击它还原。
+        private bool forceTaskbarButton = false;
+
+        protected override CreateParams CreateParams
+        {
+            get
+            {
+                CreateParams cp = base.CreateParams;
+                if (forceTaskbarButton)
+                    cp.ExStyle |= 0x00040000; // WS_EX_APPWINDOW：强制窗口出现在任务栏
+                return cp;
+            }
+        }
+
+        /// <summary>
+        /// 弹窗模态显示前调用：为其获得独立的任务栏按钮。
+        /// </summary>
+        private void GainTaskbarEntry()
+        {
+            forceTaskbarButton = true;      // CreateParams 建句柄时会据此添加 WS_EX_APPWINDOW
+            this.ShowInTaskbar = true;      // 去掉 WS_EX_TOOLWINDOW（它会把窗口从任务栏排除）
+            EnsureTaskbarText();            // 任务栏按钮显示正确的标题
+            if (this.IsHandleCreated)
+                this.RecreateHandle();      // 单例复用时句柄已存在，必须重建才能使新样式生效
+        }
+
+        /// <summary>
+        /// 弹窗模态结束后调用：还原为模态前的任务栏属性。
+        /// </summary>
+        private void ReleaseTaskbarEntry(bool oldShowInTaskbar)
+        {
+            // 先摘标志再恢复属性：这样恢复 ShowInTaskbar 触发的句柄重建不会带上 WS_EX_APPWINDOW
+            forceTaskbarButton = false;
+            this.ShowInTaskbar = oldShowInTaskbar;
+        }
+
+        /// <summary>
+        /// 任务栏按钮的标题取自窗口文本；个别弹窗 Text 还是设计器默认值时，用标题栏文本兜底。
+        /// </summary>
+        private void EnsureTaskbarText()
+        {
+            try
+            {
+                string titleText = lbl_title != null ? lbl_title.Text : null;
+                bool textIsBad = string.IsNullOrEmpty(this.Text) || this.Text == "Frm_ToolBase" || this.Text == this.Name;
+                bool labelIsGood = !string.IsNullOrEmpty(titleText) && titleText != "label1";
+                if (textIsBad && labelIsGood)
+                    this.Text = titleText;
+            }
+            catch
+            {
+                // 兑底标题失败不影响弹窗显示
+            }
+        }
+        #endregion
+
         public new DialogResult ShowDialog()
         {
             return ShowTopMostDialog();
@@ -52,16 +113,37 @@ namespace VMPro
 
         private DialogResult ShowTopMostDialog(IWin32Window requestedOwner)
         {
+            // 先记录当前活动窗口（通常是主窗体；弹窗套弹窗时是父弹窗）。
+            // 弹窗被“×/最小化”隐藏后，Windows 会把激活焦点交给不可见的 dummy owner，
+            // 主窗体不会自动回到前台，看起来就像“所有窗口一起消失/程序卡死”，
+            // 因此模态结束后必须手动把焦点还给原来的窗口。
+            Form returnFocus = Form.ActiveForm;
+
             // 有明确 owner 时保持 Windows 原有的窗口层级；不设置 TopMost，也不强制激活。
             // 这适用于流程的新建、克隆、删除等普通编辑操作，避免窗口跳动和闪烁。
+            bool oldShowInTaskbar = this.ShowInTaskbar;
+
             Form owner = requestedOwner as Form;
             if (owner != null && !owner.IsDisposed)
-                return base.ShowDialog(owner);
+            {
+                GainTaskbarEntry();
+                DialogResult dr;
+                try
+                {
+                    dr = base.ShowDialog(owner);
+                }
+                finally
+                {
+                    ReleaseTaskbarEntry(oldShowInTaskbar);
+                }
+                RestoreFocusAfterModal(returnFocus);
+                return dr;
+            }
 
             bool oldTopMost = this.TopMost;
-            bool oldShowInTaskbar = this.ShowInTaskbar;
             this.TopMost = true;
-            this.ShowInTaskbar = false;
+
+            GainTaskbarEntry();
 
             using (Form topMostOwner = CreateTopMostOwner())
             {
@@ -72,13 +154,44 @@ namespace VMPro
                     this.BringToFront();
                     this.Activate();
 
-                    return base.ShowDialog(topMostOwner);
+                    DialogResult dr;
+                    try
+                    {
+                        dr = base.ShowDialog(topMostOwner);
+                    }
+                    finally
+                    {
+                        ReleaseTaskbarEntry(oldShowInTaskbar);
+                    }
+                    RestoreFocusAfterModal(returnFocus);
+                    return dr;
                 }
                 finally
                 {
                     this.TopMost = oldTopMost;
-                    this.ShowInTaskbar = oldShowInTaskbar;
                 }
+            }
+        }
+
+        /// <summary>
+        /// 模态弹窗结束后，把激活焦点交还给弹出弹窗之前的窗口（通常是主窗体）。
+        /// 此时主窗体已被重新启用，Activate() 能把它带回前台，避免程序“看起来全没了”。
+        /// </summary>
+        private static void RestoreFocusAfterModal(Form returnFocus)
+        {
+            try
+            {
+                if (returnFocus == null || returnFocus.IsDisposed || !returnFocus.Visible)
+                    return;
+                if (returnFocus == Form.ActiveForm)
+                    return;
+                if (returnFocus.WindowState == FormWindowState.Minimized)
+                    returnFocus.WindowState = FormWindowState.Normal;
+                returnFocus.Activate();
+            }
+            catch
+            {
+                // 焦点还原因任何原因失败都不应影响弹窗本身的返回值
             }
         }
 
@@ -230,6 +343,10 @@ namespace VMPro
 
         private void Frm_ToolBase_FormClosing(object sender, FormClosingEventArgs e)
         {
+            // 弹窗（单例）永远不真正关闭：“×”/Alt+F4 只是隐藏，由 ShowDialog 返回后
+            // 由调用处决定后续逻辑。e.Cancel 同时阻断“owned 窗体关闭→owner”的连锁，
+            // 保证关闭动作只影响弹窗本身、绝不会连带关闭主窗体或退出进程。
+            // 隐藏后主窗体回到前台的逻辑在 ShowTopMostDialog 的 RestoreFocusAfterModal 中。
             this.Hide();
             e.Cancel = true;
         }
@@ -268,6 +385,10 @@ namespace VMPro
 
         private void button1_Click(object sender, EventArgs e)
         {
+            // 真最小化：小窗口收进任务栏、保持最小化状态，等用户点击任务栏上它的按钮再还原。
+            // ShowTopMostDialog 已保证模态期间弹窗在任务栏上有独立入口（WS_EX_APPWINDOW），
+            // 所以这里可以安全地最小化——不会再出现“弹窗消失无入口、主窗体又被模态锁死”的假死态。
+            // 注意：最小化不会结束模态循环，弹窗被真正关闭（×）之前主窗体始终不可点击。
             this.WindowState = FormWindowState.Minimized;
         }
 

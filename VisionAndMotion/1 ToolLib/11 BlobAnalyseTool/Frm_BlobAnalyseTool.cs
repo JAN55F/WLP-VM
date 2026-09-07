@@ -285,6 +285,65 @@ namespace VMPro
             blobAnalyseTool.SaveSelectItem();
         }
 
+        /// <summary>
+        /// 右键命中的筛选行索引（右键菜单删除用）
+        /// </summary>
+        private int selectItemRightClickRowIndex = -1;
+
+        private void dgv_selectItem_CellMouseDown(object sender, DataGridViewCellMouseEventArgs e)
+        {
+            try
+            {
+                selectItemRightClickRowIndex = -1;
+                if (e.Button != MouseButtons.Right || e.RowIndex < 0)
+                    return;
+                if (dgv_selectItem.Rows[e.RowIndex].IsNewRow)      //新增占位行不可删除
+                    return;
+                dgv_selectItem.ClearSelection();
+                dgv_selectItem.Rows[e.RowIndex].Selected = true;
+                selectItemRightClickRowIndex = e.RowIndex;
+            }
+            catch (Exception ex)
+            {
+                Log.SaveError(ex);
+            }
+        }
+
+        private void cms_deleteSelectItem_Opening(object sender, System.ComponentModel.CancelEventArgs e)
+        {
+            try
+            {
+                if (selectItemRightClickRowIndex < 0 ||
+                    selectItemRightClickRowIndex >= dgv_selectItem.Rows.Count ||
+                    dgv_selectItem.Rows[selectItemRightClickRowIndex].IsNewRow)
+                    e.Cancel = true;
+            }
+            catch (Exception ex)
+            {
+                Log.SaveError(ex);
+            }
+        }
+
+        private void tsm_deleteSelectItem_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (selectItemRightClickRowIndex < 0 ||
+                    selectItemRightClickRowIndex >= dgv_selectItem.Rows.Count ||
+                    dgv_selectItem.Rows[selectItemRightClickRowIndex].IsNewRow)
+                    return;
+                int index = selectItemRightClickRowIndex;
+                selectItemRightClickRowIndex = -1;
+                dgv_selectItem.EndEdit();
+                dgv_selectItem.Rows.RemoveAt(index);
+                blobAnalyseTool.SaveSelectItem();
+            }
+            catch (Exception ex)
+            {
+                Log.SaveError(ex);
+            }
+        }
+
         private void tsb_runJob_Click(object sender, EventArgs e)
         {
             Job.RunAndWaitToCurrentTool(jobName, toolName);
