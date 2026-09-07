@@ -70,12 +70,16 @@ namespace VMPro
             this.ckb_displayFeature = new Controls.CCheckBox();
             this.ckb_displayCaliper = new Controls.CCheckBox();
             this.tabPage3 = new System.Windows.Forms.TabPage();
-            this.tbx_resultCircleRadius = new Controls.CTextBox();
-            this.tbx_resultCircleCol = new Controls.CTextBox();
-            this.tbx_resultCircleRow = new Controls.CTextBox();
+            this.tbx_lineStartRow = new Controls.CTextBox();
+            this.tbx_lineStartCol = new Controls.CTextBox();
+            this.tbx_lineEndRow = new Controls.CTextBox();
+            this.tbx_lineEndCol = new Controls.CTextBox();
+            this.tbx_lineAngle = new Controls.CTextBox();
             this.label5 = new System.Windows.Forms.Label();
             this.label6 = new System.Windows.Forms.Label();
             this.label11 = new System.Windows.Forms.Label();
+            this.label20 = new System.Windows.Forms.Label();
+            this.label21 = new System.Windows.Forms.Label();
             this.tableLayoutPanel1 = new System.Windows.Forms.TableLayoutPanel();
             this.tableLayoutPanel2 = new System.Windows.Forms.TableLayoutPanel();
             this.hWindow_Final1 = new ChoiceTech.Halcon.Control.HWindow_Final();
@@ -736,12 +740,16 @@ namespace VMPro
             // 
             // tabPage3
             // 
-            this.tabPage3.Controls.Add(this.tbx_resultCircleRadius);
-            this.tabPage3.Controls.Add(this.tbx_resultCircleCol);
-            this.tabPage3.Controls.Add(this.tbx_resultCircleRow);
+            this.tabPage3.Controls.Add(this.tbx_lineStartRow);
+            this.tabPage3.Controls.Add(this.tbx_lineStartCol);
+            this.tabPage3.Controls.Add(this.tbx_lineEndRow);
+            this.tabPage3.Controls.Add(this.tbx_lineEndCol);
+            this.tabPage3.Controls.Add(this.tbx_lineAngle);
             this.tabPage3.Controls.Add(this.label5);
             this.tabPage3.Controls.Add(this.label6);
             this.tabPage3.Controls.Add(this.label11);
+            this.tabPage3.Controls.Add(this.label20);
+            this.tabPage3.Controls.Add(this.label21);
             this.tabPage3.Location = new System.Drawing.Point(4, 26);
             this.tabPage3.Name = "tabPage3";
             this.tabPage3.Size = new System.Drawing.Size(264, 434);
@@ -749,50 +757,80 @@ namespace VMPro
             this.tabPage3.Text = "结果";
             this.tabPage3.UseVisualStyleBackColor = true;
             // 
-            // tbx_resultCircleRadius
+            // tbx_lineEndRow
             // 
-            this.tbx_resultCircleRadius.BackColor = System.Drawing.Color.White;
-            this.tbx_resultCircleRadius.DefaultText = "";
-            this.tbx_resultCircleRadius.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.tbx_resultCircleRadius.Location = new System.Drawing.Point(60, 67);
-            this.tbx_resultCircleRadius.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.tbx_resultCircleRadius.MaximumSize = new System.Drawing.Size(400, 22);
-            this.tbx_resultCircleRadius.MinimumSize = new System.Drawing.Size(20, 22);
-            this.tbx_resultCircleRadius.Name = "tbx_resultCircleRadius";
-            this.tbx_resultCircleRadius.PasswordChar = false;
-            this.tbx_resultCircleRadius.Size = new System.Drawing.Size(137, 22);
-            this.tbx_resultCircleRadius.TabIndex = 204;
-            this.tbx_resultCircleRadius.TextStr = "";
+            this.tbx_lineEndRow.BackColor = System.Drawing.Color.White;
+            this.tbx_lineEndRow.DefaultText = "";
+            this.tbx_lineEndRow.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
+            this.tbx_lineEndRow.Location = new System.Drawing.Point(60, 67);
+            this.tbx_lineEndRow.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
+            this.tbx_lineEndRow.MaximumSize = new System.Drawing.Size(400, 22);
+            this.tbx_lineEndRow.MinimumSize = new System.Drawing.Size(20, 22);
+            this.tbx_lineEndRow.Name = "tbx_lineEndRow";
+            this.tbx_lineEndRow.PasswordChar = false;
+            this.tbx_lineEndRow.Size = new System.Drawing.Size(137, 22);
+            this.tbx_lineEndRow.TabIndex = 204;
+            this.tbx_lineEndRow.TextStr = "";
             // 
-            // tbx_resultCircleCol
+            // tbx_lineEndCol
             // 
-            this.tbx_resultCircleCol.BackColor = System.Drawing.Color.White;
-            this.tbx_resultCircleCol.DefaultText = "";
-            this.tbx_resultCircleCol.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.tbx_resultCircleCol.Location = new System.Drawing.Point(60, 40);
-            this.tbx_resultCircleCol.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.tbx_resultCircleCol.MaximumSize = new System.Drawing.Size(400, 22);
-            this.tbx_resultCircleCol.MinimumSize = new System.Drawing.Size(20, 22);
-            this.tbx_resultCircleCol.Name = "tbx_resultCircleCol";
-            this.tbx_resultCircleCol.PasswordChar = false;
-            this.tbx_resultCircleCol.Size = new System.Drawing.Size(137, 22);
-            this.tbx_resultCircleCol.TabIndex = 203;
-            this.tbx_resultCircleCol.TextStr = "";
+            this.tbx_lineEndCol.BackColor = System.Drawing.Color.White;
+            this.tbx_lineEndCol.DefaultText = "";
+            this.tbx_lineEndCol.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
+            this.tbx_lineEndCol.Location = new System.Drawing.Point(60, 94);
+            this.tbx_lineEndCol.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
+            this.tbx_lineEndCol.MaximumSize = new System.Drawing.Size(400, 22);
+            this.tbx_lineEndCol.MinimumSize = new System.Drawing.Size(20, 22);
+            this.tbx_lineEndCol.Name = "tbx_lineEndCol";
+            this.tbx_lineEndCol.PasswordChar = false;
+            this.tbx_lineEndCol.Size = new System.Drawing.Size(137, 22);
+            this.tbx_lineEndCol.TabIndex = 206;
+            this.tbx_lineEndCol.TextStr = "";
             // 
-            // tbx_resultCircleRow
+            // tbx_lineAngle
             // 
-            this.tbx_resultCircleRow.BackColor = System.Drawing.Color.White;
-            this.tbx_resultCircleRow.DefaultText = "";
-            this.tbx_resultCircleRow.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.tbx_resultCircleRow.Location = new System.Drawing.Point(60, 13);
-            this.tbx_resultCircleRow.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.tbx_resultCircleRow.MaximumSize = new System.Drawing.Size(400, 22);
-            this.tbx_resultCircleRow.MinimumSize = new System.Drawing.Size(20, 22);
-            this.tbx_resultCircleRow.Name = "tbx_resultCircleRow";
-            this.tbx_resultCircleRow.PasswordChar = false;
-            this.tbx_resultCircleRow.Size = new System.Drawing.Size(137, 22);
-            this.tbx_resultCircleRow.TabIndex = 202;
-            this.tbx_resultCircleRow.TextStr = "";
+            this.tbx_lineAngle.BackColor = System.Drawing.Color.White;
+            this.tbx_lineAngle.DefaultText = "";
+            this.tbx_lineAngle.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
+            this.tbx_lineAngle.Location = new System.Drawing.Point(60, 121);
+            this.tbx_lineAngle.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
+            this.tbx_lineAngle.MaximumSize = new System.Drawing.Size(400, 22);
+            this.tbx_lineAngle.MinimumSize = new System.Drawing.Size(20, 22);
+            this.tbx_lineAngle.Name = "tbx_lineAngle";
+            this.tbx_lineAngle.PasswordChar = false;
+            this.tbx_lineAngle.Size = new System.Drawing.Size(137, 22);
+            this.tbx_lineAngle.TabIndex = 208;
+            this.tbx_lineAngle.TextStr = "";
+            // 
+            // tbx_lineStartCol
+            // 
+            this.tbx_lineStartCol.BackColor = System.Drawing.Color.White;
+            this.tbx_lineStartCol.DefaultText = "";
+            this.tbx_lineStartCol.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
+            this.tbx_lineStartCol.Location = new System.Drawing.Point(60, 40);
+            this.tbx_lineStartCol.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
+            this.tbx_lineStartCol.MaximumSize = new System.Drawing.Size(400, 22);
+            this.tbx_lineStartCol.MinimumSize = new System.Drawing.Size(20, 22);
+            this.tbx_lineStartCol.Name = "tbx_lineStartCol";
+            this.tbx_lineStartCol.PasswordChar = false;
+            this.tbx_lineStartCol.Size = new System.Drawing.Size(137, 22);
+            this.tbx_lineStartCol.TabIndex = 203;
+            this.tbx_lineStartCol.TextStr = "";
+            // 
+            // tbx_lineStartRow
+            // 
+            this.tbx_lineStartRow.BackColor = System.Drawing.Color.White;
+            this.tbx_lineStartRow.DefaultText = "";
+            this.tbx_lineStartRow.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
+            this.tbx_lineStartRow.Location = new System.Drawing.Point(60, 13);
+            this.tbx_lineStartRow.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
+            this.tbx_lineStartRow.MaximumSize = new System.Drawing.Size(400, 22);
+            this.tbx_lineStartRow.MinimumSize = new System.Drawing.Size(20, 22);
+            this.tbx_lineStartRow.Name = "tbx_lineStartRow";
+            this.tbx_lineStartRow.PasswordChar = false;
+            this.tbx_lineStartRow.Size = new System.Drawing.Size(137, 22);
+            this.tbx_lineStartRow.TabIndex = 202;
+            this.tbx_lineStartRow.TextStr = "";
             // 
             // label5
             // 
@@ -800,9 +838,9 @@ namespace VMPro
             this.label5.Location = new System.Drawing.Point(11, 15);
             this.label5.Margin = new System.Windows.Forms.Padding(2, 0, 2, 0);
             this.label5.Name = "label5";
-            this.label5.Size = new System.Drawing.Size(56, 17);
+            this.label5.Size = new System.Drawing.Size(92, 17);
             this.label5.TabIndex = 199;
-            this.label5.Text = "行坐标：";
+            this.label5.Text = "起点行坐标：";
             // 
             // label6
             // 
@@ -810,9 +848,29 @@ namespace VMPro
             this.label6.Location = new System.Drawing.Point(11, 69);
             this.label6.Margin = new System.Windows.Forms.Padding(2, 0, 2, 0);
             this.label6.Name = "label6";
-            this.label6.Size = new System.Drawing.Size(56, 17);
+            this.label6.Size = new System.Drawing.Size(92, 17);
             this.label6.TabIndex = 201;
-            this.label6.Text = "半   径：";
+            this.label6.Text = "终点行坐标：";
+            // 
+            // label20
+            // 
+            this.label20.AutoSize = true;
+            this.label20.Location = new System.Drawing.Point(11, 96);
+            this.label20.Margin = new System.Windows.Forms.Padding(2, 0, 2, 0);
+            this.label20.Name = "label20";
+            this.label20.Size = new System.Drawing.Size(92, 17);
+            this.label20.TabIndex = 205;
+            this.label20.Text = "终点列坐标：";
+            // 
+            // label21
+            // 
+            this.label21.AutoSize = true;
+            this.label21.Location = new System.Drawing.Point(11, 123);
+            this.label21.Margin = new System.Windows.Forms.Padding(2, 0, 2, 0);
+            this.label21.Name = "label21";
+            this.label21.Size = new System.Drawing.Size(80, 17);
+            this.label21.TabIndex = 207;
+            this.label21.Text = "方向(rad)：";
             // 
             // label11
             // 
@@ -820,9 +878,9 @@ namespace VMPro
             this.label11.Location = new System.Drawing.Point(11, 42);
             this.label11.Margin = new System.Windows.Forms.Padding(2, 0, 2, 0);
             this.label11.Name = "label11";
-            this.label11.Size = new System.Drawing.Size(56, 17);
+            this.label11.Size = new System.Drawing.Size(92, 17);
             this.label11.TabIndex = 200;
-            this.label11.Text = "列坐标：";
+            this.label11.Text = "起点列坐标：";
             // 
             // tableLayoutPanel1
             // 
@@ -1229,12 +1287,16 @@ namespace VMPro
         public CNumericUpDown tbx_caliperNum;
         public CNumericUpDown tbx_threshold;
         private System.Windows.Forms.TabPage tabPage3;
-        internal CTextBox tbx_resultCircleRadius;
-        internal CTextBox tbx_resultCircleCol;
-        internal CTextBox tbx_resultCircleRow;
+        internal CTextBox tbx_lineStartRow;
+        internal CTextBox tbx_lineStartCol;
+        internal CTextBox tbx_lineEndRow;
+        internal CTextBox tbx_lineEndCol;
+        internal CTextBox tbx_lineAngle;
         private System.Windows.Forms.Label label5;
         private System.Windows.Forms.Label label6;
         private System.Windows.Forms.Label label11;
+        private System.Windows.Forms.Label label20;
+        private System.Windows.Forms.Label label21;
         internal CCheckBox cCheckBox3;
         internal CCheckBox ckb_displayFeature;
         internal CCheckBox ckb_displayCaliper;
