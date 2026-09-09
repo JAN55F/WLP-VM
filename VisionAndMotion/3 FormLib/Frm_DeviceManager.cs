@@ -295,8 +295,9 @@ namespace VMPro
                 if (lst_deviceListSimple != null)
                     lst_deviceListSimple.Items.Clear();
 
-                AddDeviceRow(DefaultTcpServerType, DefaultTcpServerName);
                 bool showDefaultRow = !Project.Instance.configuration.defaultTcpServerDeleted;
+                if (showDefaultRow)
+                    AddDeviceRow(DefaultTcpServerType, DefaultTcpServerName);
                 for (int i = 0; i < Project.Instance.L_PLCDevice.Count; i++)
                     AddDeviceRow("PLCDevice", Project.Instance.L_PLCDevice[i].Name);
                 for (int i = 0; i < Project.Instance.L_TCPSever.Count; i++)
