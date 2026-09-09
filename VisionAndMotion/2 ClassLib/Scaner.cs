@@ -79,7 +79,11 @@ namespace VMPro
                     if (item.Key == Name)
                         return item.Value;
                 }
-                return null;
+                //反序列化恢复的扫码枪设备不会执行构造函数，静态表里没有它的端口；
+                //这里补注册一个，避免按名字找不到返回 null，导致调用方（如 Init）空指针。
+                SerialPort serialPort = new SerialPort();
+                L_serialPort.Add(Name, serialPort);
+                return serialPort;
             }
             catch (Exception ex)
             {
