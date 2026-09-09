@@ -159,6 +159,16 @@ namespace VMPro
             if (!tcpClient.Rename(requestedName) && tbx_clientName.TextStr != tcpClient.Name)
                 tbx_clientName.TextStr = tcpClient.Name;
         }
+        private void ckb_autoConnectAfterStart_CheckChanged(bool Checked)
+        {
+            if (tcpClient != null)
+                tcpClient.AutoConnectAfterStart = Checked;
+        }
+        private void ckb_autoDisconnectBeforeClose_CheckChanged(bool Checked)
+        {
+            if (tcpClient != null)
+                tcpClient.AutoDisconnectBeforeClose = Checked;
+        }
         private void tbx_severIP_TextStrChanged(string textStr)
         {
             tcpClient.severIP = tbx_severIP.TextStr.Trim();

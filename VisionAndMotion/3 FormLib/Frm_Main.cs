@@ -1131,6 +1131,12 @@ namespace VMPro
                     if (Project.Instance.L_TCPClient[i].AutoDisconnectBeforeClose)
                         Project.Instance.L_TCPClient[i].Close();
                 }
+                for (int i = 0; i < Project.Instance.L_TCPSever.Count; i++)
+                {
+                    //服务端同样支持“程序关闭前自动断开”：停止监听并断开所有已接入客户端
+                    if (Project.Instance.L_TCPSever[i].AutoDisconnectBeforeClose)
+                        Project.Instance.L_TCPSever[i].Close();
+                }
                 for (int i = 0; i < Project.Instance.L_PLCDevice.Count; i++)
                 {
                     if (Project.Instance.L_PLCDevice[i].AutoDisconnectBeforeClose)

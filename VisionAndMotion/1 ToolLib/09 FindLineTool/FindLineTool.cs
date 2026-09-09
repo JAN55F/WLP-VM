@@ -979,9 +979,33 @@ namespace VMPro
 
                     if (!foundLine)
                     {
+                        // 未找到线时清空结果页签，避免上一轮的旧值误导。
+                        SafeInvokeFindLineWindow(() =>
+                        {
+                            Frm_FindLineTool.Instance.tbx_lineStartRow.TextStr = "";
+                            Frm_FindLineTool.Instance.tbx_lineStartCol.TextStr = "";
+                            Frm_FindLineTool.Instance.tbx_lineEndRow.TextStr = "";
+                            Frm_FindLineTool.Instance.tbx_lineEndCol.TextStr = "";
+                            Frm_FindLineTool.Instance.tbx_lineAngle.TextStr = "";
+                        });
                         toolRunStatu = (Project.Instance.configuration.language == Language.English ? ToolRunStatu.Not_Succeed : ToolRunStatu.未找到线);
                         return;
                     }
+
+                    // 结果刷新统一走 SafeInvoke：窗口未打开直接跳过、跨线程 BeginInvoke，
+                    // 模块调试与流程运行（页面打开时）都实时刷新，避免陈旧值误导。
+                    SafeInvokeFindLineWindow(() =>
+                    {
+                        Frm_FindLineTool.Instance.tbx_resultStartRow.Text = ResultLineStartRow.ToString();
+                        Frm_FindLineTool.Instance.tbx_resultStartCol.Text = ResultLineStartCol.ToString();
+                        Frm_FindLineTool.Instance.tbx_resultEndRow.Text = ResultLineEndRow.ToString();
+                        Frm_FindLineTool.Instance.tbx_resultEndCol.Text = ResultLineEndCol.ToString();
+                        Frm_FindLineTool.Instance.tbx_lineStartRow.TextStr = ResultLineStartRow.ToString();
+                        Frm_FindLineTool.Instance.tbx_lineStartCol.TextStr = ResultLineStartCol.ToString();
+                        Frm_FindLineTool.Instance.tbx_lineEndRow.TextStr = ResultLineEndRow.ToString();
+                        Frm_FindLineTool.Instance.tbx_lineEndCol.TextStr = ResultLineEndCol.ToString();
+                        Frm_FindLineTool.Instance.tbx_lineAngle.TextStr = Math.Round(_angle.D, 3).ToString();
+                    });
 
                     // 用经过三位小数归一化的属性值覆盖输出，保持界面和下游读取一致。
                     toolPar.ResultPar.线.起点.X = ResultLineStartRow;

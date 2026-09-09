@@ -327,6 +327,8 @@ namespace VMPro
 
         private void EnsureDefaultTcpServer()
         {
+            if (Project.Instance.configuration.defaultTcpServerDeleted)
+                return;      //用户已主动删除默认服务端，不再自动重建
             EnsureDeviceCollections();
             if (FindTcpServer(DefaultTcpServerName) == null)
                 Project.Instance.L_TCPSever.Insert(0, new TCPSever(DefaultTcpServerName));
@@ -347,12 +349,15 @@ namespace VMPro
                 if (lst_deviceListSimple != null)
                     lst_deviceListSimple.Items.Clear();
 
-                AddDeviceRow(DefaultTcpServerType, DefaultTcpServerName);
+                bool showDefaultRow = !Project.Instance.configuration.defaultTcpServerDeleted;
+                if (showDefaultRow)
+                    AddDeviceRow(DefaultTcpServerType, DefaultTcpServerName);
                 for (int i = 0; i < Project.Instance.L_PLCDevice.Count; i++)
                     AddDeviceRow("PLCDevice", Project.Instance.L_PLCDevice[i].Name);
                 for (int i = 0; i < Project.Instance.L_TCPSever.Count; i++)
                 {
-                    if (IsDefaultTcpServer(Project.Instance.L_TCPSever[i]))
+                    //默认服务端行已在上方单独添加；用户删除默认服务端后不再自动重建，同名设备按普通服务端显示
+                    if (showDefaultRow && IsDefaultTcpServer(Project.Instance.L_TCPSever[i]))
                         continue;
                     AddDeviceRow("TCPSever", Project.Instance.L_TCPSever[i].Name);
                 }
@@ -641,6 +646,8 @@ namespace VMPro
                 curForm = formType;
                 pnl_formPnl.Controls.Clear();
                 form.TopLevel = false;
+                if (form.Parent != null)
+                    form.Parent = null;      //先脱离旧父容器，避免偶发“已有父级”嵌入失败导致面板空白
                 form.Parent = pnl_formPnl;
                 form.Dock = dockStyle;
                 EnableAdaptiveDeviceLayout(form);
@@ -1097,10 +1104,11 @@ namespace VMPro
 
         private void DeleteDevice(string deviceType, string deviceName)
         {
+            //默认服务端同样允许删除；删除后该工程不再自动重建它（需要时可新建同名设备）
             if (deviceType == DefaultTcpServerType || deviceName == DefaultTcpServerName)
             {
-                SetTip("默认服务端不可删除，可在默认服务端页面中修改IP、端口和自动监听配置", Color.OrangeRed);
-                return;
+                Project.Instance.configuration.defaultTcpServerDeleted = true;
+                deviceType = "TCPSever";
             }
 
             switch (deviceType)

@@ -214,6 +214,13 @@ namespace Controls
                         editTextBox.Text = _text ?? string.Empty;
                     Invalidate();
                 }
+                finally
+                {
+                    //无论程序设置还是用户选择，都让缓存与内部下拉框的真实显示保持一致；
+                    //否则程序化选中后 TextStr 仍是旧值，调用方（如发送目标）会拿到过期内容
+                    _selectedIndex = cbx_item.SelectedIndex;
+                    _text = cbx_item.Text;
+                }
             }
         }
         /// <summary>
@@ -319,6 +326,9 @@ namespace Controls
                     cbx_item.Items.Clear();
                     cbx_item.Items.AddRange(value);
                     UpdateDropDownWidth();
+                    //重建项后内部选中会被重置，同步缓存，保证 TextStr 与显示一致
+                    _selectedIndex = cbx_item.SelectedIndex;
+                    _text = cbx_item.Text;
                 }
                 catch
                 {
@@ -367,6 +377,44 @@ namespace Controls
             }
             items[Items.Length] = item;
             Items = items;
+        }
+
+        /// <summary>
+        /// 移除指定项；若移除的是当前选中项则清空选择，否则保持原选中
+        /// </summary>
+        /// <param name="item">项</param>
+        public void Remove(string item)
+        {
+            try
+            {
+                string oldText = TextStr;
+                bool removed = false;
+                for (int i = 0; i < Items.Length; i++)
+                {
+                    if (string.Equals(Items[i], item, StringComparison.Ordinal))
+                    {
+                        string[] items = new string[Items.Length - 1];
+                        for (int j = 0, k = 0; j < Items.Length; j++)
+                        {
+                            if (j == i) continue;
+                            items[k++] = Items[j];
+                        }
+                        Items = items;
+                        removed = true;
+                        break;
+                    }
+                }
+                if (removed)
+                {
+                    if (item == oldText)
+                        TextStr = string.Empty;      //移除的正是选中项，清空选择
+                    else
+                        TextStr = oldText;           //恢复原选中项
+                }
+            }
+            catch
+            {
+            }
         }
 
         private void UpdateDropDownWidth()

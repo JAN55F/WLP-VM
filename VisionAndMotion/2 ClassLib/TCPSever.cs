@@ -55,6 +55,26 @@ namespace VMPro
         /// Socket集合  因Socket类不能被序列化，所以声明一个静态的集合来存储    键：通讯设备名   值：Socket对象
         /// </summary>
         internal static List<STCPSever> L_STCPSever = new List<STCPSever>();
+
+        /// <summary>
+        /// 线程安全的界面刷新：主窗体句柄已创建时走 BeginInvoke；
+        /// 启动极早期句柄尚未创建时直接在当前线程执行，避免“句柄未创建”异常
+        /// 中断监听线程（否则 Bind 成功后 Accept 循环也不会启动，表现为时而不自动监听）。
+        /// </summary>
+        private static void SafeBeginInvoke(Action action)
+        {
+            try
+            {
+                Frm_Main main = Frm_Main.Instance;
+                if (main != null && main.IsHandleCreated)
+                {
+                    main.BeginInvoke(action);
+                    return;
+                }
+                action();
+            }
+            catch { }
+        }
         /// <summary>
         /// 程序开启后自动监听
         /// </summary>
@@ -226,9 +246,11 @@ namespace VMPro
                                 L_STCPSever[i].SeverObj.Bind(point);
                                 L_STCPSever[i].SeverObj.Listen(10);
                                 listened = true;
-                                Frm_TCPServer.TryApplyListeningState(this, true);
-                                Frm_DeviceManager.TrySetTipForDevice("TCPSever", Name,
-                                    "TCP服务端已开始监听", Color.Green);
+                                SafeBeginInvoke(new Action(() =>
+                                {
+                                    Frm_TCPServer.Instance.btn_listen.TextStr = "停止监听";
+                                    Frm_DeviceManager.Instance.lbl_tip.Text = "TCP服务端已开始监听";
+                                }));
                             }
                             catch (Exception ex)
                             {
@@ -236,10 +258,11 @@ namespace VMPro
                                 Log.SaveError(ex);
                                 if (showFailureMessage)
                                 {
-                                    Machine.ShowMessageOnMainUiThread(
-                                        "\r\n服务端监听失败：" + ex.Message + "\r\n\r\n请检查IP地址和端口是否被占用",
-                                        TipType.Error);
-                                    Frm_TCPServer.TryApplyListeningState(this, false);
+                                    SafeBeginInvoke(new Action(() =>
+                                    {
+                                        Frm_MessageBox.Instance.MessageBoxShow("\r\n服务端监听失败：" + ex.Message + "\r\n\r\n请检查IP地址和端口是否被占用");
+                                        Frm_TCPServer.Instance.btn_listen.TextStr = "开始监听";
+                                    }));
                                 }
                                 else
                                 {
@@ -273,10 +296,19 @@ namespace VMPro
                                 th_receive.Start(socket);
 
                                 Frm_Main.Instance.OutputMsg(string.Format("客户端已连接，信息: {0}", remoteEndPoint), Color.Green);
-                                Frm_TCPServer.TryRefreshConnectedClients(this);
+                                SafeBeginInvoke(new Action(() =>
+                                {
+                                    Frm_TCPServer.Instance.lbx_connectedList.Items.Add(remoteEndPoint);
+                                    Frm_TCPServer.Instance.cbx_connectedList.Add(remoteEndPoint);
+                                    if (Frm_TCPServer.Instance.cbx_connectedList.Items.Length > 0)
+                                        Frm_TCPServer.Instance.cbx_connectedList.SelectedIndex = 0;
+                                }));
                             }
                             listened = false;
-                            Frm_TCPServer.TryApplyListeningState(this, false);
+                            SafeBeginInvoke(new Action(() =>
+                            {
+                                Frm_TCPServer.Instance.btn_listen.TextStr = "开始监听";
+                            }));
                         }
                     }
                 });
@@ -296,27 +328,78 @@ namespace VMPro
         {
             try
             {
-                string curTime = DateTime.Now.ToString("HH:mm:ss");
-                Frm_TCPServer.TryAppendLog(this, curTime + "<-  : " + msg + "\r\n");
-                byte[] buffer = Encoding.Default.GetBytes(msg);
+                bool delivered = false;
                 for (int i = 0; i < L_STCPSever.Count; i++)
                 {
                     if (L_STCPSever[i].severName == Name)
                     {
-                        KeyValuePair<string, Socket>[] clients;
-                        lock (ClientSyncRoot)
-                            clients = L_STCPSever[i].L_Client.ToArray();
-                        foreach (KeyValuePair<string, Socket> item in clients)
+                        foreach (KeyValuePair<string, Socket> item in L_STCPSever[i].L_Client)
                         {
                             if (item.Key == clientStr)
+                            {
+                                byte[] buffer = Encoding.Default.GetBytes(msg);
                                 item.Value.Send(buffer);
+                                delivered = true;
+                                break;
+                            }
                         }
+                        break;
                     }
+                }
+                if (delivered)
+                {
+                    //投递成功才记日志，避免“已发送”假象误导排查
+                    if (Frm_TCPServer.Instance.Visible)
+                    {
+                        string curTime = DateTime.Now.ToString("HH:mm:ss");
+                        Frm_TCPServer.Instance.tbx_log.AppendText(curTime + "<-  : " + msg + "\r\n");
+                    }
+                }
+                else
+                {
+                    Frm_Main.Instance.OutputMsg(string.Format("TCP服务端 [{0}]：客户端 [{1}] 已断开或不存在，发送失败", Name, clientStr), Color.Red);
                 }
             }
             catch (Exception ex)
             {
                 Log.SaveError(ex);
+            }
+        }
+        /// <summary>
+        /// 向当前第一个已连接的客户端发送消息（供流程工具使用）。返回是否发送成功。
+        /// </summary>
+        /// <param name="msg">消息内容</param>
+        internal bool SendToFirstClient(string msg)
+        {
+            try
+            {
+                for (int i = 0; i < L_STCPSever.Count; i++)
+                {
+                    if (L_STCPSever[i].severName != Name)
+                        continue;
+                    foreach (KeyValuePair<string, Socket> item in L_STCPSever[i].L_Client)
+                    {
+                        if (item.Value != null && item.Value.Connected)
+                        {
+                            byte[] buffer = Encoding.Default.GetBytes(msg);
+                            item.Value.Send(buffer);
+                            //投递成功才记日志
+                            if (Frm_TCPServer.Instance.Visible)
+                            {
+                                string curTime = DateTime.Now.ToString("HH:mm:ss");
+                                Frm_TCPServer.Instance.tbx_log.AppendText(curTime + "<-  : " + msg + "\r\n");
+                            }
+                            return true;
+                        }
+                    }
+                    return false;       //没有已连接的客户端
+                }
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Log.SaveError(ex);
+                return false;
             }
         }
         /// <summary>
@@ -372,7 +455,11 @@ namespace VMPro
                     if (length > 0)
                     {
                         string logLine = DateTime.Now.ToString("HH:mm:ss") + "->  : " + result + "\r\n";
-                        Frm_TCPServer.TryAppendLog(this, logLine);
+                        SafeBeginInvoke(new Action(() =>
+                        {
+                            if (Frm_TCPServer.Instance.Visible)
+                                Frm_TCPServer.Instance.tbx_log.AppendText(logLine);
+                        }));
                         receivedStr = result;
                     }
                     else
@@ -387,29 +474,43 @@ namespace VMPro
                         }
                         catch { }
 
-                        // 从客户端列表中移除已断开的客户端
+                        // 从客户端列表中移除已断开的客户端，并记住端点串用于同步清理界面
+                        string deadClient = null;
                         for (int j = 0; j < L_STCPSever.Count; j++)
                         {
                             if (L_STCPSever[j].severName == Name)
                             {
                                 string clientKey = null;
-                                lock (ClientSyncRoot)
+                                foreach (var kv in L_STCPSever[j].L_Client)
                                 {
-                                    foreach (var kv in L_STCPSever[j].L_Client)
-                                    {
-                                        if (kv.Value == clientSocket) { clientKey = kv.Key; break; }
-                                    }
-                                    if (clientKey != null)
-                                        L_STCPSever[j].L_Client.Remove(clientKey);
+                                    if (kv.Value == clientSocket) { clientKey = kv.Key; break; }
+                                }
+                                if (clientKey != null)
+                                {
+                                    L_STCPSever[j].L_Client.Remove(clientKey);
+                                    deadClient = clientKey;
                                 }
                                 break;
                             }
                         }
 
                         string localName = Name;
-                        Frm_TCPServer.TryRefreshConnectedClients(this);
-                        Frm_DeviceManager.TrySetTipForDevice("TCPSever", localName,
-                            "客户端连接已断开", Color.Red);
+                        SafeBeginInvoke(new Action(() =>
+                        {
+                            //同步移除界面上残留的已断开客户端，避免发送按钮选中已死连接后静默不发
+                            if (Frm_TCPServer.Instance.lbx_connectedList.Items.Contains(deadClient))
+                                Frm_TCPServer.Instance.lbx_connectedList.Items.Remove(deadClient);
+                            Frm_TCPServer.Instance.cbx_connectedList.Remove(deadClient);
+                            if (Frm_TCPServer.Instance.Visible)
+                            {
+                                if (Frm_DeviceManager.Instance.dgv_deviceList.SelectedRows.Count > 0 &&
+                                    Frm_DeviceManager.Instance.dgv_deviceList.SelectedRows[0].Cells[0].Value.ToString() == localName)
+                                {
+                                    Frm_TCPServer.Instance.btn_listen.TextStr = "连接";
+                                    Frm_DeviceManager.Instance.lbl_tip.Text = "连接已断开";
+                                }
+                            }
+                        }));
                         Frm_Main.Instance.OutputMsg("客户端连接已断开", Color.Red);
                         return;
                     }
@@ -459,9 +560,16 @@ namespace VMPro
                         L_STCPSever[i] = stcpSever;
                     }
                     listened = false;
-                    Frm_TCPServer.TryApplyListeningState(this, false);
-                    Frm_DeviceManager.TrySetTipForDevice("TCPSever", Name,
-                        "TCP服务端已停止监听", Color.FromArgb(52, 64, 84));
+                    SafeBeginInvoke(new Action(() =>
+                    {
+                        if (Frm_TCPServer.Instance.Visible)
+                        {
+                            Frm_TCPServer.Instance.btn_listen.TextStr = "开始监听";
+                            Frm_TCPServer.Instance.lbx_connectedList.Items.Clear();
+                            Frm_TCPServer.Instance.cbx_connectedList.Clear();
+                        }
+                        Frm_DeviceManager.Instance.lbl_tip.Text = "TCP服务端已停止监听";
+                    }));
                     break;
                 }
             }

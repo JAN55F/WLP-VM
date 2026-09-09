@@ -203,6 +203,7 @@
             this.ckb_autoDisconnectBeforeClose.Size = new System.Drawing.Size(170, 20);
             this.ckb_autoDisconnectBeforeClose.TabIndex = 156;
             this.ckb_autoDisconnectBeforeClose.TextStr = "程序关闭前断开服务器";
+            this.ckb_autoDisconnectBeforeClose.CheckChanged += new Controls.DCheckChanged(this.ckb_autoDisconnectBeforeClose_CheckChanged);
             // 
             // ckb_autoConnectAfterStart
             // 
@@ -215,6 +216,7 @@
             this.ckb_autoConnectAfterStart.Size = new System.Drawing.Size(170, 20);
             this.ckb_autoConnectAfterStart.TabIndex = 155;
             this.ckb_autoConnectAfterStart.TextStr = "程序启动后连接服务器";
+            this.ckb_autoConnectAfterStart.CheckChanged += new Controls.DCheckChanged(this.ckb_autoConnectAfterStart_CheckChanged);
             // 
             // btn_send
             // 
