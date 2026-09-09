@@ -196,6 +196,44 @@ namespace Controls
             Items = items;
         }
 
+        /// <summary>
+        /// 移除指定项；若移除的是当前选中项则清空选择，否则保持原选中
+        /// </summary>
+        /// <param name="item">项</param>
+        public void Remove(string item)
+        {
+            try
+            {
+                string oldText = TextStr;
+                bool removed = false;
+                for (int i = 0; i < Items.Length; i++)
+                {
+                    if (string.Equals(Items[i], item, StringComparison.Ordinal))
+                    {
+                        string[] items = new string[Items.Length - 1];
+                        for (int j = 0, k = 0; j < Items.Length; j++)
+                        {
+                            if (j == i) continue;
+                            items[k++] = Items[j];
+                        }
+                        Items = items;
+                        removed = true;
+                        break;
+                    }
+                }
+                if (removed)
+                {
+                    if (item == oldText)
+                        TextStr = string.Empty;      //移除的正是选中项，清空选择
+                    else
+                        TextStr = oldText;           //恢复原选中项
+                }
+            }
+            catch
+            {
+            }
+        }
+
         private void UpdateDropDownWidth()
         {
             int width = cbx_item.Width;

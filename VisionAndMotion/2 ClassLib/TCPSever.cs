@@ -244,12 +244,7 @@ namespace VMPro
         {
             try
             {
-                if (Frm_TCPServer.Instance.Visible)
-                {
-                    string curTime = DateTime.Now.ToString("HH:mm:ss");
-                    Frm_TCPServer.Instance.tbx_log.AppendText(curTime + "<-  : " + msg + "\r\n");
-                }
-                byte[] buffer = Encoding.Default.GetBytes(msg);
+                bool delivered = false;
                 for (int i = 0; i < L_STCPSever.Count; i++)
                 {
                     if (L_STCPSever[i].severName == Name)
@@ -257,9 +252,28 @@ namespace VMPro
                         foreach (KeyValuePair<string, Socket> item in L_STCPSever[i].L_Client)
                         {
                             if (item.Key == clientStr)
+                            {
+                                byte[] buffer = Encoding.Default.GetBytes(msg);
                                 item.Value.Send(buffer);
+                                delivered = true;
+                                break;
+                            }
                         }
+                        break;
                     }
+                }
+                if (delivered)
+                {
+                    //投递成功才记日志，避免“已发送”假象误导排查
+                    if (Frm_TCPServer.Instance.Visible)
+                    {
+                        string curTime = DateTime.Now.ToString("HH:mm:ss");
+                        Frm_TCPServer.Instance.tbx_log.AppendText(curTime + "<-  : " + msg + "\r\n");
+                    }
+                }
+                else
+                {
+                    Frm_Main.Instance.OutputMsg(string.Format("TCP服务端 [{0}]：客户端 [{1}] 已断开或不存在，发送失败", Name, clientStr), Color.Red);
                 }
             }
             catch (Exception ex)
@@ -275,11 +289,6 @@ namespace VMPro
         {
             try
             {
-                if (Frm_TCPServer.Instance.Visible)
-                {
-                    string curTime = DateTime.Now.ToString("HH:mm:ss");
-                    Frm_TCPServer.Instance.tbx_log.AppendText(curTime + "<-  : " + msg + "\r\n");
-                }
                 for (int i = 0; i < L_STCPSever.Count; i++)
                 {
                     if (L_STCPSever[i].severName != Name)
@@ -290,6 +299,12 @@ namespace VMPro
                         {
                             byte[] buffer = Encoding.Default.GetBytes(msg);
                             item.Value.Send(buffer);
+                            //投递成功才记日志
+                            if (Frm_TCPServer.Instance.Visible)
+                            {
+                                string curTime = DateTime.Now.ToString("HH:mm:ss");
+                                Frm_TCPServer.Instance.tbx_log.AppendText(curTime + "<-  : " + msg + "\r\n");
+                            }
                             return true;
                         }
                     }
@@ -378,7 +393,8 @@ namespace VMPro
                         }
                         catch { }
 
-                        // 从客户端列表中移除已断开的客户端
+                        // 从客户端列表中移除已断开的客户端，并记住端点串用于同步清理界面
+                        string deadClient = null;
                         for (int j = 0; j < L_STCPSever.Count; j++)
                         {
                             if (L_STCPSever[j].severName == Name)
@@ -389,7 +405,10 @@ namespace VMPro
                                     if (kv.Value == clientSocket) { clientKey = kv.Key; break; }
                                 }
                                 if (clientKey != null)
+                                {
                                     L_STCPSever[j].L_Client.Remove(clientKey);
+                                    deadClient = clientKey;
+                                }
                                 break;
                             }
                         }
@@ -397,6 +416,10 @@ namespace VMPro
                         string localName = Name;
                         Frm_Main.Instance.BeginInvoke(new Action(() =>
                         {
+                            //同步移除界面上残留的已断开客户端，避免发送按钮选中已死连接后静默不发
+                            if (Frm_TCPServer.Instance.lbx_connectedList.Items.Contains(deadClient))
+                                Frm_TCPServer.Instance.lbx_connectedList.Items.Remove(deadClient);
+                            Frm_TCPServer.Instance.cbx_connectedList.Remove(deadClient);
                             if (Frm_TCPServer.Instance.Visible)
                             {
                                 if (Frm_DeviceManager.Instance.dgv_deviceList.SelectedRows.Count > 0 &&
