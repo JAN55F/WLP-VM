@@ -75,7 +75,7 @@ namespace VMPro
                 if (Directory.Exists(imageAcqTool.imageDirectoryPath))
                 {
                      Frm_AcqImageTool.Instance.TopMost = false;
-                     Frm_AcqImageTool.Instance.button100.Image = Resources.unTopLevel;
+                     Frm_AcqImageTool.Instance.RefreshTitleButtonVisuals();
                     Process.Start(imageAcqTool.imageDirectoryPath);
                     this.pnl_multImage.Focus();
                 }

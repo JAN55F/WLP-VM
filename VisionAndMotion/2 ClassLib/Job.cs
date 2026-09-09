@@ -8,7 +8,7 @@ using System.Drawing;
 using System.Text.RegularExpressions;
 using System.Diagnostics;
 using System.Threading;
-using System.Windows.Resources;
+using System.Threading.Tasks;
 using VMPro.Properties;
 using Newtonsoft.Json;
 using System.Runtime.Serialization;
@@ -104,14 +104,23 @@ namespace VMPro
                     {
                         try
                         {
-                            while (Job.FindJobByName(jobName.ToString()).isRunLoop)
+                            while (isRunLoop)
                             {
-                                Job.FindJobByName(jobName.ToString()).Run();
+                                List<object> runResult = Run();
+                                if (runResult == null)
+                                {
+                                    jobRunStatu = JobRunStatu.Fail;
+                                    isRunLoop = false;
+                                    Frm_Main.Instance.OutputMsg(string.Format(
+                                        "流程 [{0}] 发生异常，连续运行已停止，请查看错误日志", jobName),
+                                        Color.Red);
+                                    break;
+                                }
 
                                 //流程失败停止循环
                                 if (Project.Instance.configuration.failStop)
                                 {
-                                    if (Job.FindJobByName(jobName.ToString()).jobRunStatu != JobRunStatu.Succeed)
+                                    if (jobRunStatu != JobRunStatu.Succeed)
                                     {
                                         isRunLoop = false;
                                         break;
@@ -121,13 +130,15 @@ namespace VMPro
                                 //文件夹图像执行一遍后停止循环
                                 if (Project.Instance.configuration.endStop)
                                 {
-                                    for (int i = 0; i < Job.FindJobByName(jobName.ToString()).L_toolList.Count; i++)
+                                    for (int i = 0; i < L_toolList.Count; i++)
                                     {
-                                        if (Job.FindJobByName(jobName.ToString()).L_toolList[i].toolType == ToolType.ImageAcq)
+                                        if (L_toolList[i].toolType == ToolType.ImageAcq)
                                         {
-                                            if (((AcqImageTool)Job.FindJobByName(jobName.ToString()).L_toolList[i].tool).imageSourceMode == ImageSourceMode.FromDirectory)
+                                            AcqImageTool imageTool = (AcqImageTool)L_toolList[i].tool;
+                                            if (imageTool.imageSourceMode == ImageSourceMode.FromDirectory)
                                             {
-                                                if (((AcqImageTool)Job.FindJobByName(jobName.ToString()).L_toolList[i].tool).currentImageIndex == ((AcqImageTool)Job.FindJobByName(jobName.ToString()).L_toolList[i].tool).L_images.Count - 1)
+                                                if (imageTool.L_images.Count == 0 ||
+                                                    imageTool.currentImageIndex >= imageTool.L_images.Count - 1)
                                                 {
                                                     isRunLoop = false;
                                                     break;
@@ -138,7 +149,7 @@ namespace VMPro
                                 }
 
                                 if (isRunLoop)
-                                    Thread.Sleep(Convert.ToInt16(Project.Instance.configuration.timeBetweenJobRun));
+                                    Thread.Sleep(Math.Max(0, Project.Instance.configuration.timeBetweenJobRun));
                             }
                         }
                         catch (Exception ex)
@@ -164,8 +175,8 @@ namespace VMPro
                     th_runJob.Start();
                     if (Machine.machineRunStatu != MachineRunStatu.Running)
                     {
-                        Frm_Job.Instance.btn_runLoop.Text = Project.Instance.configuration.language == Language.English ? "Run Loop" : "停止运行";
-                        Frm_Main.Instance.toolStripButton12.Text = "停止运行";
+                        Frm_Job.Instance.btn_runLoop.Text = Project.Instance.configuration.language == Language.English ? "Stop Run" : "停止运行";
+                        Frm_Main.Instance.toolStripButton12.Text = Project.Instance.configuration.language == Language.English ? "Stop Run" : "停止运行";
                     }
                     Thread.Sleep(100);
                     //Frm_Job.Instance.btn_runLoop.BackgroundImage = Resources.ButtonUp;
@@ -269,6 +280,7 @@ namespace VMPro
         /// <summary>
         /// 需要连线的节点对，不停的画连线，注意键值对中第一个为连线的结束节点，第二个为起始节点，一个输出可能连接多个输入，而键值对中的键不能重复，所以把源作为值，输入作为键
         /// </summary>
+        [NonSerialized]
         internal Dictionary<TreeNode, TreeNode> D_itemAndSource = new Dictionary<TreeNode, TreeNode>();
         /// <summary>
         /// 本流程所绑定的生产窗口的句柄
@@ -294,6 +306,11 @@ namespace VMPro
         /// 在空白除右击菜单
         /// </summary>
         private static ContextMenuStrip rightClickMenuAtBlank = new ContextMenuStrip();
+        /// <summary>
+        /// 记住当次右键真正命中的节点。菜单弹出后不再依赖可能被其它消息改变的 SelectedNode。
+        /// </summary>
+        [NonSerialized]
+        private TreeNode rightClickTargetNode;
         /// <summary>
         /// 流程名
         /// </summary>
@@ -973,251 +990,87 @@ namespace VMPro
         #region 绘制节点连线
 
         /// <summary>
-        /// Graphics对象
-        /// </summary>
-        private static Graphics graphics;
-        /// <summary>
-        /// 正在绘制输入输出指向线
+        /// 兼容旧调用方的绘制状态字段。新编辑器只在 UI 重绘周期中画线。
         /// </summary>
         internal static bool isDrawing = false;
-        /// <summary>
-        /// 流程树中节点的最大长度
-        /// </summary>
-        private int maxLength = 130;
-        /// <summary>
-        /// 记录起始节点和此节点的列坐标值
-        /// </summary>
-        private static Dictionary<TreeNode, Color> startNodeAndColor = new Dictionary<TreeNode, Color>();
-        /// <summary>
-        /// 记录前面的划线所跨越的列段，
-        /// </summary>
-        private static Dictionary<int, Dictionary<TreeNode, TreeNode>> list = new Dictionary<int, Dictionary<TreeNode, TreeNode>>();
-        /// <summary>
-        /// 每一个列坐标值对应一种颜色
-        /// </summary>
-        private Dictionary<int, Color> colValueAndColor = new Dictionary<int, Color>();
-        /// <summary>
-        /// 输入输出指向线的颜色数组
-        /// </summary>
-        private static Color[] color = new Color[] { Color.Blue, Color.Orange, Color.Black, Color.Red, Color.Green, Color.Brown, Color.Blue, Color.Black, Color.Red, Color.Green, Color.Orange, Color.Brown, Color.Blue, Color.Black, Color.Red, Color.Green, Color.Orange, Color.Brown, Color.Blue, Color.Black, Color.Red, Color.Green, Color.Orange, Color.Brown, Color.Blue, Color.Black, Color.Red, Color.Green, Color.Orange, Color.Brown };
 
 
         /// <summary>
-        /// 绘制输入输出指向线
+        /// 请求重绘输入输出指向线
         /// </summary>
-        /// <param name="obj"></param>
         internal void DrawLine()
         {
             try
             {
-                if (Project.Instance.configuration.displayLine && !isDrawing && !Configuration.SpeedMode)
-                {
-                    isDrawing = true;
-                    Thread th = new Thread(() =>
-                    {
-                        Job.GetJobTree(jobName).MouseWheel += new MouseEventHandler(numericUpDown1_MouseWheel);          //划线的时候不能滚动，否则画好了线，结果已经滚到其它地方了
-                        maxLength = 150;
-                        colValueAndColor.Clear();
-                        startNodeAndColor.Clear();
-                        list.Clear();
-                        TreeView tree = GetJobTree(jobName);
-                        graphics = tree.CreateGraphics();
-                        tree.CreateGraphics().Dispose();
-
-                        foreach (KeyValuePair<TreeNode, TreeNode> item in D_itemAndSource)
-                        {
-                            // 项目加载、删除工具或切换流程时，旧连接可能暂时指向已移除的节点。
-                            // 跳过无效连接，避免 CreateLine 对 null.Parent 访问导致流程点击崩溃。
-                            if (item.Key == null || item.Value == null ||
-                                item.Key.TreeView != tree || item.Value.TreeView != tree ||
-                                item.Key.Parent == null || item.Value.Parent == null)
-                                continue;
-                            CreateLine(tree, item.Key, item.Value);
-                        }
-                        Application.DoEvents();
-                        Job.GetJobTree(jobName).MouseWheel -= new MouseEventHandler(numericUpDown1_MouseWheel);
-                        isDrawing = false;
-
-                    });
-                    th.IsBackground = true;
-                    th.ApartmentState = ApartmentState.STA;             //此处要加一行，否则画线时会报错
-                    th.Start();
-                }
-            }
-            catch (Exception ex)
-            {
-                //////Log.SaveError(ex);
-            }
-        }
-        /// <summary>
-        /// 画Treeview控件两个节点之间的连线
-        /// </summary>
-        /// <param name="treeview">要画连线的Treeview</param>
-        /// <param name="startNode">结束节点</param>
-        /// <param name="endNode">开始节点</param>
-        private void CreateLine(TreeView treeview, TreeNode endNode, TreeNode startNode)
-        {
-            try
-            {
-                if (treeview == null || treeview.IsDisposed ||
-                    endNode == null || startNode == null ||
-                    endNode.TreeView != treeview || startNode.TreeView != treeview ||
-                    endNode.Parent == null || startNode.Parent == null)
+                TreeView tree = GetJobTree(jobName);
+                if (tree == null || tree.IsDisposed || tree.Disposing || !tree.IsHandleCreated)
                     return;
 
-                //得到起始与结束节点之间所有节点的最大长度  ，保证画线不穿过节点
-                int startNodeParantIndex = startNode.Parent.Index;
-                int endNodeParantIndex = endNode.Parent.Index;
-                int startNodeIndex = startNode.Index;
-                int endNodeIndex = endNode.Index;
-                int max = 0;
-
-                if (!startNode.Parent.IsExpanded)
+                FlowEditorTreeView flowEditor = tree as FlowEditorTreeView;
+                if (flowEditor != null)
                 {
-                    max = startNode.Parent.Bounds.X + startNode.Parent.Bounds.Width;
+                    flowEditor.RequestConnectionRefresh();
+                    return;
                 }
+
+                MethodInvoker invalidate = delegate
+                {
+                    if (!tree.IsDisposed && !tree.Disposing)
+                        tree.Invalidate();
+                };
+
+                if (tree.InvokeRequired)
+                    tree.BeginInvoke(invalidate);
                 else
-                {
-                    for (int i = startNodeIndex; i < startNode.Parent.Nodes.Count - 1; i++)
-                    {
-                        if (max < treeview.Nodes[startNodeParantIndex].Nodes[i].Bounds.X + treeview.Nodes[startNodeParantIndex].Nodes[i].Bounds.Width)
-                            max = treeview.Nodes[startNodeParantIndex].Nodes[i].Bounds.X + treeview.Nodes[startNodeParantIndex].Nodes[i].Bounds.Width;
-                    }
-                }
-                for (int i = startNodeParantIndex + 1; i < endNodeParantIndex; i++)
-                {
-                    if (!treeview.Nodes[i].IsExpanded)
-                    {
-                        if (max < treeview.Nodes[i].Bounds.X + treeview.Nodes[i].Bounds.Width)
-                            max = treeview.Nodes[i].Bounds.X + treeview.Nodes[i].Bounds.Width;
-                    }
-                    else
-                    {
-                        for (int j = 0; j < treeview.Nodes[i].Nodes.Count; j++)
-                        {
-                            if (max < treeview.Nodes[i].Nodes[j].Bounds.X + treeview.Nodes[i].Nodes[j].Bounds.Width)
-                                max = treeview.Nodes[i].Nodes[j].Bounds.X + treeview.Nodes[i].Nodes[j].Bounds.Width;
-                        }
-                    }
-                }
-                if (!endNode.Parent.IsExpanded)
-                {
-                    if (max < endNode.Parent.Bounds.X + endNode.Parent.Bounds.Width)
-                        max = endNode.Parent.Bounds.X + endNode.Parent.Bounds.Width;
-                }
-                else
-                {
-                    for (int i = 0; i < endNode.Index; i++)
-                    {
-                        if (max < treeview.Nodes[endNodeParantIndex].Nodes[i].Bounds.X + treeview.Nodes[endNodeParantIndex].Nodes[i].Bounds.Width)
-                            max = treeview.Nodes[endNodeParantIndex].Nodes[i].Bounds.X + treeview.Nodes[endNodeParantIndex].Nodes[i].Bounds.Width;
-                    }
-                }
-                max += 20;        //箭头不能连着节点，
-
-                if (!startNode.Parent.IsExpanded)
-                    startNode = startNode.Parent;
-                if (!endNode.Parent.IsExpanded)
-                    endNode = endNode.Parent;
-
-                if (endNode.Bounds.X + endNode.Bounds.Width + 20 > max)
-                    max = endNode.Bounds.X + endNode.Bounds.Width + 20;
-                if (startNode.Bounds.X + startNode.Bounds.Width + 20 > max)
-                    max = startNode.Bounds.X + startNode.Bounds.Width + 20;
-
-                //判断是否可以在当前处划线
-                foreach (KeyValuePair<int, Dictionary<TreeNode, TreeNode>> item in list)
-                {
-                    if (Math.Abs(max - item.Key) < 10)
-                    {
-                        foreach (KeyValuePair<TreeNode, TreeNode> item1 in item.Value)
-                        {
-                            if (startNode != item1.Value)
-                            {
-                                if ((item1.Value.Bounds.X < maxLength && item1.Key.Bounds.X < maxLength) || (item1.Value.Bounds.X < maxLength && item1.Key.Bounds.X < maxLength))
-                                {
-                                    if (item1.Value.Bounds.Y > startNode.Bounds.Y || item1.Key.Bounds.Y > startNode.Bounds.Y)    //20200612加
-                                        max += (10 - Math.Abs(max - item.Key));
-                                }
-                            }
-                        }
-                    }
-                }
-
-                Dictionary<TreeNode, TreeNode> temp = new Dictionary<TreeNode, TreeNode>();
-                temp.Add(endNode, startNode);
-                if (!list.ContainsKey(max))
-                    list.Add(max, temp);
-                else
-                    list[max].Add(endNode, startNode);
-
-                if (!startNodeAndColor.ContainsKey(startNode))
-                    startNodeAndColor.Add(startNode, color[startNodeAndColor.Count]);
-
-                Pen pen = new Pen(startNodeAndColor[startNode], 1);
-                Brush brush = new SolidBrush(startNodeAndColor[startNode]);
-
-                graphics.DrawLine(pen, startNode.Bounds.X + startNode.Bounds.Width,
-                    startNode.Bounds.Y + startNode.Bounds.Height / 2,
-                max,
-                  startNode.Bounds.Y + startNode.Bounds.Height / 2);
-                graphics.DrawLine(pen, max,
-                   startNode.Bounds.Y + startNode.Bounds.Height / 2,
-                   max,
-                  endNode.Bounds.Y + endNode.Bounds.Height / 2);
-                graphics.DrawLine(pen, max,
-                   endNode.Bounds.Y + endNode.Bounds.Height / 2,
-                   endNode.Bounds.X + endNode.Bounds.Width,
-                     endNode.Bounds.Y + endNode.Bounds.Height / 2);
-                graphics.DrawString("<", new Font("微软雅黑", 12F), brush, endNode.Bounds.X + endNode.Bounds.Width - 5,
-                     endNode.Bounds.Y + endNode.Bounds.Height / 2 - 12);
-                Application.DoEvents();
-            }
-            catch { }
-        }
-        private void Instance_Paint(object sender, PaintEventArgs e)
-        {
-            DrawLineWithoutRefresh(null, null);
-        }
-        /// <summary>
-        /// 取消滚轮事件
-        /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
-        private void numericUpDown1_MouseWheel(object sender, MouseEventArgs e)
-        {
-            try
-            {
-                HandledMouseEventArgs h = e as HandledMouseEventArgs;
-                if (h != null)
-                {
-                    h.Handled = true;
-                }
+                    invalidate();
             }
             catch (Exception ex)
             {
                 Log.SaveError(ex);
             }
         }
+
+        /// <summary>
+        /// 返回当前连接的短生命周期快照，绘制层不会持有业务字典的枚举器。
+        /// </summary>
+        internal KeyValuePair<TreeNode, TreeNode>[] GetConnectionSnapshot()
+        {
+            try
+            {
+                return D_itemAndSource.ToArray();
+            }
+            catch
+            {
+                // 连接变化与窗口关闭恰好重叠时丢弃这一帧，下一次重绘会恢复。
+                return new KeyValuePair<TreeNode, TreeNode>[0];
+            }
+        }
+
+        internal bool ShouldDisplayConnections()
+        {
+            // true 表示显示全部；false 表示只显示当前选中输入/输出端口的连线。
+            // 极速模式仍由 FlowEditorTreeView 统一禁止绘制。
+            return Project.Instance.configuration.displayLine;
+        }
         internal void tvw_job_AfterSelect(object sender, TreeViewEventArgs e)
         {
-            nodeTextBeforeEdit = Job.GetJobTree(jobName).SelectedNode.Text;
-            Job.GetJobTree(jobName).Update();
+            TreeView tree = sender as TreeView;
+            TreeNode node = e == null ? null : e.Node;
+            if (tree == null || node == null)
+                return;
+            nodeTextBeforeEdit = node.Text;
             DrawLine();
         }
         internal void Draw_Line(object sender, TreeViewEventArgs e)
         {
-            Job.GetJobTree(jobName).Refresh();
             DrawLine();
         }
         internal void tbc_jobs_SelectedIndexChanged(object sender, EventArgs e)
         {
-            Job.GetJobTree(jobName).Refresh();
             DrawLine();
         }
         internal void DrawLineWithoutRefresh(object sender, MouseEventArgs e)
         {
-            Job.GetJobTree(jobName).Update();
             DrawLine();
         }
         /// <summary>
@@ -1343,6 +1196,98 @@ namespace VMPro
         #region 流程操作
 
         /// <summary>
+        /// 把反序列化得到的旧流程恢复为与新建流程一致的可运行内存状态。
+        /// 这里只修复运行期对象和空集合，不重建非空工具对象，避免丢失模板、标定和用户参数。
+        /// </summary>
+        internal void PrepareLoadedWorkflowData()
+        {
+            lock (this)
+            {
+                isRunLoop = false;
+                isRunOnceBusy = false;
+                loopRunThread = null;
+                activeRunCount = 0;
+                stopRequested = false;
+            }
+
+            m_MouseClicks = 0;
+            rightClickTargetNode = null;
+            afterSelectRequestId = 0;
+            CancelPendingAfterSelectDelay();
+            jobRunStatu = JobRunStatu.Fail;
+            jobName = jobName ?? string.Empty;
+
+            if (D_itemAndSource == null)
+                D_itemAndSource = new Dictionary<TreeNode, TreeNode>();
+            else
+                D_itemAndSource.Clear();
+
+            if (L_toolList == null)
+                L_toolList = new List<ToolInfo>();
+
+            // 工具对象为空时已经没有参数实体可恢复；保留这种占位反而会在打开或运行时发生强制转换异常。
+            L_toolList.RemoveAll(item => item == null || item.tool == null);
+            for (int i = 0; i < L_toolList.Count; i++)
+            {
+                ToolInfo toolInfo = L_toolList[i];
+                if (string.IsNullOrWhiteSpace(toolInfo.toolName))
+                    toolInfo.toolName = toolInfo.toolType + "_" + (i + 1);
+                if (toolInfo.toolTipInfo == null)
+                    toolInfo.toolTipInfo = "无";
+                if (toolInfo.input == null)
+                    toolInfo.input = new List<ToolIO>();
+                if (toolInfo.output == null)
+                    toolInfo.output = new List<ToolIO>();
+
+                toolInfo.input.RemoveAll(item => item == null);
+                toolInfo.output.RemoveAll(item => item == null);
+                NormalizeLoadedIoList(toolInfo.input);
+                NormalizeLoadedIoList(toolInfo.output);
+
+                toolInfo.tool.jobName = jobName;
+                toolInfo.tool.toolRunStatu = ToolRunStatu.Not_Run;
+                RestoreToolRuntimeLocks(toolInfo.tool);
+                FindLineTool loadedLine = toolInfo.tool as FindLineTool;
+                if (loadedLine != null)
+                    loadedLine.EnsureLoadedState();
+                FindCircleTool loadedCircle = toolInfo.tool as FindCircleTool;
+                if (loadedCircle != null)
+                    loadedCircle.EnsureLoadedState();
+            }
+        }
+
+        private static void NormalizeLoadedIoList(List<ToolIO> items)
+        {
+            for (int i = 0; i < items.Count; i++)
+            {
+                items[i].IOName = items[i].IOName ?? string.Empty;
+                if (items[i].value == null)
+                    items[i].value = string.Empty;
+            }
+        }
+
+        private static void RestoreToolRuntimeLocks(ToolBase tool)
+        {
+            try
+            {
+                for (Type type = tool.GetType(); type != null; type = type.BaseType)
+                {
+                    FieldInfo[] fields = type.GetFields(BindingFlags.Instance | BindingFlags.Public |
+                        BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
+                    for (int i = 0; i < fields.Length; i++)
+                    {
+                        if (fields[i].Name == "obj" && fields[i].FieldType == typeof(object) && !fields[i].IsInitOnly)
+                            fields[i].SetValue(tool, new object());
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.SaveError(ex);
+            }
+        }
+
+        /// <summary>
         /// 兼容旧版流程：统一所有跟随端口与模板匹配位置输出的位姿类型。
         /// </summary>
         internal void EnsureBlobFollowInput()
@@ -1447,9 +1392,9 @@ namespace VMPro
                 job.jobName = jobName;
                 Project.Instance.curEngine.L_jobList.Add(job);
 
-                TreeView tvw_job = new TreeView();
+                TreeView tvw_job = new FlowEditorTreeView(job.GetConnectionSnapshot, job.ShouldDisplayConnections);
                 tvw_job.Scrollable = true;
-                tvw_job.ItemHeight = 26;
+                tvw_job.ItemHeight = 34;
                 tvw_job.ShowLines = false;
                 tvw_job.AllowDrop = true;
                 tvw_job.ImageList = Job.imageList;
@@ -1464,17 +1409,10 @@ namespace VMPro
                 tvw_job.DragEnter += new DragEventHandler(job.tvw_job_DragEnter);
                 tvw_job.DragDrop += new DragEventHandler(job.tvw_job_DragDrop);
 
-                //以下事件为画线事件
-                if (Project.Instance.configuration.displayLine)
-                {
-                    tvw_job.MouseMove += job.DrawLineWithoutRefresh;
-                    tvw_job.AfterExpand += job.Draw_Line;
-                    tvw_job.AfterCollapse += job.Draw_Line;
-                    Frm_Job.Instance.tbc_jobs.SelectedIndexChanged += job.tbc_jobs_SelectedIndexChanged;
-                }
+                // FlowEditorTreeView 在自身重绘周期内维护连线，无需鼠标移动触发画线。
 
                 tvw_job.Dock = DockStyle.Fill;
-                tvw_job.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
+                tvw_job.Font = ModernUiTheme.UiFont;
 
                 Frm_Job.Instance.tbc_jobs.TabPages.Add(jobName);
                 Frm_Job.Instance.tbc_jobs.TabPages[Frm_Job.Instance.tbc_jobs.TabPages.Count - 1].Controls.Add(tvw_job);
@@ -1513,8 +1451,222 @@ namespace VMPro
         /// 从本地加载流程到程序中
         /// </summary>
         /// <param name="path">流程文件路径</param>
+        private sealed class LoadedConnection
+        {
+            internal TreeNode TargetNode;
+            internal string SourceText;
+        }
+
+        /// <summary>
+        /// 统一创建旧流程的编辑树。旧的 Load/Open/Import 路径都必须走这里，
+        /// 保证事件、外观和运行状态与新建流程一致。
+        /// </summary>
+        private static int AttachLoadedWorkflow(Job job)
+        {
+            if (job == null)
+                throw new ArgumentNullException("job");
+
+            job.PrepareLoadedWorkflowData();
+            job.EnsureBlobFollowInput();
+
+            FlowEditorTreeView tvw_job = new FlowEditorTreeView(job.GetConnectionSnapshot, job.ShouldDisplayConnections);
+            tvw_job.Scrollable = true;
+            tvw_job.ItemHeight = 34;
+            tvw_job.ShowLines = false;
+            tvw_job.AllowDrop = true;
+            tvw_job.ImageList = Job.imageList;
+            tvw_job.TabStop = false;
+            tvw_job.ShowNodeToolTips = true;
+            tvw_job.Dock = DockStyle.Fill;
+            tvw_job.Font = ModernUiTheme.UiFont;
+
+            int unresolvedConnections = job.RebuildLoadedWorkflowTree(tvw_job);
+
+            tvw_job.AfterSelect += job.tvw_job_AfterSelect;
+            tvw_job.AfterLabelEdit += new NodeLabelEditEventHandler(job.EditNodeText);
+            tvw_job.MouseClick += new MouseEventHandler(job.TVW_MouseClick);
+            tvw_job.MouseDoubleClick += new MouseEventHandler(job.TVW_DoubleClick);
+            tvw_job.AfterSelect += new TreeViewEventHandler(job.TVW_AfterSelect);
+            tvw_job.ItemDrag += new ItemDragEventHandler(job.tvw_job_ItemDrag);
+            tvw_job.DragEnter += new DragEventHandler(job.tvw_job_DragEnter);
+            tvw_job.DragDrop += new DragEventHandler(job.tvw_job_DragDrop);
+            tvw_job.MouseDown += new MouseEventHandler(job.tvw_tools_MouseDown);
+
+            // 不再注册旧版 BeforeExpand/BeforeCollapse 双击拦截。
+            // 模块双击由 TVW_DoubleClick 处理，展开按钮和右键“展开流程”始终可用。
+            TabPage page = new TabPage(job.jobName);
+            page.Controls.Add(tvw_job);
+            try
+            {
+                Frm_Job.Instance.tbc_jobs.TabPages.Add(page);
+                UpdateJobTreeIcon(job.jobName);
+                if (tvw_job.Nodes.Count > 0)
+                    tvw_job.SelectedNode = tvw_job.Nodes[0];
+                tvw_job.Invalidate();
+                tvw_job.RequestConnectionRefresh();
+            }
+            catch
+            {
+                if (Frm_Job.Instance.tbc_jobs.TabPages.Contains(page))
+                    Frm_Job.Instance.tbc_jobs.TabPages.Remove(page);
+                page.Dispose();
+                throw;
+            }
+
+            return unresolvedConnections;
+        }
+
+        /// <summary>
+        /// 分两遍重建流程树：第一遍先创建全部模块和端口，第二遍再恢复连线。
+        /// 这样源模块排在目标模块后面时也能正确恢复，单条坏数据不会中断整条流程。
+        /// </summary>
+        internal int RebuildLoadedWorkflowTree(TreeView tree)
+        {
+            if (tree == null)
+                throw new ArgumentNullException("tree");
+
+            PrepareLoadedWorkflowData();
+            tree.BeginUpdate();
+            try
+            {
+                tree.Nodes.Clear();
+                D_itemAndSource.Clear();
+
+                Dictionary<string, Dictionary<string, TreeNode>> outputNodes =
+                    new Dictionary<string, Dictionary<string, TreeNode>>(StringComparer.Ordinal);
+                List<LoadedConnection> pendingConnections = new List<LoadedConnection>();
+
+                for (int i = 0; i < L_toolList.Count; i++)
+                {
+                    ToolInfo toolInfo = L_toolList[i];
+                    TreeNode toolNode = tree.Nodes.Add(toolInfo.toolName);
+                    toolNode.ForeColor = toolInfo.enable ? Color.Black : Color.DarkGray;
+
+                    for (int j = 0; j < toolInfo.input.Count; j++)
+                    {
+                        ToolIO input = toolInfo.input[j];
+                        string sourceText = toolInfo.toolType == ToolType.Output
+                            ? input.IOName
+                            : input.value.ToString();
+                        string inputText = toolInfo.toolType == ToolType.Output
+                            ? "<--" + input.IOName
+                            : "<--" + input.IOName + sourceText;
+                        TreeNode inputNode = toolNode.Nodes.Add(inputText);
+                        inputNode.Tag = input.ioType;
+                        inputNode.ForeColor = Color.DarkMagenta;
+                        if (!string.IsNullOrWhiteSpace(sourceText))
+                        {
+                            pendingConnections.Add(new LoadedConnection
+                            {
+                                TargetNode = inputNode,
+                                SourceText = sourceText
+                            });
+                        }
+                    }
+
+                    Dictionary<string, TreeNode> toolOutputs;
+                    if (!outputNodes.TryGetValue(toolInfo.toolName, out toolOutputs))
+                    {
+                        toolOutputs = new Dictionary<string, TreeNode>(StringComparer.Ordinal);
+                        outputNodes.Add(toolInfo.toolName, toolOutputs);
+                    }
+
+                    for (int k = 0; k < toolInfo.output.Count; k++)
+                    {
+                        ToolIO output = toolInfo.output[k];
+                        TreeNode outputNode = toolNode.Nodes.Add("-->" + output.IOName);
+                        outputNode.Tag = output.ioType;
+                        outputNode.ForeColor = Color.Blue;
+                        if (!toolOutputs.ContainsKey(output.IOName.Trim()))
+                            toolOutputs.Add(output.IOName.Trim(), outputNode);
+                    }
+                }
+
+                int unresolvedConnections = 0;
+                for (int i = 0; i < pendingConnections.Count; i++)
+                {
+                    string sourceToolName;
+                    string sourceOutputName;
+                    bool localSource;
+                    if (!TryParseLoadedConnection(pendingConnections[i].SourceText,
+                        out sourceToolName, out sourceOutputName, out localSource))
+                    {
+                        if (pendingConnections[i].SourceText.Contains("《-") ||
+                            (pendingConnections[i].TargetNode.Parent != null &&
+                             FindToolInfoByName(pendingConnections[i].TargetNode.Parent.Text).toolType == ToolType.Output))
+                        {
+                            unresolvedConnections++;
+                            pendingConnections[i].TargetNode.ToolTipText =
+                                "旧流程连线格式无法识别：" + pendingConnections[i].SourceText;
+                        }
+                        continue;
+                    }
+
+                    // 全局变量和跨流程来源由运行时按名称解析，不在当前流程树中画本地模块线。
+                    if (!localSource)
+                        continue;
+
+                    Dictionary<string, TreeNode> sourceOutputs;
+                    TreeNode sourceNode;
+                    if (outputNodes.TryGetValue(sourceToolName, out sourceOutputs) &&
+                        sourceOutputs.TryGetValue(sourceOutputName, out sourceNode))
+                    {
+                        D_itemAndSource[pendingConnections[i].TargetNode] = sourceNode;
+                    }
+                    else
+                    {
+                        unresolvedConnections++;
+                        pendingConnections[i].TargetNode.ToolTipText =
+                            "旧流程来源不存在：" + sourceToolName + " -> " + sourceOutputName;
+                    }
+                }
+
+                return unresolvedConnections;
+            }
+            finally
+            {
+                tree.EndUpdate();
+            }
+        }
+
+        private static bool TryParseLoadedConnection(string sourceText, out string toolName,
+            out string outputName, out bool localSource)
+        {
+            toolName = string.Empty;
+            outputName = string.Empty;
+            localSource = true;
+            if (string.IsNullOrWhiteSpace(sourceText))
+                return false;
+
+            string text = sourceText.Trim();
+            if (text.StartsWith("<--", StringComparison.Ordinal))
+                text = text.Substring(3).Trim();
+            if (text.StartsWith("《-", StringComparison.Ordinal))
+                text = text.Substring(2).Trim();
+
+            int separator = text.IndexOf(" . -->", StringComparison.Ordinal);
+            int separatorLength = " . -->".Length;
+            if (separator < 0)
+            {
+                separator = text.LastIndexOf("->", StringComparison.Ordinal);
+                separatorLength = 2;
+            }
+            if (separator <= 0 || separator + separatorLength >= text.Length)
+                return false;
+
+            toolName = text.Substring(0, separator).Trim();
+            outputName = text.Substring(separator + separatorLength).Trim();
+            if (toolName.StartsWith("全局变量", StringComparison.Ordinal) ||
+                toolName.StartsWith("Global", StringComparison.Ordinal) ||
+                toolName.StartsWith("[", StringComparison.Ordinal))
+                localSource = false;
+
+            return toolName.Length > 0 && outputName.Length > 0;
+        }
+
         public static Job LoadJob(string path)
         {
+            Job job = null;
             try
             {
                 if (!File.Exists(path))
@@ -1524,10 +1676,8 @@ namespace VMPro
                 }
 
                 IFormatter formatter = new BinaryFormatter();
-                Stream stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None);
-                Job job = (Job)formatter.Deserialize(stream);
-                stream.Close();
-                job.EnsureBlobFollowInput();
+                using (Stream stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
+                    job = (Job)formatter.Deserialize(stream);
 
                 foreach (TabPage item in Frm_Job.Instance.tbc_jobs.TabPages)
                 {
@@ -1537,102 +1687,22 @@ namespace VMPro
                         return new Job();
                     }
                 }
-                job.isRunLoop = false;
+
                 Project.Instance.curEngine.L_jobList.Add(job);
-
-                TreeView tvw_job = new TreeView();
-                tvw_job.Scrollable = true;
-                tvw_job.ItemHeight = 26;
-                tvw_job.ShowLines = false;
-                tvw_job.AllowDrop = true;
-                tvw_job.ImageList = Job.imageList;
-                tvw_job.TabStop = false;
-                tvw_job.ShowNodeToolTips = true;
-
-
-                tvw_job.AfterSelect += job.tvw_job_AfterSelect;
-                tvw_job.AfterLabelEdit += new NodeLabelEditEventHandler(job.EditNodeText);
-                tvw_job.MouseClick += new MouseEventHandler(job.TVW_MouseClick);
-                tvw_job.MouseDoubleClick += new MouseEventHandler(job.TVW_DoubleClick);
-                tvw_job.AfterSelect += new TreeViewEventHandler(job.TVW_AfterSelect);
-
-                //节点间拖拽
-                tvw_job.ItemDrag += new ItemDragEventHandler(job.tvw_job_ItemDrag);
-                tvw_job.DragEnter += new DragEventHandler(job.tvw_job_DragEnter);
-                tvw_job.DragDrop += new DragEventHandler(job.tvw_job_DragDrop);
-                tvw_job.MouseDown += new MouseEventHandler(job.tvw_tools_MouseDown);
-
-                //以下事件为画线事件
-                if (Project.Instance.configuration.displayLine)
-                {
-                    Frm_Job.Instance.Paint += job.Instance_Paint;
-                    tvw_job.MouseMove += job.DrawLineWithoutRefresh;
-                    tvw_job.MouseWheel += job.DrawLineWithoutRefresh;
-
-                    tvw_job.AfterExpand += job.Draw_Line;
-                    tvw_job.AfterCollapse += job.Draw_Line;
-                    Frm_Job.Instance.tbc_jobs.SelectedIndexChanged += job.tbc_jobs_SelectedIndexChanged;
-                }
-
-                Frm_Job.Instance.tbc_jobs.TabPages.Add(job.jobName);
-                Frm_Job.Instance.tbc_jobs.TabPages[Frm_Job.Instance.tbc_jobs.TabPages.Count - 1].Controls.Add(tvw_job);
-                tvw_job.Dock = DockStyle.Fill;
-                tvw_job.ShowNodeToolTips = true;
-                tvw_job.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-
-                //反序列化各工具
-                job.D_itemAndSource.Clear();
-                for (int i = 0; i < job.L_toolList.Count; i++)
-                {
-                    TreeNode node = GetJobTree(job.jobName).Nodes.Add(job.L_toolList[i].toolName);
-                    for (int j = 0; j < job.L_toolList[i].input.Count; j++)
-                    {
-                        TreeNode treeNode;
-                        //因为OutputBox只有源，所以此处特殊处理
-                        if (job.L_toolList[i].toolType != ToolType.Output)
-                            treeNode = node.Nodes.Add("<--" + job.L_toolList[i].input[j].IOName + job.L_toolList[i].input[j].value);
-                        else
-                            treeNode = node.Nodes.Add("<--" + job.L_toolList[i].input[j].IOName);
-
-                        treeNode.Tag = job.L_toolList[i].input[j].ioType;
-                        treeNode.ForeColor = Color.DarkMagenta;
-
-                        //解析需要连线的节点对
-                        if (treeNode.ToString().Contains("《-"))
-                        {
-                            string toolNodeText = Regex.Split(job.L_toolList[i].input[j].value.ToString(), "->")[0].Substring(3);
-                            string toolIONodeText = "-->" + Regex.Split(job.L_toolList[i].input[j].value.ToString(), "->")[1];
-                            job.D_itemAndSource.Add(treeNode, job.GetToolIONodeByNodeText(toolNodeText, toolIONodeText));
-                        }
-                        if (job.L_toolList[i].toolType == ToolType.Output)
-                        {
-                            string toolNodeText = Regex.Split(treeNode.Text, "->")[0].Substring(3);
-                            string toolIONodeText = Regex.Split(treeNode.Text, "->")[1];
-                            job.D_itemAndSource.Add(treeNode, job.GetToolIONodeByNodeText(toolNodeText, toolIONodeText));
-                        }
-                    }
-                    for (int k = 0; k < job.L_toolList[i].output.Count; k++)
-                    {
-                        TreeNode treeNode = node.Nodes.Add("-->" + job.L_toolList[i].output[k].IOName);
-                        treeNode.Tag = job.L_toolList[i].output[k].ioType;
-                        treeNode.ForeColor = Color.Blue;
-                    }
-                }
-
-                UpdateJobTreeIcon(job.jobName);
-
-                //默认选中第一个节点
-                if (tvw_job.Nodes.Count > 0)
-                    tvw_job.SelectedNode = tvw_job.Nodes[0];
+                AttachLoadedWorkflow(job);
                 return job;
             }
             catch (Exception ex)
             {
+                if (job != null && Project.Instance.curEngine != null &&
+                    Project.Instance.curEngine.L_jobList != null)
+                    Project.Instance.curEngine.L_jobList.Remove(job);
                 Log.SaveError(ex);
                 return null;
             }
         }
-        public int m_MouseClicks = 0; //记录鼠标在myTreeView控件上按下的次数
+        [NonSerialized]
+        public int m_MouseClicks = 0; //仅为旧项目字段兼容保留；不再参与展开/折叠判断
         /// <summary>
         /// 加载指定的流程
         /// </summary>
@@ -1642,7 +1712,6 @@ namespace VMPro
         {
             try
             {
-                job.EnsureBlobFollowInput();
                 foreach (TabPage item in Frm_Job.Instance.tbc_jobs.TabPages)
                 {
                     if (item.Text == job.jobName)
@@ -1651,100 +1720,7 @@ namespace VMPro
                         return new Job();
                     }
                 }
-                job.isRunLoop = false;
-
-                TreeView tvw_job = new TreeView();
-                tvw_job.Scrollable = true;
-                tvw_job.ItemHeight = 26;
-                tvw_job.ShowLines = false;
-                tvw_job.AllowDrop = true;
-                tvw_job.ImageList = Job.imageList;
-                tvw_job.TabStop = false;
-                tvw_job.ShowNodeToolTips = true;
-
-
-                tvw_job.AfterSelect += job.tvw_job_AfterSelect;
-                tvw_job.AfterLabelEdit += new NodeLabelEditEventHandler(job.EditNodeText);
-                tvw_job.MouseClick += new MouseEventHandler(job.TVW_MouseClick);
-                tvw_job.MouseDoubleClick += new MouseEventHandler(job.TVW_DoubleClick);
-                tvw_job.AfterSelect += new TreeViewEventHandler(job.TVW_AfterSelect);
-
-                tvw_job.MouseDown += job.tvw_job_MouseDown;
-                tvw_job.BeforeCollapse += job.tvw_job_BeforeCollapse;
-                tvw_job.BeforeExpand += job.tvw_job_BeforeExpand;
-
-                //节点间拖拽
-                tvw_job.ItemDrag += new ItemDragEventHandler(job.tvw_job_ItemDrag);
-                tvw_job.DragEnter += new DragEventHandler(job.tvw_job_DragEnter);
-                tvw_job.DragDrop += new DragEventHandler(job.tvw_job_DragDrop);
-                tvw_job.MouseDown += new MouseEventHandler(job.tvw_tools_MouseDown);
-
-
-                //以下事件为画线事件
-                if (Project.Instance.configuration.displayLine)
-                {
-                    tvw_job.MouseEnter += job.tvw_job_MouseEnter;
-                    tvw_job.MouseWheel += job.DrawLineWithoutRefresh;
-                    //  tvw_job.MouseUp += job.tvw_job_MouseUp;
-
-                    tvw_job.AfterExpand += job.Draw_Line;
-                    tvw_job.AfterCollapse += job.Draw_Line;
-
-                }
-
-                Frm_Job.Instance.tbc_jobs.TabPages.Add(job.jobName);
-
-                Frm_Job.Instance.tbc_jobs.TabPages[Frm_Job.Instance.tbc_jobs.TabPages.Count - 1].Controls.Add(tvw_job);
-                tvw_job.Dock = DockStyle.Fill;
-                tvw_job.ShowNodeToolTips = true;
-                tvw_job.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-
-                //反序列化各工具
-                job.D_itemAndSource.Clear();
-                for (int i = 0; i < job.L_toolList.Count; i++)
-                {
-                    TreeNode node = GetJobTree(job.jobName).Nodes.Add(job.L_toolList[i].toolName);
-                    for (int j = 0; j < job.L_toolList[i].input.Count; j++)
-                    {
-                        TreeNode treeNode;
-                        //因为OutputBox只有源，所以此处特殊处理
-                        if (job.L_toolList[i].toolType != ToolType.Output)
-                            treeNode = node.Nodes.Add("<--" + job.L_toolList[i].input[j].IOName + job.L_toolList[i].input[j].value);
-                        else
-                            treeNode = node.Nodes.Add("<--" + job.L_toolList[i].input[j].IOName);
-
-                        treeNode.Tag = job.L_toolList[i].input[j].ioType;
-                        treeNode.ForeColor = Color.DarkMagenta;
-
-                        //解析需要连线的节点对
-                        if (treeNode.ToString().Contains("《-"))
-                        {
-                            string toolNodeText = Regex.Split(job.L_toolList[i].input[j].value.ToString(), "->")[0].Substring(3);
-                            string toolIONodeText = "-->" + Regex.Split(job.L_toolList[i].input[j].value.ToString(), "->")[1];
-                            job.D_itemAndSource.Add(treeNode, job.GetToolIONodeByNodeText(toolNodeText, toolIONodeText));
-                        }
-                        if (job.L_toolList[i].toolType == ToolType.Output)
-                        {
-                            string toolNodeText = Regex.Split(treeNode.Text, "->")[0].Substring(3);
-                            string toolIONodeText = Regex.Split(treeNode.Text, "->")[1];
-                            job.D_itemAndSource.Add(treeNode, job.GetToolIONodeByNodeText(toolNodeText, "-->" + toolIONodeText));
-                        }
-                    }
-                    for (int k = 0; k < job.L_toolList[i].output.Count; k++)
-                    {
-                        TreeNode treeNode = node.Nodes.Add("-->" + job.L_toolList[i].output[k].IOName);
-
-                        treeNode.Tag = job.L_toolList[i].output[k].ioType;
-                        treeNode.ForeColor = Color.Blue;
-                    }
-                }
-
-                UpdateJobTreeIcon(job.jobName);
-
-                //默认选中第一个节点
-                if (tvw_job.Nodes.Count > 0)
-                    tvw_job.SelectedNode = tvw_job.Nodes[0];
-
+                AttachLoadedWorkflow(job);
                 return job;
             }
             catch (Exception ex)
@@ -1776,7 +1752,6 @@ namespace VMPro
         {
             try
             {
-                job.EnsureBlobFollowInput();
                 foreach (TabPage item in Frm_Job.Instance.tbc_jobs.TabPages)
                 {
                     if (item.Text == job.jobName)
@@ -1785,100 +1760,7 @@ namespace VMPro
                         return new Job();
                     }
                 }
-                job.isRunLoop = false;
-
-                TreeView tvw_job = new TreeView();
-                tvw_job.Scrollable = true;
-                tvw_job.ItemHeight = 26;
-                tvw_job.ShowLines = false;
-                tvw_job.AllowDrop = true;
-                tvw_job.ImageList = Job.imageList;
-                tvw_job.TabStop = false;
-                tvw_job.ShowNodeToolTips = true;
-
-
-                tvw_job.AfterSelect += job.tvw_job_AfterSelect;
-                tvw_job.AfterLabelEdit += new NodeLabelEditEventHandler(job.EditNodeText);
-                tvw_job.MouseClick += new MouseEventHandler(job.TVW_MouseClick);
-                tvw_job.MouseDoubleClick += new MouseEventHandler(job.TVW_DoubleClick);
-                tvw_job.AfterSelect += new TreeViewEventHandler(job.TVW_AfterSelect);
-
-                tvw_job.MouseDown += job.tvw_job_MouseDown;
-                tvw_job.BeforeCollapse += job.tvw_job_BeforeCollapse;
-                tvw_job.BeforeExpand += job.tvw_job_BeforeExpand;
-
-                //节点间拖拽
-                tvw_job.ItemDrag += new ItemDragEventHandler(job.tvw_job_ItemDrag);
-                tvw_job.DragEnter += new DragEventHandler(job.tvw_job_DragEnter);
-                tvw_job.DragDrop += new DragEventHandler(job.tvw_job_DragDrop);
-                tvw_job.MouseDown += new MouseEventHandler(job.tvw_tools_MouseDown);
-
-
-                //以下事件为画线事件
-                if (Project.Instance.configuration.displayLine)
-                {
-                    Frm_Job.Instance.Paint += job.Instance_Paint;
-                    tvw_job.MouseMove += job.DrawLineWithoutRefresh;
-                    tvw_job.MouseWheel += job.DrawLineWithoutRefresh;
-
-                    tvw_job.AfterExpand += job.Draw_Line;
-                    tvw_job.AfterCollapse += job.Draw_Line;
-                    Frm_Job.Instance.tbc_jobs.SelectedIndexChanged += job.tbc_jobs_SelectedIndexChanged;
-                }
-
-                Frm_Job.Instance.tbc_jobs.TabPages.Add(job.jobName);
-
-                Frm_Job.Instance.tbc_jobs.TabPages[Frm_Job.Instance.tbc_jobs.TabPages.Count - 1].Controls.Add(tvw_job);
-                tvw_job.Dock = DockStyle.Fill;
-                tvw_job.ShowNodeToolTips = true;
-                tvw_job.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-
-                //反序列化各工具
-                job.D_itemAndSource.Clear();
-                for (int i = 0; i < job.L_toolList.Count; i++)
-                {
-                    TreeNode node = GetJobTree(job.jobName).Nodes.Add(job.L_toolList[i].toolName);
-                    for (int j = 0; j < job.L_toolList[i].input.Count; j++)
-                    {
-                        TreeNode treeNode;
-                        //因为OutputBox只有源，所以此处特殊处理
-                        if (job.L_toolList[i].toolType != ToolType.Output)
-                            treeNode = node.Nodes.Add("<--" + job.L_toolList[i].input[j].IOName + job.L_toolList[i].input[j].value);
-                        else
-                            treeNode = node.Nodes.Add("<--" + job.L_toolList[i].input[j].IOName);
-
-                        treeNode.Tag = job.L_toolList[i].input[j].ioType;
-                        treeNode.ForeColor = Color.DarkMagenta;
-
-                        //解析需要连线的节点对
-                        if (treeNode.ToString().Contains("《-"))
-                        {
-                            string toolNodeText = Regex.Split(job.L_toolList[i].input[j].value.ToString(), "->")[0].Substring(3);
-                            string toolIONodeText = "-->" + Regex.Split(job.L_toolList[i].input[j].value.ToString(), "->")[1];
-                            job.D_itemAndSource.Add(treeNode, job.GetToolIONodeByNodeText(toolNodeText, toolIONodeText));
-                        }
-                        if (job.L_toolList[i].toolType == ToolType.Output)
-                        {
-                            string toolNodeText = Regex.Split(treeNode.Text, "->")[0].Substring(3);
-                            string toolIONodeText = Regex.Split(treeNode.Text, "->")[1];
-                            job.D_itemAndSource.Add(treeNode, job.GetToolIONodeByNodeText(toolNodeText, "-->" + toolIONodeText));
-                        }
-                    }
-                    for (int k = 0; k < job.L_toolList[i].output.Count; k++)
-                    {
-                        TreeNode treeNode = node.Nodes.Add("-->" + job.L_toolList[i].output[k].IOName);
-
-                        treeNode.Tag = job.L_toolList[i].output[k].ioType;
-                        treeNode.ForeColor = Color.Blue;
-                    }
-                }
-
-                UpdateJobTreeIcon(job.jobName);
-
-                //默认选中第一个节点
-                if (tvw_job.Nodes.Count > 0)
-                    tvw_job.SelectedNode = tvw_job.Nodes[0];
-
+                AttachLoadedWorkflow(job);
                 return job;
             }
             catch (Exception ex)
@@ -1886,21 +1768,6 @@ namespace VMPro
                 Log.SaveError(ex);
                 return null;
             }
-        }
-
-        void tvw_job_BeforeExpand(object sender, TreeViewCancelEventArgs e)
-        {
-            e.Cancel = (this.m_MouseClicks > 1);
-        }
-
-        void tvw_job_BeforeCollapse(object sender, TreeViewCancelEventArgs e)
-        {
-            e.Cancel = (m_MouseClicks > 1);
-        }
-
-        void tvw_job_MouseDown(object sender, MouseEventArgs e)
-        {
-            m_MouseClicks = e.Clicks;
         }
         /// <summary>
         /// 运行当前流程
@@ -1976,10 +1843,10 @@ namespace VMPro
                 TreeView jobTree = GetJobTree(jobName);
                 if (jobTree != null && jobTree.IsHandleCreated)
                 {
-                    jobTree.BeginInvoke(new MethodInvoker(delegate
+                    ToolBase.TryPostControlAction(jobTree, delegate
                     {
                         job.DrawLine();
-                    }));
+                    });
                 }
             }
             catch (Exception ex)
@@ -2056,17 +1923,10 @@ namespace VMPro
         {
             try
             {
-                if (Frm_Job.Instance.btn_runOnce.InvokeRequired)
-                {
-                    Frm_Job.Instance.btn_runOnce.BeginInvoke(new MethodInvoker(delegate
-                    {
-                        Frm_Job.Instance.btn_runOnce.Enabled = enabled;
-                    }));
-                }
-                else
+                ToolBase.TryPostControlAction(Frm_Job.Instance.btn_runOnce, delegate
                 {
                     Frm_Job.Instance.btn_runOnce.Enabled = enabled;
-                }
+                });
             }
             catch (Exception ex)
             {
@@ -2077,18 +1937,15 @@ namespace VMPro
         {
             try
             {
-                MethodInvoker update = delegate
+                Action update = delegate
                 {
                     Frm_Job.Instance.btn_runLoop.Text = Project.Instance.configuration.language == Language.English ? "Run Loop" : "连续运行";
                     Frm_Job.Instance.btn_runLoop.Enabled = true;
                     Frm_Main.Instance.toolStripButton11.Enabled = true;
-                    Frm_Main.Instance.toolStripButton12.Text = "连续运行";
+                    Frm_Main.Instance.toolStripButton12.Text = Project.Instance.configuration.language == Language.English ? "Run Loop" : "连续运行";
                 };
 
-                if (Frm_Job.Instance.btn_runLoop.InvokeRequired)
-                    Frm_Job.Instance.btn_runLoop.BeginInvoke(update);
-                else
-                    update();
+                ToolBase.TryPostControlAction(Frm_Job.Instance.btn_runLoop, update);
             }
             catch (Exception ex)
             {
@@ -2166,91 +2023,7 @@ namespace VMPro
         {
             try
             {
-                job.EnsureBlobFollowInput();
-                TreeView tvw_job = new TreeView();
-                tvw_job.Scrollable = true;
-                tvw_job.ItemHeight = 26;
-                tvw_job.ShowLines = false;
-                tvw_job.AllowDrop = true;
-                tvw_job.ImageList = Job.imageList;
-                tvw_job.TabStop = false;
-                tvw_job.ShowNodeToolTips = true;
-
-                tvw_job.AfterSelect += job.tvw_job_AfterSelect;
-                tvw_job.AfterLabelEdit += new NodeLabelEditEventHandler(job.EditNodeText);
-                tvw_job.MouseClick += new MouseEventHandler(job.TVW_MouseClick);
-                tvw_job.MouseDoubleClick += new MouseEventHandler(job.TVW_DoubleClick);
-                tvw_job.AfterSelect += new TreeViewEventHandler(job.TVW_AfterSelect);
-
-                tvw_job.MouseDown += job.tvw_job_MouseDown;
-                tvw_job.BeforeCollapse += job.tvw_job_BeforeCollapse;
-                tvw_job.BeforeExpand += job.tvw_job_BeforeExpand;
-
-                //节点间拖拽
-                tvw_job.ItemDrag += new ItemDragEventHandler(job.tvw_job_ItemDrag);
-                tvw_job.DragEnter += new DragEventHandler(job.tvw_job_DragEnter);
-                tvw_job.DragDrop += new DragEventHandler(job.tvw_job_DragDrop);
-                tvw_job.MouseDown += new MouseEventHandler(job.tvw_tools_MouseDown);
-
-                //以下事件为画线事件
-                if (Project.Instance.configuration.displayLine)
-                {
-                    tvw_job.MouseEnter += job.tvw_job_MouseEnter;
-                    // tvw_job.MouseMove += job.DrawLineWithoutRefresh;
-                    tvw_job.MouseWheel += job.DrawLineWithoutRefresh;
-
-                    tvw_job.AfterExpand += job.Draw_Line;
-                    tvw_job.AfterCollapse += job.Draw_Line;
-                }
-
-                Frm_Job.Instance.tbc_jobs.TabPages.Add(job.jobName);
-                Frm_Job.Instance.tbc_jobs.TabPages[Frm_Job.Instance.tbc_jobs.TabPages.Count - 1].Controls.Add(tvw_job);
-                tvw_job.Dock = DockStyle.Fill;
-                tvw_job.ShowNodeToolTips = true;
-                tvw_job.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-
-                //反序列化各工具
-                job.D_itemAndSource.Clear();
-                for (int i = 0; i < job.L_toolList.Count; i++)
-                {
-                    TreeNode node = GetJobTree(job.jobName).Nodes.Add(job.L_toolList[i].toolName);
-                    for (int j = 0; j < job.L_toolList[i].input.Count; j++)
-                    {
-                        TreeNode treeNode;
-                        //因为OutputBox只有源，所以此处特殊处理
-                        if (job.L_toolList[i].toolType != ToolType.Output)
-                            treeNode = node.Nodes.Add("<--" + job.L_toolList[i].input[j].IOName + job.L_toolList[i].input[j].value);
-                        else
-                            treeNode = node.Nodes.Add("<--" + job.L_toolList[i].input[j].IOName);
-
-                        treeNode.Tag = job.L_toolList[i].input[j].ioType;
-                        treeNode.ForeColor = Color.DarkMagenta;
-
-                        //解析需要连线的节点对
-
-                        if (treeNode.ToString().Contains("《-"))
-                        {
-                            string toolNodeText = Regex.Split(job.L_toolList[i].input[j].value.ToString(), "->")[0].Substring(3);
-                            string toolIONodeText = "-->" + Regex.Split(job.L_toolList[i].input[j].value.ToString(), "->")[1];
-                            job.D_itemAndSource.Add(treeNode, job.GetToolIONodeByNodeText(toolNodeText, toolIONodeText));
-                        }
-                        if (job.L_toolList[i].toolType == ToolType.Output)
-                        {
-                            string toolNodeText = Regex.Split(treeNode.Text, "->")[0].Substring(3);
-                            string toolIONodeText = Regex.Split(treeNode.Text, "->")[1];
-                            job.D_itemAndSource.Add(treeNode, job.GetToolIONodeByNodeText(toolNodeText, toolIONodeText));
-                        }
-                    }
-                    for (int k = 0; k < job.L_toolList[i].output.Count; k++)
-                    {
-                        TreeNode treeNode = node.Nodes.Add("-->" + job.L_toolList[i].output[k].IOName);
-
-                        treeNode.Tag = job.L_toolList[i].output[k].ioType;
-                        treeNode.ForeColor = Color.Blue;
-                    }
-
-                    UpdateJobTreeIcon(job.jobName);
-                }
+                AttachLoadedWorkflow(job);
             }
             catch (Exception ex)
             {
@@ -2448,18 +2221,16 @@ namespace VMPro
             try
             {
                 Frm_ToolBox.DragNode = null;
-                if (((TreeView)sender).SelectedNode != null)
-                {
-                    if (((TreeView)sender).SelectedNode.Level == 1)          //输入输出不允许拖动
-                    {
-                        Job.GetJobTree(jobName).DoDragDrop(e.Item, DragDropEffects.Move);
-                    }
+                Frm_ToolBox.NodeSource = null;
+                Frm_ToolBox.MoveTo = MoveTreeView.NoMove;
+                TreeView tree = sender as TreeView;
+                TreeNode draggedNode = e.Item as TreeNode;
+                if (tree == null || draggedNode == null || draggedNode.TreeView != tree ||
+                    e.Button != MouseButtons.Left)
+                    return;
 
-                    else if (e.Button == MouseButtons.Left)
-                    {
-                        Job.GetJobTree(jobName).DoDragDrop(e.Item, DragDropEffects.Move);
-                    }
-                }
+                tree.SelectedNode = draggedNode;
+                tree.DoDragDrop(draggedNode, DragDropEffects.Move);
             }
             catch (Exception ex)
             {
@@ -2475,7 +2246,7 @@ namespace VMPro
         {
             try
             {
-                if (e.Data.GetDataPresent("System.Windows.Forms.TreeNode"))
+                if (e.Data != null && e.Data.GetDataPresent(typeof(TreeNode)))
                 {
                     e.Effect = DragDropEffects.Move;
                 }
@@ -2498,212 +2269,217 @@ namespace VMPro
         {
             try
             {
-                //需要辨别是工具箱拖过来的，还是流程间内部拖拽，此处只要流程间一旦有拖动动作，就给ToolBox里面DragNode变量赋null，所以此处通过判断ToolBox中的DragNode是否为null来判断属于那种拖动
+                TreeView tree = sender as TreeView;
+                if (tree == null)
+                    return;
+
+                // 工具箱拖入流程树。流程树不参与工具箱树之间的 MoveTo 判断；
+                // 先清理静态拖拽状态，避免一次拖放完成后污染下一次内部排序。
                 if (Frm_ToolBox.DragNode != null)
                 {
-                    if (sender != null && sender is TreeView)
+                    string toolText = Frm_ToolBox.DragNode.Text;
+                    Point point = tree.PointToClient(new Point(e.X, e.Y));
+                    TreeNode target = tree.GetNodeAt(point);
+                    int insertIndex = L_toolList.Count;
+                    if (target != null)
                     {
-                        TreeView trv = sender as TreeView;
-                        //if (trv.Tag != null)
-                        //{
-                        MoveTreeView move = (MoveTreeView)Convert.ToInt32(trv.Tag);
-                        if (move == Frm_ToolBox.MoveTo) { Frm_ToolBox.DragNode = null; Frm_ToolBox.NodeSource = null; }
-                        else
-                        {
-                            System.Drawing.Point p = trv.PointToClient(new System.Drawing.Point(e.X, e.Y));
-                            TreeNode node = trv.GetNodeAt(p);
-                            //string path = GetClientPath(DragNode, DragNode.Text);
-                            //Frm_ToolBox.NodeSource.Nodes.Remove(Frm_ToolBox.DragNode);
-                            //node.Nodes.Add(Frm_ToolBox.DragNode);
-                            if (p.Y > ((TreeView)sender).Nodes[((TreeView)sender).Nodes.Count - 1].Bounds.Y)
-                                Frm_ToolBox.Instance.AddTool(Frm_ToolBox.DragNode.Text, null, L_toolList.Count);
-                            else if (node.Level == 0)
-                                Frm_ToolBox.Instance.AddTool(Frm_ToolBox.DragNode.Text, null, node.Index);
-                            else
-                                Frm_ToolBox.Instance.AddTool(Frm_ToolBox.DragNode.Text, null, node.Parent.Index + 1);
-                            return;
-                        }
-                        //}
+                        TreeNode targetTool = GetRootToolNode(target);
+                        if (targetTool != null)
+                            insertIndex = target.Level == 0 ? targetTool.Index : targetTool.Index + 1;
                     }
-                }
 
-
-                //获得拖放中的节点  
-                TreeNode moveNode = (TreeNode)e.Data.GetData("System.Windows.Forms.TreeNode");
-                //根据鼠标坐标确定要移动到的目标节点  
-                System.Drawing.Point pt;
-                TreeNode targeNode;
-                pt = ((TreeView)(sender)).PointToClient(new System.Drawing.Point(e.X, e.Y));
-                targeNode = Job.GetJobTree(jobName).GetNodeAt(pt);
-                //如果目标节点无子节点则添加为同级节点,反之添加到下级节点的未端  
-
-                if (moveNode == targeNode)       //若是把自己拖放到自己，不可，返回
-                    return;
-
-                if (targeNode == null)       //目标节点为null，就是把节点拖到了空白区域，则表示要把节点拖到末尾
-                {
-                    if (moveNode.Level == 0)        //被拖动的是子节点，也就是工具节点
-                    {
-                        //if (targeNode.Level == 0)
-                        {
-                            moveNode.Remove();
-                            Job.GetJobTree(jobName).Nodes.Insert(L_toolList.Count, moveNode);
-
-                            ToolInfo temp = new ToolInfo();
-                            for (int i = 0; i < L_toolList.Count; i++)
-                            {
-                                if (L_toolList[i].toolName == moveNode.Text)
-                                {
-                                    temp = L_toolList[i];
-                                    L_toolList.RemoveAt(i);
-                                    L_toolList.Insert(L_toolList.Count, temp);
-                                    break;
-                                }
-                            }
-                        }
-                        //else
-                        //{
-                        //    moveNode.Remove();
-                        //    Job.GetJobTree(jobName).Nodes.Insert(targeNode.Parent.Index + 1, moveNode);
-
-                        //    ToolInfo temp = new ToolInfo();
-                        //    for (int i = 0; i < L_toolList.Count; i++)
-                        //    {
-                        //        if (L_toolList[i].toolName == moveNode.Text)
-                        //        {
-                        //            temp = L_toolList[i];
-                        //            L_toolList.RemoveAt(i);
-                        //            L_toolList.Insert(targeNode.Parent.Index + 1, temp);
-                        //            break;
-                        //        }
-                        //    }
-                        //}
-                    }
-                    //更新当前拖动的节点选择  
-                    Job.GetJobTree(jobName).SelectedNode = moveNode;
-                    //展开目标节点,便于显示拖放效果  
-                    GetToolNodeByNodeText(moveNode.Text).Expand();
+                    insertIndex = Math.Max(0, Math.Min(insertIndex, L_toolList.Count));
+                    Frm_ToolBox.DragNode = null;
+                    Frm_ToolBox.NodeSource = null;
+                    Frm_ToolBox.MoveTo = MoveTreeView.NoMove;
+                    Frm_ToolBox.Instance.AddTool(toolText, null, insertIndex);
                     return;
                 }
 
-                if (moveNode.Level == 1 && targeNode.Level == 1 && moveNode.Parent == targeNode.Parent)          //都是输入输出节点，内部拖动排序
-                {
-                    moveNode.Remove();
-                    targeNode.Parent.Nodes.Insert(targeNode.Index, moveNode);
+                if (e.Data == null || !e.Data.GetDataPresent(typeof(TreeNode)))
                     return;
-                }
 
-                if (moveNode.Level == 0)        //被拖动的是子节点，也就是工具节点
+                TreeNode moveNode = e.Data.GetData(typeof(TreeNode)) as TreeNode;
+                if (moveNode == null || moveNode.TreeView != tree)
+                    return;
+
+                Point dropPoint = tree.PointToClient(new Point(e.X, e.Y));
+                TreeNode targetNode = tree.GetNodeAt(dropPoint);
+                if (moveNode == targetNode)
+                    return;
+
+                // 顶层模块排序单独走安全路径：所有索引都在 Remove 前计算并归一化，
+                // 同时更新 L_toolList，杜绝首项 -1 和树/模型不同步。
+                if (moveNode.Level == 0)
                 {
-                    if (targeNode.Level == 0)
-                    {
-                        moveNode.Remove();
-                        Job.GetJobTree(jobName).Nodes.Insert(targeNode.Index, moveNode);
-
-                        ToolInfo temp = new ToolInfo();
-                        for (int i = 0; i < L_toolList.Count; i++)
-                        {
-                            if (L_toolList[i].toolName == moveNode.Text)
-                            {
-                                temp = L_toolList[i];
-                                L_toolList.RemoveAt(i);
-                                L_toolList.Insert(targeNode.Index - 1, temp);
-                                break;
-                            }
-                        }
-                    }
-                    else
-                    {
-                        moveNode.Remove();
-                        Job.GetJobTree(jobName).Nodes.Insert(targeNode.Parent.Index + 1, moveNode);
-
-                        ToolInfo temp = new ToolInfo();
-                        for (int i = 0; i < L_toolList.Count; i++)
-                        {
-                            if (L_toolList[i].toolName == moveNode.Text)
-                            {
-                                temp = L_toolList[i];
-                                L_toolList.RemoveAt(i);
-                                L_toolList.Insert(targeNode.Parent.Index + 1, temp);
-                                break;
-                            }
-                        }
-                    }
-                }
-                else        //被拖动的是输入输出节点
-                {
-                    if (targeNode.Level == 0 && FindToolInfoByName(targeNode.Text).toolType == ToolType.Output)
-                    {
-                        string result = moveNode.Parent.Text + "->" + moveNode.Text.Substring(3);
-                        if (!((DataGridViewComboBoxCell)(Frm_Monitor.Instance.dgv_monitor.Rows[Frm_Monitor.Instance.dgv_monitor.Rows.Count - 1].Cells[0])).Items.Contains(result))
-                            ((DataGridViewComboBoxCell)(Frm_Monitor.Instance.dgv_monitor.Rows[Frm_Monitor.Instance.dgv_monitor.Rows.Count - 1].Cells[0])).Items.Add(result);
-
-                        FindToolInfoByName(targeNode.Text).input.Add(new ToolIO(result, "", DataType.String));
-                        TreeNode node = targeNode.Nodes.Add("", "<--" + result, 34, 34);
-                        node.ForeColor = Color.DarkMagenta;
-                        D_itemAndSource.Add(node, moveNode);
-                        targeNode.Expand();
+                    if (TryMoveToolNode(tree, moveNode, targetNode))
                         DrawLine();
-                        return;
-                    }
-                    else if (targeNode.Level == 0)
-                        return;
-
-                    //连线前首先要判断被拖动节点是否为输出项，目标节点是否为输入项
-                    if (moveNode.Text.Substring(0, 3) != "-->" || targeNode.Text.Substring(0, 3) != "<--")
-                    {
-                        Frm_Main.Instance.OutputMsg("输入项与输出项数据类型不一致，不可关联", Color.Red);
-                        return;
-                    }
-
-                    //连线前要判断被拖动节点和目标节点的数据类型是否一致
-                    if ((DataType)moveNode.Tag != (DataType)targeNode.Tag)
-                    {
-                        Frm_Main.Instance.OutputMsg(string.Format("输入项数据类型为{0}，输出项数据类型为{1}，数据类型不一致，不可关联", (DataType)moveNode.Tag, (DataType)targeNode.Tag), Color.Red);
-                        return;
-                    }
-
-                    string input = targeNode.Text;
-                    if (input.Contains("《"))       //表示已经连接了源
-                    {
-                        input = Regex.Split(targeNode.Text, "《")[0];
-                        string oldSource = Regex.Split(targeNode.Text.Substring(3), "《- ")[1];
-                        string oldSourceTool = Regex.Split(oldSource, "->")[0];
-                        string oldSourceIO = Regex.Split(oldSource, "->")[1];
-
-                        //移除旧的连线，并新增新的连线
-                        for (int i = 0; i < D_itemAndSource.Count; i++)
-                        {
-                            if (((TreeNode)targeNode) == (TreeNode)D_itemAndSource.Keys.ToArray()[i] && ((TreeNode)GetToolIONodeByNodeText(oldSourceTool, "-->" + oldSourceIO)) == (TreeNode)D_itemAndSource[D_itemAndSource.Keys.ToArray()[i]])
-                            {
-                                D_itemAndSource.Remove(D_itemAndSource.Keys.ToArray()[i]);
-                                break;
-                            }
-                        }
-
-                        //添加新的连线
-                        D_itemAndSource.Add(targeNode, moveNode);
-                    }
-                    else            //第一次连接源就需要添加到输入输出集合
-                    {
-                        D_itemAndSource.Add(targeNode, moveNode);
-                    }
-                    FindToolInfoByName(targeNode.Parent.Text).GetInput(input.Substring(3)).value = "《- " + moveNode.Parent.Text + "->" + moveNode.Text.Substring(3);
-                    targeNode.Text = input + "《- " + moveNode.Parent.Text + "->" + moveNode.Text.Substring(3);
-                    DrawLine();
-
-                    //移除拖放的节点  
-                    if (moveNode.Level == 0)
-                        moveNode.Remove();
+                    return;
                 }
-                //更新当前拖动的节点选择  
-                Job.GetJobTree(jobName).SelectedNode = moveNode;
-                //展开目标节点,便于显示拖放效果  
-                targeNode.Expand();
+
+                if (targetNode == null)
+                    return;
+
+                // 同一工具内部的端口排序只改变显示顺序，不跨工具移动端口。
+                if (moveNode.Level == 1 && targetNode.Level == 1 && moveNode.Parent == targetNode.Parent)
+                {
+                    TreeNode parent = moveNode.Parent;
+                    int sourceIndex = moveNode.Index;
+                    int insertIndex = targetNode.Index;
+                    if (sourceIndex < insertIndex)
+                        insertIndex--;
+                    if (insertIndex == sourceIndex)
+                        return;
+
+                    tree.BeginUpdate();
+                    try
+                    {
+                        moveNode.Remove();
+                        parent.Nodes.Insert(Math.Max(0, Math.Min(insertIndex, parent.Nodes.Count)), moveNode);
+                        tree.SelectedNode = moveNode;
+                    }
+                    finally
+                    {
+                        tree.EndUpdate();
+                    }
+                    DrawLine();
+                    return;
+                }
+
+                TreeNode moveParent = moveNode.Parent;
+                if (moveParent == null)
+                    return;
+
+                ToolInfo targetToolInfo = targetNode.Level == 0
+                    ? FindToolInfoByName(targetNode.Text)
+                    : null;
+                if (targetNode.Level == 0 && targetToolInfo.toolType == ToolType.Output)
+                {
+                    if (!moveNode.Text.StartsWith("-->", StringComparison.Ordinal))
+                        return;
+
+                    string result = moveParent.Text + "->" + moveNode.Text.Substring(3);
+                    TryRegisterMonitorOutput(result);
+                    targetToolInfo.input.Add(new ToolIO(result, "", DataType.String));
+                    TreeNode outputInput = targetNode.Nodes.Add("", "<--" + result, 34, 34);
+                    outputInput.ForeColor = Color.DarkMagenta;
+                    D_itemAndSource[outputInput] = moveNode;
+                    targetNode.Expand();
+                    DrawLine();
+                    return;
+                }
+
+                if (targetNode.Level == 0)
+                    return;
+                if (!moveNode.Text.StartsWith("-->", StringComparison.Ordinal) ||
+                    !targetNode.Text.StartsWith("<--", StringComparison.Ordinal) ||
+                    !(moveNode.Tag is DataType) || !(targetNode.Tag is DataType))
+                {
+                    Frm_Main.Instance.OutputMsg("只能将输出端口连接到输入端口", Color.Red);
+                    return;
+                }
+                if ((DataType)moveNode.Tag != (DataType)targetNode.Tag)
+                {
+                    Frm_Main.Instance.OutputMsg(string.Format("输入项数据类型为{0}，输出项数据类型为{1}，数据类型不一致，不可关联", (DataType)targetNode.Tag, (DataType)moveNode.Tag), Color.Red);
+                    return;
+                }
+
+                int sourceMarker = targetNode.Text.IndexOf("《- ", StringComparison.Ordinal);
+                string inputName = (sourceMarker >= 0 ? targetNode.Text.Substring(0, sourceMarker) : targetNode.Text).Substring(3);
+                ToolInfo inputTool = FindToolInfoByName(targetNode.Parent.Text);
+                ToolIO inputIo = inputTool.input.FirstOrDefault(item => item.IOName == inputName);
+                if (inputIo == null)
+                {
+                    Frm_Main.Instance.OutputMsg("未找到目标输入端口，连接未修改", Color.Red);
+                    return;
+                }
+
+                string sourceValue = "《- " + moveParent.Text + "->" + moveNode.Text.Substring(3);
+                inputIo.value = sourceValue;
+                D_itemAndSource[targetNode] = moveNode;
+                targetNode.Text = "<--" + inputName + sourceValue;
+                tree.SelectedNode = targetNode;
+                targetNode.Parent.Expand();
+                DrawLine();
             }
             catch (Exception ex)
             {
                 Log.SaveError(ex);
+                try
+                {
+                    Frm_Main.Instance.OutputMsg("移动或连接流程模块失败，原流程顺序已保留", Color.Red);
+                }
+                catch
+                {
+                }
+            }
+        }
+
+        internal bool TryMoveToolNode(TreeView tree, TreeNode moveNode, TreeNode targetNode)
+        {
+            if (tree == null || moveNode == null || moveNode.TreeView != tree || moveNode.Level != 0)
+                return false;
+
+            TreeNode targetTool = GetRootToolNode(targetNode);
+            if (targetTool == moveNode)
+                return false;
+
+            int sourceIndex = moveNode.Index;
+            int requestedIndex = targetTool == null
+                ? tree.Nodes.Count
+                : targetTool.Index + (targetNode != null && targetNode.Level > 0 ? 1 : 0);
+            int insertIndex = requestedIndex;
+            if (sourceIndex < insertIndex)
+                insertIndex--;
+            insertIndex = Math.Max(0, Math.Min(insertIndex, tree.Nodes.Count - 1));
+            if (insertIndex == sourceIndex)
+                return false;
+
+            ToolInfo movedTool = L_toolList.FirstOrDefault(item => item.toolName == moveNode.Text);
+            tree.BeginUpdate();
+            try
+            {
+                moveNode.Remove();
+                tree.Nodes.Insert(Math.Min(insertIndex, tree.Nodes.Count), moveNode);
+
+                if (movedTool != null)
+                {
+                    L_toolList.Remove(movedTool);
+                    L_toolList.Insert(Math.Min(insertIndex, L_toolList.Count), movedTool);
+                }
+                tree.SelectedNode = moveNode;
+                moveNode.Expand();
+            }
+            finally
+            {
+                tree.EndUpdate();
+            }
+            return true;
+        }
+
+        private static TreeNode GetRootToolNode(TreeNode node)
+        {
+            if (node == null)
+                return null;
+            while (node.Parent != null)
+                node = node.Parent;
+            return node;
+        }
+
+        private static void TryRegisterMonitorOutput(string result)
+        {
+            try
+            {
+                DataGridView monitor = Frm_Monitor.Instance.dgv_monitor;
+                if (monitor.Rows.Count == 0 || monitor.Rows[monitor.Rows.Count - 1].Cells.Count == 0)
+                    return;
+                DataGridViewComboBoxCell cell = monitor.Rows[monitor.Rows.Count - 1].Cells[0] as DataGridViewComboBoxCell;
+                if (cell != null && !cell.Items.Contains(result))
+                    cell.Items.Add(result);
+            }
+            catch
+            {
+                // 监控下拉未初始化不应阻断流程端口连接。
             }
         }
 
@@ -3078,121 +2854,242 @@ namespace VMPro
         {
             try
             {
-                if (Job.GetJobTree(jobName).SelectedNode == null)
+                TreeView tree = Job.GetJobTree(jobName);
+                TreeNode targetNode = GetContextTargetNode(tree);
+                if (targetNode == null)
                     return;
 
-
-
-                isDrawing = true;
-                string nodeText = Job.GetJobTree(jobName).SelectedNode.Text.ToString();
-                int level = Job.GetJobTree(jobName).SelectedNode.Level;
-                string fatherNodeText = string.Empty;
-                if (level == 0)
+                if (targetNode.Level == 0)
                 {
-                    Frm_ConfirmBox.Instance.lbl_info.Text = (Project.Instance.configuration.language == Language.English ? "Are you sure you want to delete current job?" : string.Format("确定要删除工具 [{0}] 吗？", nodeText));
+                    Frm_ConfirmBox.Instance.lbl_info.Text = Project.Instance.configuration.language == Language.English
+                        ? string.Format("Delete module [{0}]?", targetNode.Text)
+                        : string.Format("确定要删除模块 [{0}] 吗？", targetNode.Text);
                     Frm_ConfirmBox.Instance.ShowDialog(Frm_Main.Instance);
                     if (Frm_ConfirmBox.Instance.Result != ConfirmBoxResult.Yes)
                         return;
                 }
 
-                //如果是子节点
-                if (level == 1)
+                bool deletingTool = targetNode.Level == 0;
+                string deletedText = targetNode.Text;
+                if (RemoveWorkflowNode(targetNode))
                 {
-                    fatherNodeText = Job.GetJobTree(jobName).SelectedNode.Parent.Text;
+                    string message = deletingTool
+                        ? string.Format("已删除模块 [{0}]", deletedText)
+                        : string.Format("已删除端口 [{0}]", deletedText);
+                    Frm_Output.Instance.OutputMsg(message, Color.Black);
                 }
-                foreach (TreeNode toolNode in Job.GetJobTree(jobName).Nodes)
-                {
-                    if (level == 1)
-                    {
-                        if (toolNode.Text == fatherNodeText)
-                        {
-                            foreach (var itemNode in ((TreeNode)toolNode).Nodes)
-                            {
-                                if (itemNode != null)
-                                {
-                                    if (((TreeNode)itemNode).Text == nodeText)
-                                    {
-                                        //移除连线集合中的这条连线
-                                        for (int i = 0; i < D_itemAndSource.Count; i++)
-                                        {
-                                            if (((TreeNode)itemNode) == D_itemAndSource.Keys.ToArray()[i] || ((TreeNode)itemNode) == D_itemAndSource[D_itemAndSource.Keys.ToArray()[i]])
-                                                D_itemAndSource.Remove(D_itemAndSource.Keys.ToArray()[i]);
-                                        }
-
-                                        ((TreeNode)itemNode).Remove();
-                                        Job.GetJobTree(jobName).SelectedNode = null;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    else
-                    {
-                        if (((TreeNode)toolNode).Text == nodeText)
-                        {
-                            ((TreeNode)toolNode).Remove();
-                            break;
-                        }
-                    }
-                }
-
-                //如果是父节点
-                if (level == 0)
-                {
-                    for (int i = 0; i < L_toolList.Count; i++)
-                    {
-                        if (L_toolList[i].toolName == nodeText)
-                        {
-                            try
-                            {
-                                //移除连线集合中的这条连线
-                                for (int j = D_itemAndSource.Count - 1; j >= 0; j--)
-                                {
-                                    if (nodeText == D_itemAndSource.Keys.ToArray()[j].Parent.Text || nodeText == D_itemAndSource[D_itemAndSource.Keys.ToArray()[j]].Parent.Text)
-                                        D_itemAndSource.Remove(D_itemAndSource.Keys.ToArray()[j]);
-                                }
-                            }
-                            catch { }
-
-                            L_toolList.RemoveAt(i);
-                        }
-                    }
-                }
-                else
-                {
-                    for (int i = 0; i < L_toolList.Count; i++)
-                    {
-                        if (L_toolList[i].toolName == fatherNodeText)
-                        {
-                            for (int j = 0; j < L_toolList[i].input.Count; j++)
-                            {
-                                if (L_toolList[i].input[j].value.ToString() == string.Empty)      //未连接源
-                                {
-                                    if (string.Format("<--{0}", L_toolList[i].input[j].IOName) == nodeText)
-                                        L_toolList[i].RemoveInputIO(nodeText);
-                                }
-                                else    //已连接源
-                                {
-                                    if (string.Format("<--{0}{1}", L_toolList[i].input[j].IOName, L_toolList[i].input[j].value.ToString()) == nodeText)
-                                        L_toolList[i].RemoveInputIO(nodeText);
-                                }
-                            }
-                            for (int j = 0; j < L_toolList[i].output.Count; j++)
-                            {
-                                if (L_toolList[i].output[j].IOName == nodeText.Substring(3))
-                                    L_toolList[i].RemoveOutputIO(nodeText.Substring(3));
-                            }
-                        }
-                    }
-                }
-
-                isDrawing = false;
-                DrawLine();
             }
             catch (Exception ex)
             {
                 Log.SaveError(ex);
+                isDrawing = false;
+                Frm_Main.Instance.OutputMsg("删除模块失败，请检查当前流程连接", Color.Red);
             }
+        }
+
+        private TreeNode GetContextTargetNode(TreeView tree)
+        {
+            if (tree == null || tree.IsDisposed)
+                return null;
+            if (rightClickTargetNode != null && rightClickTargetNode.TreeView == tree)
+                return rightClickTargetNode;
+            return tree.SelectedNode;
+        }
+
+        /// <summary>
+        /// 删除模块或端口，同步清理树、工具列表、连线字典和下游输入源。
+        /// </summary>
+        internal bool RemoveWorkflowNode(TreeNode targetNode)
+        {
+            if (targetNode == null || targetNode.TreeView == null || targetNode.Level > 1)
+                return false;
+
+            isDrawing = true;
+            try
+            {
+                TreeNode toolNode = GetRootToolNode(targetNode);
+                ToolInfo toolInfo = L_toolList.FirstOrDefault(item => item.toolName == toolNode.Text);
+                if (toolInfo == null)
+                    return false;
+
+                bool deletingTool = targetNode.Level == 0;
+                bool deletingOutput = !deletingTool && targetNode.Text.StartsWith("-->", StringComparison.Ordinal);
+                string outputName = deletingOutput ? targetNode.Text.Substring(3) : string.Empty;
+
+                foreach (KeyValuePair<TreeNode, TreeNode> connection in D_itemAndSource.ToArray())
+                {
+                    bool removesInput = IsSameOrDescendant(connection.Key, targetNode);
+                    bool removesSource = IsSameOrDescendant(connection.Value, targetNode);
+                    if (!removesInput && !removesSource)
+                        continue;
+
+                    if (removesSource && !removesInput)
+                        ClearInputConnection(connection.Key);
+                    D_itemAndSource.Remove(connection.Key);
+                }
+
+                if (deletingTool || deletingOutput)
+                {
+                    ClearStoredInputSources(toolNode.Text, deletingTool ? null : outputName);
+                    ClearStoredInputSourcesInOtherJobs(toolNode, deletingTool ? null : outputName);
+                }
+
+                if (deletingTool)
+                {
+                    L_toolList.Remove(toolInfo);
+                }
+                else
+                {
+                    string ioName = GetIoName(targetNode.Text);
+                    if (targetNode.Text.StartsWith("<--", StringComparison.Ordinal))
+                    {
+                        ToolIO input = toolInfo.input.FirstOrDefault(item => item.IOName == ioName);
+                        if (input != null)
+                            toolInfo.input.Remove(input);
+                    }
+                    else if (deletingOutput)
+                    {
+                        ToolIO output = toolInfo.output.FirstOrDefault(item => item.IOName == ioName);
+                        if (output != null)
+                            toolInfo.output.Remove(output);
+                    }
+                }
+
+                TreeView tree = targetNode.TreeView;
+                targetNode.Remove();
+                if (tree != null)
+                {
+                    tree.SelectedNode = null;
+                    tree.Invalidate();
+                }
+                rightClickTargetNode = null;
+                return true;
+            }
+            finally
+            {
+                isDrawing = false;
+                DrawLine();
+            }
+        }
+
+        private static bool IsSameOrDescendant(TreeNode node, TreeNode ancestor)
+        {
+            while (node != null)
+            {
+                if (node == ancestor)
+                    return true;
+                node = node.Parent;
+            }
+            return false;
+        }
+
+        private void ClearInputConnection(TreeNode inputNode)
+        {
+            if (inputNode == null || inputNode.Parent == null)
+                return;
+
+            string inputName = GetIoName(inputNode.Text);
+            ToolInfo inputTool = L_toolList.FirstOrDefault(item => item.toolName == inputNode.Parent.Text);
+            ToolIO input = inputTool == null ? null : inputTool.input.FirstOrDefault(item => item.IOName == inputName);
+            if (input != null)
+                input.value = string.Empty;
+            inputNode.Text = "<--" + inputName;
+        }
+
+        private void ClearStoredInputSources(string sourceToolName, string sourceOutputName)
+        {
+            string sourcePrefix = "《- " + sourceToolName + "->";
+            string exactSource = sourceOutputName == null ? null : sourcePrefix + sourceOutputName;
+            foreach (ToolInfo targetTool in L_toolList)
+            {
+                foreach (ToolIO input in targetTool.input)
+                {
+                    string value = input.value == null ? string.Empty : input.value.ToString();
+                    if ((exactSource == null && value.StartsWith(sourcePrefix, StringComparison.Ordinal)) ||
+                        (exactSource != null && value == exactSource))
+                    {
+                        input.value = string.Empty;
+                        SyncCodeEditInputSource(targetTool.toolName, input.IOName, string.Empty);
+                        TreeNode inputNode = FindIoNode(targetTool.toolName, input.IOName, true);
+                        if (inputNode != null)
+                            inputNode.Text = "<--" + input.IOName;
+                    }
+                }
+            }
+        }
+
+        private void ClearStoredInputSourcesInOtherJobs(TreeNode sourceToolNode, string sourceOutputName)
+        {
+            Scheme engine;
+            try
+            {
+                engine = Project.Instance.curEngine;
+            }
+            catch
+            {
+                return;
+            }
+
+            // 未挂入当前方案的 Job（例如烟测临时对象）没有跨流程引用可清理。
+            if (engine == null || engine.L_jobList == null || !engine.L_jobList.Contains(this))
+                return;
+
+            string sourcePrefix = "《- [" + jobName + "]" + sourceToolNode.Text + "->";
+            string exactSource = sourceOutputName == null ? null : sourcePrefix + sourceOutputName;
+            foreach (Job targetJob in engine.L_jobList.ToArray())
+            {
+                if (targetJob == null || targetJob == this)
+                    continue;
+
+                bool changed = false;
+                foreach (KeyValuePair<TreeNode, TreeNode> connection in targetJob.D_itemAndSource.ToArray())
+                {
+                    if (!IsSameOrDescendant(connection.Value, sourceToolNode))
+                        continue;
+                    targetJob.ClearInputConnection(connection.Key);
+                    targetJob.D_itemAndSource.Remove(connection.Key);
+                    changed = true;
+                }
+
+                foreach (ToolInfo targetTool in targetJob.L_toolList)
+                {
+                    foreach (ToolIO input in targetTool.input)
+                    {
+                        string value = input.value == null ? string.Empty : input.value.ToString();
+                        if ((exactSource == null && value.StartsWith(sourcePrefix, StringComparison.Ordinal)) ||
+                            (exactSource != null && value == exactSource))
+                        {
+                            input.value = string.Empty;
+                            targetJob.SyncCodeEditInputSource(targetTool.toolName, input.IOName, string.Empty);
+                            TreeNode inputNode = targetJob.FindIoNode(targetTool.toolName, input.IOName, true);
+                            if (inputNode != null)
+                                inputNode.Text = "<--" + input.IOName;
+                            changed = true;
+                        }
+                    }
+                }
+
+                if (changed)
+                    targetJob.DrawLine();
+            }
+        }
+
+        private TreeNode FindIoNode(string toolName, string ioName, bool input)
+        {
+            TreeNode toolNode = GetToolNodeByNodeText(toolName);
+            if (toolNode == null)
+                return null;
+            string prefix = (input ? "<--" : "-->") + ioName;
+            return toolNode.Nodes.Cast<TreeNode>().FirstOrDefault(node => node.Text.StartsWith(prefix, StringComparison.Ordinal));
+        }
+
+        private static string GetIoName(string nodeText)
+        {
+            if (string.IsNullOrEmpty(nodeText) || nodeText.Length <= 3)
+                return string.Empty;
+            string value = nodeText.Substring(3);
+            int sourceMarker = value.IndexOf("《- ", StringComparison.Ordinal);
+            return sourceMarker >= 0 ? value.Substring(0, sourceMarker) : value;
         }
         /// <summary>
         /// 工具重命名
@@ -3745,19 +3642,42 @@ namespace VMPro
         {
             try
             {
-                string jobName = Frm_Job.Instance.tbc_jobs.SelectedTab.Text;
-                FindToolInfoByName(Job.GetJobTree(jobName).SelectedNode.Text).enable = !FindToolInfoByName(Job.GetJobTree(jobName).SelectedNode.Text).enable;
-                if (FindToolInfoByName(Job.GetJobTree(jobName).SelectedNode.Text).enable)
-                    (Job.GetJobTree(jobName).SelectedNode).ForeColor = Color.Black;
-                else
-                    (Job.GetJobTree(jobName).SelectedNode).ForeColor = Color.DarkGray;
+                TreeView tree = GetJobTree();
+                TreeNode targetNode = GetContextTargetNode(tree);
+                TreeNode toolNode = GetRootToolNode(targetNode);
+                bool enabled;
+                if (!TryToggleToolEnabled(toolNode, out enabled))
+                    return;
 
-                GetJobTree().SelectedNode = null;
+                Frm_Output.Instance.OutputMsg(
+                    string.Format("模块 [{0}] 已{1}", toolNode.Text, enabled ? "启用" : "禁用"),
+                    enabled ? Color.Black : Color.DarkGray);
             }
             catch (Exception ex)
             {
                 Log.SaveError(ex);
+                Frm_Main.Instance.OutputMsg("修改模块启用状态失败", Color.Red);
             }
+        }
+
+        internal bool TryToggleToolEnabled(TreeNode toolNode, out bool enabled)
+        {
+            enabled = false;
+            toolNode = GetRootToolNode(toolNode);
+            if (toolNode == null || toolNode.TreeView == null)
+                return false;
+
+            ToolInfo toolInfo = L_toolList.FirstOrDefault(item => item.toolName == toolNode.Text);
+            if (toolInfo == null)
+                return false;
+
+            toolInfo.enable = !toolInfo.enable;
+            enabled = toolInfo.enable;
+            toolNode.ForeColor = enabled ? Color.Black : Color.DarkGray;
+            toolNode.TreeView.SelectedNode = toolNode;
+            toolNode.TreeView.Invalidate(toolNode.Bounds);
+            DrawLine();
+            return true;
         }
         /// <summary>
         /// 通过流程名和工具名获取工具
@@ -3950,27 +3870,25 @@ namespace VMPro
         {
             try
             {
+                if (e.Button != MouseButtons.Right)
+                    return;
+
+                TreeView tree = sender as TreeView;
+                if (tree == null || tree.IsDisposed)
+                    return;
+
                 if (isRunLoop)
                 {
-                    GetJobTree(jobName).ContextMenuStrip = null;
+                    tree.ContextMenuStrip = null;
                     return;
                 }
 
-                //if (e.Button == MouseButtons.Right)
-                //{
-                TreeNode tn = GetJobTree(jobName).GetNodeAt(e.X, e.Y);
-                if (tn != null)
-                {
-                    GetJobTree(jobName).SelectedNode = tn;
-                }
-                //}
-
-                if (e.Y > GetJobTree(jobName).Nodes[GetJobTree(jobName).Nodes.Count - 1].Bounds.Y + 10)
-                {
-                    GetJobTree(jobName).ContextMenuStrip = rightClickMenuAtBlank;
-                }
-
-
+                TreeNode node = tree.GetNodeAt(e.X, e.Y);
+                rightClickTargetNode = node;
+                tree.SelectedNode = node;
+                // 菜单内容依赖当次命中节点，由 MouseClick 构建完成后再显式弹出，
+                // 避免 WinForms 先自动弹出上一个节点的旧菜单。
+                tree.ContextMenuStrip = null;
             }
             catch (Exception ex)
             {
@@ -4022,6 +3940,67 @@ namespace VMPro
 
         bool doubleClick = false;
 
+        [NonSerialized]
+        private int afterSelectRequestId;
+
+        [NonSerialized]
+        private System.Windows.Forms.Timer afterSelectDelayTimer;
+
+        [NonSerialized]
+        private TaskCompletionSource<bool> afterSelectDelayCompletion;
+
+        // 工具编辑窗口是全局单例；门闩也必须跨 Job 共享，
+        // 否则 DoEvents 期间切到另一流程仍可重入同一窗口。
+        private static int moduleEditorOpenBusy;
+
+        private Task<bool> DelayOnUiThread(int milliseconds)
+        {
+            CancelPendingAfterSelectDelay();
+
+            afterSelectDelayCompletion = new TaskCompletionSource<bool>();
+            afterSelectDelayTimer = new System.Windows.Forms.Timer();
+            afterSelectDelayTimer.Interval = Math.Max(1, milliseconds);
+            afterSelectDelayTimer.Tick += AfterSelectDelayTimer_Tick;
+            afterSelectDelayTimer.Start();
+            return afterSelectDelayCompletion.Task;
+        }
+
+        private void AfterSelectDelayTimer_Tick(object sender, EventArgs e)
+        {
+            System.Windows.Forms.Timer timer = afterSelectDelayTimer;
+            TaskCompletionSource<bool> completion = afterSelectDelayCompletion;
+            afterSelectDelayTimer = null;
+            afterSelectDelayCompletion = null;
+
+            if (timer != null)
+            {
+                timer.Stop();
+                timer.Tick -= AfterSelectDelayTimer_Tick;
+                timer.Dispose();
+            }
+
+            if (completion != null)
+                completion.TrySetResult(true);
+        }
+
+        private void CancelPendingAfterSelectDelay()
+        {
+            System.Windows.Forms.Timer timer = afterSelectDelayTimer;
+            TaskCompletionSource<bool> completion = afterSelectDelayCompletion;
+            afterSelectDelayTimer = null;
+            afterSelectDelayCompletion = null;
+
+            if (timer != null)
+            {
+                timer.Stop();
+                timer.Tick -= AfterSelectDelayTimer_Tick;
+                timer.Dispose();
+            }
+
+            if (completion != null)
+                completion.TrySetResult(false);
+        }
+
         public static void Delay(double t)
         {
             Stopwatch stopWatch = new Stopwatch();
@@ -4051,33 +4030,50 @@ namespace VMPro
 
         //////}
 
-        internal void TVW_AfterSelect(object sender, TreeViewEventArgs e)
+        internal async void TVW_AfterSelect(object sender, TreeViewEventArgs e)
         {
             try
             {
                 if (isRunLoop)
                     return;
 
-                Thread th = new Thread(() =>
+                TreeView treeView = sender as TreeView;
+                if (treeView == null || treeView.IsDisposed || treeView.Disposing)
+                    return;
+
+                // AfterSelect normally runs on the owning UI thread.  Some legacy
+                // project-loading paths can raise it from a worker, so normalize the
+                // entry point before reading any Control properties.
+                if (treeView.InvokeRequired)
                 {
+                    if (treeView.IsHandleCreated)
+                        treeView.BeginInvoke(new TreeViewEventHandler(TVW_AfterSelect), treeView, e);
+                    return;
+                }
 
-                    doubleClick = false;
-                    Thread.Sleep(500);
-                    if (doubleClick)
-                        return;
+                TreeNode node = e == null ? treeView.SelectedNode : e.Node;
+                if (node == null)
+                    return;
 
-                    TreeNode node = ((TreeView)sender).SelectedNode;
-                    if (node == null)
-                        return;
+                int requestId = Interlocked.Increment(ref afterSelectRequestId);
+                doubleClick = false;
 
-                    string toolName = ((TreeView)sender).SelectedNode.Text;
+                // Preserve the original single-click/double-click distinction without
+                // moving the following UI-heavy tool switch onto a background thread.
+                bool delayCompleted = await DelayOnUiThread(500);
+                if (!delayCompleted || requestId != afterSelectRequestId || doubleClick ||
+                    treeView.IsDisposed || treeView.Disposing ||
+                    treeView.SelectedNode != node)
+                    return;
 
-                    for (int i = 0; i < L_toolList.Count; i++)
+                string toolName = node.Text;
+
+                for (int i = 0; i < L_toolList.Count; i++)
+                {
+                    if (L_toolList[i].toolName == toolName)
                     {
-                        if (L_toolList[i].toolName == toolName)
+                        switch (L_toolList[i].toolType)
                         {
-                            switch (L_toolList[i].toolType)
-                            {
                                 #region ImageAcq
                                 case ToolType.ImageAcq:
                                     AcqImageTool acqImageTool = (AcqImageTool)L_toolList[i].tool;
@@ -5670,9 +5666,6 @@ namespace VMPro
 
                         }
                     }
-                });
-                th.IsBackground = true;
-                th.Start();
             }
             catch (Exception ex)
             {
@@ -5689,73 +5682,42 @@ namespace VMPro
         {
             try
             {
+                TreeView treeView = sender as TreeView;
+                if (treeView == null || treeView.IsDisposed || e.Button != MouseButtons.Right)
+                    return;
+
                 if (!Permission.CheckPermission(PermissionLevel.Developer))
                     return;
 
                 if (isRunLoop)
                 {
-                    GetJobTree(jobName).ContextMenuStrip = null;
-                    return;
-                }
-
-
-                if (GetJobTree().SelectedNode == null)
-                    return;
-
-
-
-
-                if (e.Button == MouseButtons.Left && GetJobTree().SelectedNode != null)      //如果是鼠标左击，就改工具名
-                {
-
-                    TreeView treeView = (TreeView)sender;
-                    if (e.Button == MouseButtons.Right)
-                    {
-                        if (treeView.SelectedNode != null)
-                            treeView.SelectedNode.BeginEdit();
-                    }
+                    treeView.ContextMenuStrip = null;
                     return;
                 }
 
                 //判断是否在节点单击
-                TreeViewHitTestInfo test = GetJobTree().HitTest(e.X, e.Y);
-                if (test.Node == null || test.Location != TreeViewHitTestLocations.Label && e.Button == MouseButtons.Right)       //单击空白
+                TreeViewHitTestInfo test = treeView.HitTest(e.X, e.Y);
+                if (test.Node == null)
                 {
-                    GetJobTree().ContextMenuStrip = rightClickMenuAtBlank;
-                    rightClickMenuAtBlank.Show(e.X, e.Y);
-                    return;
-                }
-                else
-                {
-                    GetJobTree().ContextMenuStrip = rightClickMenu;
-                }
-
-                //右键流程根节点：提供"保存当前流程"选项
-                //注意：工具节点本身就是树的顶级节点，节点文本为工具名，不能用 FindJobByName 去查找，
-                //否则每次右键工具都会因"未找到名为[工具名]的流程"而弹窗报错
-                if (e.Button == MouseButtons.Right && GetJobTree().SelectedNode != null && GetJobTree().SelectedNode.Text == jobName)
-                {
-                    rightClickMenu.Items.Clear();
-                    ToolStripItem saveJobItem = rightClickMenu.Items.Add(
-                        Project.Instance.configuration.language == Language.English ? "Save Current Job" : "保存当前流程");
-                    saveJobItem.BackColor = Color.White;
-                    saveJobItem.Click += new EventHandler(SaveCurrentJob);
-                    GetJobTree().ContextMenuStrip = rightClickMenu;
-                    rightClickMenu.Show();
-                    Application.DoEvents();
+                    rightClickTargetNode = null;
+                    treeView.SelectedNode = null;
+                    treeView.ContextMenuStrip = rightClickMenuAtBlank;
+                    rightClickMenuAtBlank.Show(treeView, e.Location);
                     return;
                 }
 
-                if (IsCodeEditOutputNode(GetJobTree().SelectedNode))
+                rightClickTargetNode = test.Node;
+                treeView.SelectedNode = test.Node;
+                treeView.ContextMenuStrip = rightClickMenu;
+
+                if (IsCodeEditOutputNode(test.Node))
                 {
                     rightClickMenu.Items.Clear();
                     ToolStripItem deleteOutput = rightClickMenu.Items.Add(
                         Project.Instance.configuration.language == Language.English ? "DeleteItem" : "删除项");
                     deleteOutput.BackColor = Color.White;
                     deleteOutput.Click += new EventHandler(DeleteItem);
-                    GetJobTree().ContextMenuStrip = rightClickMenu;
-                    rightClickMenu.Show();
-                    Application.DoEvents();
+                    rightClickMenu.Show(treeView, e.Location);
                     return;
                 }
 
@@ -5764,10 +5726,14 @@ namespace VMPro
                 rightClickMenu.Items[0].Click += new EventHandler(ShowIOForm);
 
 
-                rightClickMenu.Items.Add(Project.Instance.configuration.language == Language.English ? "Enable" : "运行");
+                rightClickMenu.Items.Add(Project.Instance.configuration.language == Language.English ? "Run module" : "运行模块");
                 rightClickMenu.Items[1].Click += new EventHandler(RunTool);
 
-                rightClickMenu.Items.Add(FindToolInfoByName(GetJobTree().SelectedNode.Text).enable ? "禁用" : "启用");
+                TreeNode selectedToolNode = GetRootToolNode(test.Node);
+                ToolInfo selectedToolInfo = L_toolList.FirstOrDefault(item => item.toolName == selectedToolNode.Text);
+                rightClickMenu.Items.Add(selectedToolInfo != null && selectedToolInfo.enable
+                    ? (Project.Instance.configuration.language == Language.English ? "Disable module" : "禁用模块")
+                    : (Project.Instance.configuration.language == Language.English ? "Enable module" : "启用模块"));
                 rightClickMenu.Items[2].Click += new EventHandler(EnableOrDisenableTool);
 
 
@@ -5778,7 +5744,7 @@ namespace VMPro
                 rightClickMenu.Items[4].Click += new EventHandler(CopyTool);
                 rightClickMenu.Items.Add(Project.Instance.configuration.language == Language.English ? "Rename" : "粘贴");
                 rightClickMenu.Items[5].Click += new EventHandler(PasteTool);
-                rightClickMenu.Items.Add(Project.Instance.configuration.language == Language.English ? "DeleteItem" : "删除");
+                rightClickMenu.Items.Add(Project.Instance.configuration.language == Language.English ? "Delete module" : "删除模块");
                 rightClickMenu.Items[6].Image = Resources.删_除4;
                 rightClickMenu.Items[6].Click += new EventHandler(DeleteItem);
                 rightClickMenu.Items.Add(Project.Instance.configuration.language == Language.English ? "Rename" : "重命名");
@@ -5786,26 +5752,20 @@ namespace VMPro
                 rightClickMenu.Items.Add(Project.Instance.configuration.language == Language.English ? "Rename" : "编辑说明");
                 rightClickMenu.Items[8].Click += new EventHandler(ModifyTipInfo);
 
-                //如果不是第一个则添加上移选项
-                if (GetJobTree().SelectedNode == null)
-                    return;
-                if (GetJobTree().SelectedNode.Index != 0)
+                // 端口菜单会在下方重建；只有顶层模块才显示排序操作。
+                if (test.Node.Level == 0 && test.Node.Index > 0)
                 {
-                    rightClickMenu.Items.Add(Project.Instance.configuration.language == Language.English ? "MoveUp" : "上移");
-                    rightClickMenu.Items[9].Click += new EventHandler(MoveUp);
-                    rightClickMenu.Items[9].Image = Resources.MoveUp;
-                    if (GetJobTree().SelectedNode.Index != GetJobTree().Nodes.Count - 1)
-                    {
-                        rightClickMenu.Items.Add(Project.Instance.configuration.language == Language.English ? "MoveDown" : "下移");
-                        rightClickMenu.Items[10].Click += new EventHandler(MoveDown);
-                        rightClickMenu.Items[10].Image = Resources.MoveDown;
-                    }
+                    ToolStripItem moveUpItem = rightClickMenu.Items.Add(
+                        Project.Instance.configuration.language == Language.English ? "Move up" : "上移");
+                    moveUpItem.Click += new EventHandler(MoveUp);
+                    moveUpItem.Image = Resources.MoveUp;
                 }
-                else
+                if (test.Node.Level == 0 && test.Node.Index < treeView.Nodes.Count - 1)
                 {
-                    rightClickMenu.Items.Add(Project.Instance.configuration.language == Language.English ? "MoveDown" : "下移");
-                    rightClickMenu.Items[9].Click += new EventHandler(MoveDown);
-                    rightClickMenu.Items[9].Image = Resources.MoveDown;
+                    ToolStripItem moveDownItem = rightClickMenu.Items.Add(
+                        Project.Instance.configuration.language == Language.English ? "Move down" : "下移");
+                    moveDownItem.Click += new EventHandler(MoveDown);
+                    moveDownItem.Image = Resources.MoveDown;
                 }
 
                 //白色背景好看
@@ -5817,9 +5777,6 @@ namespace VMPro
                 if (e.Button == MouseButtons.Right && e.Clicks == 1)        //如果右击
                 {
                     ToolInfo toolInfo = FindToolInfoByName(GetJobTree().SelectedNode.Text);
-
-                    //清空输入，输出下拉选项
-                    Application.DoEvents();
 
                     bool clickToolNode = true;              //操作的是工具节点
 
@@ -5940,18 +5897,12 @@ namespace VMPro
 
 
 
-                    GetJobTree().ContextMenuStrip = rightClickMenu;
-
-
-                    rightClickMenu.Show();
-                    Application.DoEvents();
-
                     #region 插入工具
                     if (clickToolNode)
                     {
-                        Thread th = new Thread(() =>
-                        {
-                            ToolStripItem toolStripItem1 = ((ToolStripMenuItem)rightClickMenu.Items[3]).DropDownItems.Add(Project.Instance.configuration.language == Language.English ? "AcqDevice" : "图像相关");
+                        // ContextMenuStrip 是 WinForms UI 对象，必须在所属 UI 线程完成构建。
+                        // 旧代码在后台线程修改 DropDownItems，会造成菜单偶发空白或跨线程异常。
+                        ToolStripItem toolStripItem1 = ((ToolStripMenuItem)rightClickMenu.Items[3]).DropDownItems.Add(Project.Instance.configuration.language == Language.English ? "AcqDevice" : "图像相关");
                             toolStripItem1.BackColor = Color.White;
                             {
                                 toolStripItem1 = ((ToolStripMenuItem)((ToolStripMenuItem)rightClickMenu.Items[3]).DropDownItems[0]).DropDownItems.Add("采集图像");
@@ -6182,14 +6133,11 @@ namespace VMPro
                                 toolStripItem1.Image = Resources.LightTool;
                                 toolStripItem1.Click += InsertTool;
                             }
-
-
-
-                        });
-                        th.IsBackground = true;
-                        th.Start();
                     }
                     #endregion
+
+                    treeView.ContextMenuStrip = rightClickMenu;
+                    rightClickMenu.Show(treeView, e.Location);
 
                 }
             }
@@ -6203,37 +6151,40 @@ namespace VMPro
         /// </summary>
         internal void TVW_DoubleClick(object sender, MouseEventArgs e)
         {
+            bool editStarted = false;
             try
             {
                 doubleClick = true;
-                //判断是否在节点上双击
-                TreeViewHitTestInfo test = GetJobTree().HitTest(e.X, e.Y);
-                if (test.Node == null || test.Location != TreeViewHitTestLocations.Label)       //双击节点
+                Interlocked.Increment(ref afterSelectRequestId);
+                CancelPendingAfterSelectDelay();
+
+                TreeView treeView = sender as TreeView;
+                TreeNode treeNode = GetModuleNodeAt(treeView, e.X, e.Y);
+                if (treeNode == null)
+                    return;
+
+                // 以双击真正命中的节点为准，不再读取可能滞后的 SelectedNode。
+                // 双击模块的端口行也进入所属模块，适配现代流程卡片的整行点击。
+                treeView.SelectedNode = treeNode;
+
+                if (IsExecutionActive)
                 {
-                    return;         //未启用
-                    if (jobTreeFold)
-                    {
-                        GetJobTree().ExpandAll();
-                        jobTreeFold = false;
-                    }
-                    else
-                    {
-                        GetJobTree().CollapseAll();
-                        jobTreeFold = true;
-                    }
+                    Frm_Main.Instance.OutputMsg("流程正在运行，不可编辑，请先停止运行", Color.DarkOrange);
                     return;
                 }
 
                 if (!Permission.CheckPermission(PermissionLevel.Admin))
                     return;
 
-                loadForm = true;
-                TreeNode treeNode = GetJobTree().SelectedNode;
-                if (treeNode == null)           //如果流程正在运行，可能会没有选中节点
-                {
-                    Frm_Main.Instance.OutputMsg("流程正在运行，不可编辑,请先停止运行", Color.Black);
+                if (!L_toolList.Any(item => item.toolName == treeNode.Text))
                     return;
-                }
+
+                // Show()/Load 中会派发多个控件事件；禁止 DoEvents 或快速连点造成第二次进入。
+                if (Interlocked.CompareExchange(ref moduleEditorOpenBusy, 1, 0) != 0)
+                    return;
+
+                editStarted = true;
+                loadForm = true;
                 string toolName = treeNode.Text;
 
                 for (int i = 0; i < L_toolList.Count; i++)
@@ -6565,6 +6516,7 @@ namespace VMPro
 
                                 //将对象信息更新到界面
                                 Frm_SaveImageTool.Instance.pictureBox2.Image = L_toolList[i].enable ? Resources.开 : Resources.关;
+                                Frm_SaveImageTool.Instance.RefreshEnableState(L_toolList[i].enable);
                                 Frm_SaveImageTool.Instance.tbx_imageSavePath.TextStr = saveImageTool.imageSavePath;
                                 Frm_SaveImageTool.Instance.comboBox1.TextStr = saveImageTool.imageFormat;
                                 Frm_SaveImageTool.Instance.textBox1.Value = saveImageTool.saveDays;
@@ -7431,333 +7383,77 @@ namespace VMPro
 
                             #region FindLine
                             case ToolType.FindLine:
-                                Frm_FindLineTool.Instance.lbl_title.Text = string.Format("查找线    [ {0} . {1} ]", this.jobName, L_toolList[i].toolName);
-                                //Frm_FindLineTool.Instance.StartPosition = FormStartPosition.Manual;
-                                //Frm_FindLineTool.Instance.Location = new System.Drawing.Point(System.Windows.Forms.SystemInformation.VirtualScreen.Width - Frm_FindLineTool.Instance.Width - 20, 200);        //让其显示在右上方，防止挡住图像窗口
-                                //Frm_FindLineTool.Instance.TopMost = true;
-                                Frm_FindLineTool.Instance.Activate();
-                                Frm_FindLineTool.Instance.jobName = this.jobName;
-                                Frm_FindLineTool.Instance.toolName = L_toolList[i].toolName;
-                                Frm_FindLineTool.Instance.Show();
-                                Frm_FindLineTool.Instance.WindowState = FormWindowState.Normal;
-                                Frm_FindLineTool.Instance.btn_runTool.Focus();
-                                FindLineTool findLineTool = (FindLineTool)(L_toolList[i].tool);
-                                Frm_FindLineTool.findLineTool = findLineTool;
-                                Application.DoEvents();
-
-
-
-                                inputItemNum = (L_toolList[i]).input.Count;
-
+                                FindLineTool findLineEditorTool = (FindLineTool)L_toolList[i].tool;
+                                findLineEditorTool.EnsureLoadedState();
+                                findLineEditorTool.toolPar.InputPar.图像 = null;
+                                findLineEditorTool.toolPar.InputPar.跟随 = new List<XYU>();
+                                inputItemNum = L_toolList[i].input.Count;
                                 for (int j = 0; j < inputItemNum; j++)
                                 {
-                                    string inputItemName = L_toolList[i].input[j].IOName;
-                                    string sourceFrom = L_toolList[i].GetInput(inputItemName).value.ToString();
-                                    if (sourceFrom == string.Empty)
-                                    {
+                                    string inputName = L_toolList[i].input[j].IOName;
+                                    string source = Convert.ToString(L_toolList[i].GetInput(inputName).value);
+                                    if (string.IsNullOrEmpty(source))
                                         continue;
-                                    }
-                                    if (inputItemName == "图像" || inputItemName == "InputImage")
-                                    {
-                                        string sourceToolName = Regex.Split(sourceFrom, "->")[0];
-                                        sourceToolName = sourceToolName.Substring(3, Regex.Split(sourceFrom, "->")[0].Length - 3);
-                                        string toolItem = Regex.Split(sourceFrom, "->")[1];
-                                        findLineTool.toolPar.InputPar.图像 = FindToolInfoByName(sourceToolName).GetOutput(toolItem).value as HObject;
-                                        if (findLineTool.toolPar.InputPar.图像 == null)
-                                        {
-                                            continue;
-                                        }
-                                    }
-                                    else if (inputItemName == "跟随" || inputItemName == "Pose")
-                                    {
-                                        string sourceToolName = Regex.Split(sourceFrom, "->")[0];
-                                        sourceToolName = sourceToolName.Substring(3, Regex.Split(sourceFrom, "->")[0].Length - 3);
-                                        string toolItem = Regex.Split(sourceFrom, "->")[1];
-                                        findLineTool.toolPar.InputPar.跟随 = FindToolInfoByName(sourceToolName).GetOutput(toolItem).value as List<XYU>;
-                                        if (findLineTool.toolPar.InputPar.跟随 == null)
-                                        {
-                                            continue;
-                                        }
-                                    }
-
+                                    object sourceValue = GetSourceValue(source);
+                                    if (inputName == "图像" || inputName == "InputImage")
+                                        findLineEditorTool.toolPar.InputPar.图像 = sourceValue as HObject;
+                                    else if (inputName == "跟随" || inputName == "Pose")
+                                        findLineEditorTool.toolPar.InputPar.跟随 = sourceValue as List<XYU> ?? new List<XYU>();
                                 }
+                                if (findLineEditorTool.L_regions == null || findLineEditorTool.L_regions.Count == 0)
+                                    findLineEditorTool.ResetRoiToImage();
+                                findLineEditorTool.EnsureTemplatePoseFromCurrentInput();
+                                findLineEditorTool.RebaseRoiToCurrentFollowPose();
 
-
-
-
-                                if (findLineTool.toolPar.InputPar.图像 != null)
-                                {
-                                    Frm_FindLineTool.Instance.hWindow_Final1.HobjectToHimage(findLineTool.toolPar.InputPar.图像);
-                                    if (findLineTool.L_regions == null)
-                                        findLineTool.L_regions = new List<ViewWindow.Model.ROI>();
-                                    if (findLineTool.L_regions.Count == 0)
-                                    {
-                                        HTuple width, height;
-                                        HOperatorSet.GetImageSize(findLineTool.toolPar.InputPar.图像, out width, out height);
-                                        Frm_FindLineTool.Instance.hWindow_Final1.viewWindow.genRect2(height.D / 2.0, width.D / 2.0, 0, Math.Max(10.0, height.D / 20.0), Math.Max(30.0, width.D / 6.0), ref findLineTool.L_regions);
-                                    }
-
-                                    // 先将学习时 ROI 刚性变换到当前模板匹配位姿，再作为当前编辑基准。
-                                    // 这样配置窗口看到的 ROI、预览卡尺和正式运行使用同一套坐标。
-                                    findLineTool.EnsureTemplatePoseFromCurrentInput();
-                                    findLineTool.RebaseRoiToCurrentFollowPose();
-                                    Frm_FindLineTool.Instance.regions = findLineTool.L_regions;
-
-
-                                    findLineTool.ShowContour(true, false);
-
-
-
-
-
-
-
-
-                                }
-                                else
-                                    findLineTool.ClearWindow();
-
-                                Application.DoEvents();
-
-                                //Frm_FindLineTool.Instance.ckb_toolEnable.Checked = L_toolList[i].enable;
-                                Frm_FindLineTool.Instance.ckb_displayCaliper.Checked = findLineTool.displayCaliper;
-                                Frm_FindLineTool.Instance.ckb_displayFeature.Checked = findLineTool.displayFeature;
-                                //////Frm_FindLineTool.Instance.tbx_expectLineStartRow.Text = findLineTool.expectLineStartRow.ToString();
-                                //////Frm_FindLineTool.Instance.tbx_expectLineStartCol.Text = findLineTool.expectLineStartCol.ToString();
-                                //////Frm_FindLineTool.Instance.tbx_expectLineEndRow.Text = findLineTool.expectLineEndRow.ToString();
-                                //////Frm_FindLineTool.Instance.tbx_expectLineEndCol.Text = findLineTool.expectLineEndCol.ToString();
-                                Frm_FindLineTool.Instance.cbx_edgeSelect.Text = findLineTool.edgeSelect;
-                                Frm_FindLineTool.Instance.numericUpDown1.Value = findLineTool.minScore;
-                                Frm_FindLineTool.Instance.cbx_polarity.Text = findLineTool.polarity == "positive" ? "从明到暗" : "从暗到明";
-                                Frm_FindLineTool.Instance.tbx_caliperNum.Value = findLineTool.cliperNum;
-                                Frm_FindLineTool.Instance.tbx_threshold.Value = findLineTool.threshold;
-                                Frm_FindLineTool.Instance.numericUpDown3.Value = findLineTool.Length;
-                                Frm_FindLineTool.Instance.numericUpDown2.Value = findLineTool.caliperWidth;
-                                Frm_FindLineTool.Instance.textBox2.Value = findLineTool.ignoreNum;
-                                Frm_FindLineTool.Instance.cCheckBox3.Checked = findLineTool.displayLine;
-                                //Frm_FindLineTool.Instance.tbx_threshold.Value = findLineTool.threshold;
-
+                                Frm_FindLineTool lineEditor = Frm_FindLineTool.Instance;
+                                Frm_FindLineTool.findLineTool = findLineEditorTool;
+                                lineEditor.jobName = this.jobName;
+                                lineEditor.toolName = L_toolList[i].toolName;
+                                lineEditor.lbl_title.Text = string.Format("查找边（直线）    [ {0} . {1} ]", this.jobName, L_toolList[i].toolName);
+                                lineEditor.Show();
+                                lineEditor.WindowState = FormWindowState.Normal;
+                                lineEditor.BindTool(findLineEditorTool, L_toolList[i].enable);
+                                lineEditor.Activate();
+                                if (findLineEditorTool.HasValidInput())
+                                    findLineEditorTool.ShowContour(true, true);
                                 break;
                             #endregion
 
                             #region FindCircle
                             case ToolType.FindCircle:
-                                // 双击或打开"查找圆"工具时进入这里：
-                                // 1. 绑定当前 job/tool 到单例窗体；
-                                // 2. 从流程输入连接读取图像和跟随位姿；
-                                // 3. 显示输入图、ROI 和卡尺预览；
-                                // 4. 把工具参数回填到界面控件。
-                                Frm_FindCircleTool.Instance.lbl_title.Text = string.Format("查找圆    [ {0} . {1} ]", this.jobName, L_toolList[i].toolName);
-                                //Frm_FindCircleTool.Instance.StartPosition = FormStartPosition.Manual;
-                                //Frm_FindCircleTool.Instance.Location = new System.Drawing.Point(System.Windows.Forms.SystemInformation.VirtualScreen.Width - Frm_FindCircleTool.Instance.Width - 20, 200);        //让其显示在右上方，防止挡住图像窗口
-                                //Frm_FindCircleTool.Instance.TopMost = true;
-                                Frm_FindCircleTool.Instance.Activate();
-                                Frm_FindCircleTool.Instance.jobName = this.jobName;
-                                Frm_FindCircleTool.Instance.toolName = L_toolList[i].toolName;
-                                Frm_FindCircleTool.Instance.Show();
-                                Frm_FindCircleTool.Instance.WindowState = FormWindowState.Normal;
-                                //////Frm_FindCircleTool.Instance.btn_runFindCircleTool.Focus();
-                                FindCircleTool findCircleTool = (FindCircleTool)(L_toolList[i].tool);
-                                Frm_FindCircleTool.findCircleTool = findCircleTool;
-                                Application.DoEvents();
-
-
-
-
-
-
-
-                                inputItemNum = (L_toolList[i]).input.Count;
-
+                                FindCircleTool findCircleEditorTool = (FindCircleTool)L_toolList[i].tool;
+                                findCircleEditorTool.EnsureLoadedState();
+                                findCircleEditorTool.toolPar.InputPar.图像 = null;
+                                findCircleEditorTool.toolPar.InputPar.跟随 = new List<XYU>();
+                                inputItemNum = L_toolList[i].input.Count;
                                 for (int j = 0; j < inputItemNum; j++)
                                 {
-                                    string inputItemName = L_toolList[i].input[j].IOName;
-                                    string sourceFrom = L_toolList[i].GetInput(inputItemName).value.ToString();
-                                    if (sourceFrom == string.Empty)
-                                    {
+                                    string inputName = L_toolList[i].input[j].IOName;
+                                    string source = Convert.ToString(L_toolList[i].GetInput(inputName).value);
+                                    if (string.IsNullOrEmpty(source))
                                         continue;
-                                    }
-                                    if (inputItemName == "图像" || inputItemName == "InputImage")
-                                    {
-                                        // 输入图像来自上游工具输出，例如"采集图像->图像"或预处理工具输出。
-                                        string sourceToolName = Regex.Split(sourceFrom, "->")[0];
-                                        sourceToolName = sourceToolName.Substring(3, Regex.Split(sourceFrom, "->")[0].Length - 3);
-                                        string toolItem = Regex.Split(sourceFrom, "->")[1];
-                                        findCircleTool.toolPar.InputPar.图像 = FindToolInfoByName(sourceToolName).GetOutput(toolItem).value as HObject;
-                                        if (findCircleTool.toolPar.InputPar.图像 == null)
-                                        {
-                                            continue;
-                                        }
-                                    }
-                                    else if (inputItemName == "跟随" || inputItemName == "Pose")
-                                    {
-                                        // 跟随通常来自定位工具输出的 List<XYU>。
-                                        // FindCircleTool 会用它把学习时的预期圆移动到当前工件位置。
-                                        string sourceToolName = Regex.Split(sourceFrom, "->")[0];
-                                        sourceToolName = sourceToolName.Substring(3, Regex.Split(sourceFrom, "->")[0].Length - 3);
-                                        string toolItem = Regex.Split(sourceFrom, "->")[1];
-                                        findCircleTool.toolPar.InputPar.跟随 = FindToolInfoByName(sourceToolName).GetOutput(toolItem).value as List<XYU>;
-                                        if (findCircleTool.toolPar.InputPar.跟随 == null)
-                                        {
-                                            continue;
-                                        }
-                                    }
-
+                                    object sourceValue = GetSourceValue(source);
+                                    if (inputName == "图像" || inputName == "InputImage")
+                                        findCircleEditorTool.toolPar.InputPar.图像 = sourceValue as HObject;
+                                    else if (inputName == "跟随" || inputName == "Pose")
+                                        findCircleEditorTool.toolPar.InputPar.跟随 = sourceValue as List<XYU> ?? new List<XYU>();
                                 }
+                                if (findCircleEditorTool.L_regions == null || findCircleEditorTool.L_regions.Count == 0)
+                                    findCircleEditorTool.ResetRoiToImage();
+                                findCircleEditorTool.EnsureTemplatePoseFromCurrentInput();
+                                findCircleEditorTool.RebaseRoiToCurrentFollowPose();
 
-
-
-
-
-                                HTuple newExpecCircleRow = new HTuple();
-                                HTuple newExpectCircleCol = new HTuple();
-                                HTuple newExpectCircleRadius = new HTuple();
-                                try
-                                {
-                                    if (findCircleTool.toolPar.InputPar.跟随.Count != 0)
-                                    {
-
-
-                                        HTuple _homMat2D;
-                                        HOperatorSet.VectorAngleToRigid(findCircleTool.templatePose[0].Point.X, findCircleTool.templatePose[0].Point.Y, findCircleTool.templatePose[0].U, findCircleTool.toolPar.InputPar.跟随[0].Point.X, findCircleTool.toolPar.InputPar.跟随[0].Point.Y, findCircleTool.toolPar.InputPar.跟随[0].U, out _homMat2D);
-                                        // 打开界面预览时先计算当前跟随位姿下的预期圆心。
-                                        HTuple tempR, tempC;
-                                        HOperatorSet.AffineTransPixel(_homMat2D, (HTuple)findCircleTool.L_regions[0].getModelData()[0], (HTuple)findCircleTool.L_regions[0].getModelData()[1], out tempR, out tempC);
-                                        newExpecCircleRow = tempR;
-                                        newExpectCircleCol = tempC;
-                                        newExpectCircleRadius = findCircleTool.L_regions[0].getModelData()[2].D;
-
-                                    }
-                                    else
-                                    {
-                                        newExpecCircleRow = findCircleTool.L_regions[0].getModelData()[0];
-                                        newExpectCircleCol = findCircleTool.L_regions[0].getModelData()[1];
-                                        newExpectCircleRadius = findCircleTool.L_regions[0].getModelData()[2];
-                                    }
-                                }
-                                catch { }
-
-
-
-
-
-                                if (findCircleTool.toolPar.InputPar.图像 != null)
-                                {
-                                    Frm_FindCircleTool.Instance.hWindow_Final1.HobjectToHimage(findCircleTool.toolPar.InputPar.图像);
-                                    if (findCircleTool.L_regions.Count == 0)
-                                    {
-                                        Frm_FindCircleTool.Instance.hWindow_Final1.viewWindow.genCircle(newExpecCircleRow, newExpectCircleCol, newExpectCircleRadius, ref findCircleTool.L_regions);
-                                        Frm_FindCircleTool.Instance.regions = findCircleTool.L_regions;
-                                    }
-                                    else
-                                    {
-                                        findCircleTool.L_regions.Clear();
-                                        Frm_FindCircleTool.Instance.hWindow_Final1.viewWindow.genCircle(newExpecCircleRow, newExpectCircleCol, newExpectCircleRadius, ref findCircleTool.L_regions);
-                                        Frm_FindCircleTool.Instance.regions = findCircleTool.L_regions;
-                                    }
-
-
-                                    findCircleTool.ShowContour(true, false);
-                                    // 打开界面时显示卡尺预览，并把可编辑 ROI 保持在模板最上层；
-                                    // 真正运行并写输出的是 FindCircleTool.Run()/Execute()。
-                                    //////    findCircleTool.newExpecCircleRow.Clear();
-                                    //////    findCircleTool.newExpectCircleCol.Clear();
-                                    //////    findCircleTool.newExpectCircleRadius.Clear();
-                                    //////    if (findCircleTool.inputPose != null)
-                                    //////    {
-
-
-                                    //////            HTuple _homMat2D;
-                                    //////            HOperatorSet.VectorAngleToRigid(findCircleTool.templatePose[0].Point.X, findCircleTool.templatePose[0].Point.Y, findCircleTool.templatePose[0].U, findCircleTool.inputPose[0].Point.X, findCircleTool.inputPose[0].Point.Y, findCircleTool.inputPose[0].U, out _homMat2D);
-                                    //////            //对预期线的起始点做放射变换
-                                    //////            HTuple tempR, tempC;
-                                    //////            HOperatorSet.AffineTransPixel(_homMat2D, (HTuple)findCircleTool.L_regions[0].getModelData()[0], (HTuple)findCircleTool.L_regions[0].getModelData()[1], out tempR, out tempC);
-                                    //////            findCircleTool.newExpecCircleRow.Add(tempR);
-                                    //////            findCircleTool.newExpectCircleCol.Add(tempC);
-                                    //////            findCircleTool.newExpectCircleRadius.Add(findCircleTool.L_regions[0].getModelData()[2].D);
-
-                                    //////    }
-                                    //////    else
-                                    //////    {
-                                    //////        findCircleTool.newExpecCircleRow.Add(findCircleTool.L_regions[0].getModelData()[0]);
-                                    //////        findCircleTool.newExpectCircleCol.Add(findCircleTool.L_regions[0].getModelData()[1]);
-                                    //////        findCircleTool.newExpectCircleRadius.Add(findCircleTool.L_regions[0].getModelData()[2]);
-                                    //////    }
-
-                                    //////    HTuple handleID;
-                                    //////    HOperatorSet.CreateMetrologyModel(out   handleID);
-                                    //////    HTuple width, height;
-                                    //////    HOperatorSet.GetImageSize(findCircleTool.inputImage, out width, out height);
-                                    //////    HOperatorSet.SetMetrologyModelImageSize(handleID, width[0], height[0]);
-                                    //////    HTuple index;
-                                    //////    HOperatorSet.AddMetrologyObjectCircleMeasure(handleID, findCircleTool.newExpecCircleRow[0], findCircleTool.newExpectCircleCol[0], findCircleTool.newExpectCircleRadius[0], new HTuple(findCircleTool.ringRadiusLength), new HTuple(5), new HTuple(1), new HTuple(30), new HTuple(), new HTuple(), out index);
-
-                                    //////    //参数在这里设置
-                                    //////    HOperatorSet.SetMetrologyObjectParam(handleID, new HTuple("all"), new HTuple("measure_transition"), new HTuple(findCircleTool.polarity));
-                                    //////    HOperatorSet.SetMetrologyObjectParam(handleID, new HTuple("all"), new HTuple("num_measures"), new HTuple(findCircleTool.cliperNum));
-                                    //////    HOperatorSet.SetMetrologyObjectParam(handleID, new HTuple("all"), new HTuple("measure_length1"), new HTuple(findCircleTool.ringRadiusLength));
-                                    //////    HOperatorSet.SetMetrologyObjectParam(handleID, new HTuple("all"), new HTuple("measure_length2"), new HTuple(findCircleTool.caliperWidth));
-                                    //////    HOperatorSet.SetMetrologyObjectParam(handleID, new HTuple("all"), new HTuple("measure_threshold"), new HTuple(findCircleTool.threshold));
-                                    //////    //////HOperatorSet.SetMetrologyObjectParam(handleID, new HTuple("all"), new HTuple("measure_select"), new HTuple(edgeSelect));
-                                    //////    //////HOperatorSet.SetMetrologyObjectParam(handleID, new HTuple("all"), new HTuple("min_score"), new HTuple(minScore));
-                                    //////    HOperatorSet.ApplyMetrologyModel(findCircleTool.inputImage, handleID);
-
-
-
-                                    //////HObject contours;
-                                    //////HTuple row, col;
-                                    //////HOperatorSet.GetMetrologyObjectMeasures(out contours, handleID, new HTuple("all"), new HTuple("all"), out row, out col);
-                                    //////HOperatorSet.SetColor(Frm_FindCircleTool.Instance.hWindow_Final1.HWindowHalconID, new HTuple("cyan"));
-                                    //////HOperatorSet.DispObj(contours, Frm_FindCircleTool.Instance.hWindow_Final1.HWindowHalconID);
-
-                                }
-                                else
-                                    HOperatorSet.ClearWindow(Frm_FindCircleTool.Instance.hWindow_Final1.HWindowHalconID);
-
-
-
-                                findCircleTool.templatePose.Clear();
-                                if (findCircleTool.toolPar.InputPar.跟随 != null && findCircleTool.toolPar.InputPar.跟随.Count > 0)
-                                {
-                                    XYU temp = new XYU();
-                                    temp.Point.X = findCircleTool.toolPar.InputPar.跟随[0].Point.X;
-                                    temp.Point.Y = findCircleTool.toolPar.InputPar.跟随[0].Point.Y;
-                                    temp.U = findCircleTool.toolPar.InputPar.跟随[0].U;
-                                    findCircleTool.templatePose.Add(temp);
-                                }
-
-                                //将对象信息更新到界面
-                                Frm_FindCircleTool.Instance.pictureBox8.Image = L_toolList[i].enable ? Resources.开 : Resources.关;
-
-                                Frm_FindCircleTool.Instance.pictureBox3.Image = findCircleTool.displayCaliper ? Resources.复选框 : Resources.去复选框;
-                                Frm_FindCircleTool.Instance.pictureBox4.Image = findCircleTool.displayFeature ? Resources.复选框 : Resources.去复选框;
-                                Frm_FindCircleTool.Instance.pictureBox5.Image = findCircleTool.displayCircle ? Resources.复选框 : Resources.去复选框;
-                                Frm_FindCircleTool.Instance.pictureBox2.Image = findCircleTool.displayCircleCenter ? Resources.复选框 : Resources.去复选框;
-                                switch (findCircleTool.edgeSelect)
-                                {
-                                    case "first":
-                                        Frm_FindCircleTool.Instance.comboBox1.SelectedIndex = 0;
-                                        break;
-                                    case "last":
-                                        Frm_FindCircleTool.Instance.comboBox1.SelectedIndex = 1;
-                                        break;
-                                    case "all":
-                                        Frm_FindCircleTool.Instance.comboBox1.SelectedIndex = 2;
-                                        break;
-                                }
-
-                                Frm_FindCircleTool.Instance.numericUpDown1.Value = findCircleTool.minScore;
-                                Frm_FindCircleTool.Instance.tbx_ringRadiusLength.Value = findCircleTool.ringRadiusLength;
-                                Frm_FindCircleTool.Instance.tbx_threshold.Value = findCircleTool.threshold;
-                                Frm_FindCircleTool.Instance.tbx_cliperNum.Value = findCircleTool.cliperNum;
-                                Frm_FindCircleTool.Instance.cbx_polarity.SelectedIndex = (findCircleTool.polarity == "negative" ? 0 : 1);
-                                Frm_FindCircleTool.Instance.ckb_displayCaliper.Checked = findCircleTool.displayCaliper;
-                                Frm_FindCircleTool.Instance.ckb_displayFeature.Checked = findCircleTool.displayFeature;
-                                Frm_FindCircleTool.Instance.ckb_displayCircle.Checked = findCircleTool.displayCircle;
-                                Frm_FindCircleTool.Instance.checkBox1.Checked = findCircleTool.displayCircleCenter;
-                                Frm_FindCircleTool.Instance.textBox1.Value = findCircleTool.caliperWidth;
-                                Frm_FindCircleTool.Instance.textBox2.Value = findCircleTool.ignoreNum;
-
+                                Frm_FindCircleTool circleEditor = Frm_FindCircleTool.Instance;
+                                Frm_FindCircleTool.findCircleTool = findCircleEditorTool;
+                                circleEditor.jobName = this.jobName;
+                                circleEditor.toolName = L_toolList[i].toolName;
+                                circleEditor.lbl_title.Text = string.Format("圆查找    [ {0} . {1} ]", this.jobName, L_toolList[i].toolName);
+                                circleEditor.Show();
+                                circleEditor.WindowState = FormWindowState.Normal;
+                                circleEditor.BindTool(findCircleEditorTool, L_toolList[i].enable);
+                                circleEditor.Activate();
+                                if (findCircleEditorTool.HasValidInput())
+                                    findCircleEditorTool.ShowContour(true, true);
                                 break;
                             #endregion
 
@@ -8579,12 +8275,38 @@ namespace VMPro
                         }
                     }
                 }
-                Job.loadForm = false;
             }
             catch (Exception ex)
             {
                 Log.SaveError(ex);
+                try
+                {
+                    Frm_Main.Instance.OutputMsg("打开模块编辑失败，已保留当前流程和参数", Color.Red);
+                }
+                catch
+                {
+                }
             }
+            finally
+            {
+                if (editStarted)
+                {
+                    Job.loadForm = false;
+                    Interlocked.Exchange(ref moduleEditorOpenBusy, 0);
+                }
+            }
+        }
+
+        internal TreeNode GetModuleNodeAt(TreeView treeView, int x, int y)
+        {
+            if (treeView == null || treeView.IsDisposed || treeView.Disposing)
+                return null;
+
+            TreeViewHitTestInfo hit = treeView.HitTest(x, y);
+            TreeNode toolNode = GetRootToolNode(hit.Node);
+            return toolNode != null && L_toolList.Any(item => item.toolName == toolNode.Text)
+                ? toolNode
+                : null;
         }
 
         public object GetValue(object obj, string name)
@@ -8672,6 +8394,30 @@ namespace VMPro
             return sourceTool.GetOutput(toolItem).value;
         }
 
+        private static bool TryConvertSourceDouble(object value, out double result)
+        {
+            result = 0;
+            try
+            {
+                HTuple tuple = value as HTuple;
+                if (tuple != null)
+                {
+                    if (tuple.TupleLength() == 0)
+                        return false;
+                    result = tuple.D;
+                    return true;
+                }
+                if (value == null || value is HObject)
+                    return false;
+                result = Convert.ToDouble(value);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
         /// <summary>
         /// 是否启用事件，也就是不执行本次触发的事件
         /// </summary>
@@ -8689,6 +8435,7 @@ namespace VMPro
         public List<object> Run(bool initRun = false, int runToToolIndex = -1)
         {
             Interlocked.Increment(ref activeRunCount);
+            int toolIndex = -1;
             try
             {
 
@@ -8719,7 +8466,6 @@ namespace VMPro
                 //开始逐个执行各工具
                 jobRunStatu = JobRunStatu.Succeed;
                 List<object> L_result = new List<object>();
-                int toolIndex = -1;
                 // 同一轮流程的多个斑点工具共享主图像窗口：第一个负责清除旧图层，
                 // 后续工具在同一背景上叠加，避免前一个结果被清掉或显示属性相互串扰。
                 bool blobMainImagePrepared = false;
@@ -9162,7 +8908,7 @@ namespace VMPro
                         for (int j = 0; j < inputItemNum; j++)
                         {
                             string inputItem = L_toolList[i].input[j].IOName;
-                            string sourceFrom = L_toolList[i].GetInput(inputItem).value.ToString();
+                            string sourceFrom = Convert.ToString(L_toolList[i].GetInput(inputItem).value);
                             if (sourceFrom == string.Empty)
                             {
                                 ((EyeHandCalibTool)(L_toolList[i].tool)).toolRunStatu = (Project.Instance.configuration.language == Language.English ? ToolRunStatu.Not_Assign_Input_Source : ToolRunStatu.输入项未链接源);
@@ -10277,7 +10023,7 @@ namespace VMPro
                             continue;
                         }
                         findLineTool.ClearLastInput();
-                        findLineTool.toolPar.InputPar.跟随 = null;
+                        findLineTool.toolPar.InputPar.跟随 = new List<XYU>();
 
                         for (int j = 0; j < inputItemNum; j++)
                         {
@@ -10295,22 +10041,19 @@ namespace VMPro
                                 return L_result;
                             }
 
+                            object sourceValue = GetSourceValue(sourceFrom);
+
                             if (inputItem == "InputImage" || inputItem == "图像")
                             {
-                                string sourceToolName = Regex.Split(sourceFrom, "->")[0]; ;
-                                sourceToolName = sourceToolName.Substring(3, Regex.Split(sourceFrom, "->")[0].Length - 3);
-                                string toolItem = Regex.Split(sourceFrom, "->")[1];
-                                findLineTool.toolPar.InputPar.图像 = FindToolInfoByName(sourceToolName).GetOutput(toolItem).value as HObject;
+                                findLineTool.toolPar.InputPar.图像 = sourceValue as HObject;
                                 GetToolIONodeByNodeText(L_toolList[i].toolName, "<--" + inputItem + sourceFrom).ToolTipText = FormatShowTip(findLineTool.toolPar.InputPar.图像);
 
 
                             }
                             else if (inputItem == "Pose" || inputItem == "跟随")
                             {
-                                string sourceToolName = Regex.Split(sourceFrom, "->")[0]; ;
-                                sourceToolName = sourceToolName.Substring(3, Regex.Split(sourceFrom, "->")[0].Length - 3);
-                                string toolItem = Regex.Split(sourceFrom, "->")[1];
-                                findLineTool.toolPar.InputPar.跟随 = FindToolInfoByName(sourceToolName).GetOutput(toolItem).value as List<XYU>;
+                                List<XYU> followed = sourceValue as List<XYU>;
+                                findLineTool.toolPar.InputPar.跟随 = followed ?? new List<XYU>();
                                 GetToolIONodeByNodeText(L_toolList[i].toolName, "<--" + inputItem + sourceFrom).ToolTipText = FormatShowTip(findLineTool.toolPar.InputPar.跟随);
                             }
                         }
@@ -10370,11 +10113,11 @@ namespace VMPro
                             continue;
                         }
                         // 跟随可选；先清除上一轮残留，避免断开连线后仍使用旧位姿。
-                        findCircleTool.toolPar.InputPar.跟随 = null;
+                        findCircleTool.toolPar.InputPar.跟随 = new List<XYU>();
                         for (int j = 0; j < inputItemNum; j++)
                         {
                             string inputItemName = L_toolList[i].input[j].IOName;
-                            string sourceFrom = L_toolList[i].GetInput(inputItemName).value.ToString();
+                            string sourceFrom = Convert.ToString(L_toolList[i].GetInput(inputItemName).value);
                             if (sourceFrom == string.Empty)
                             {
                                 if (inputItemName == "跟随" || inputItemName == "Pose")
@@ -10385,7 +10128,8 @@ namespace VMPro
                                 Frm_Main.Instance.OutputMsg(string.Format("工具 [{0}] 运行失败，原因： {1}", L_toolList[i].toolName, findCircleTool.toolRunStatu.ToString()), Color.Red);
                                 return L_result;
                             }
-                            if (inputItemName == "图像")
+                            object sourceValue = GetSourceValue(sourceFrom);
+                            if (inputItemName == "图像" || inputItemName == "InputImage")
                             {
                                 // 解析图像输入连接，把上游 HObject 写入圆查找输入。
                                 //string sourceToolName = Regex.Split(sourceFrom, " , ")[0];
@@ -10400,46 +10144,35 @@ namespace VMPro
                                 //    sourceValueIsEmpty = true;
                                 //    break;
                                 //}
-
-
-
-                                string sourceToolName = sourceFrom.Split(new char[] { '.' })[0];
-                                sourceToolName = sourceToolName.Substring(3, Regex.Split(sourceFrom, "->")[0].Length - 3);
-                                string toolItem = Regex.Split(sourceFrom, "->")[1];
-                                findCircleTool.toolPar.InputPar.图像 = FindToolInfoByName(sourceToolName).GetOutput(toolItem).value as HObject;
+                                findCircleTool.toolPar.InputPar.图像 = sourceValue as HObject;
                                 GetToolIONodeByNodeText(L_toolList[i].toolName, "<--" + inputItemName + sourceFrom).ToolTipText = FormatShowTip(findCircleTool.toolPar.InputPar.图像);
                             }
                             else if (inputItemName == "跟随" || inputItemName == "Pose")
                             {
                                 // 解析跟随输入连接。没有跟随时工具按固定 ROI 找圆。
-                                string sourceToolName = sourceFrom.Split(new char[] { '.' })[0];
-                                sourceToolName = sourceToolName.Substring(3, Regex.Split(sourceFrom, "->")[0].Length - 3);
-                                string toolItem = Regex.Split(sourceFrom, "->")[1];
-                                findCircleTool.toolPar.InputPar.跟随 = FindToolInfoByName(sourceToolName).GetOutput(toolItem).value as List<XYU>;
+                                List<XYU> followed = sourceValue as List<XYU>;
+                                findCircleTool.toolPar.InputPar.跟随 = followed ?? new List<XYU>();
                                 GetToolIONodeByNodeText(L_toolList[i].toolName, "<--" + inputItemName + sourceFrom).ToolTipText = FormatShowTip(findCircleTool.toolPar.InputPar.跟随);
                             }
                             else if (inputItemName == "预期圆中心行" || inputItemName == "ExpectCircleCenterX")
                             {
-                                string sourceToolName = Regex.Split(sourceFrom, "->")[0];
-                                sourceToolName = sourceToolName.Substring(3, Regex.Split(sourceFrom, "->")[0].Length - 3);
-                                string toolItem = Regex.Split(sourceFrom, "->")[1];
-                                findCircleTool.expectCircleRow = (HTuple)Convert.ToDouble(FindToolInfoByName(sourceToolName).GetOutput(toolItem).value);
+                                double number;
+                                if (TryConvertSourceDouble(sourceValue, out number))
+                                    findCircleTool.expectCircleRow = new HTuple(number);
                                 GetToolIONodeByNodeText(L_toolList[i].toolName, "<--" + inputItemName + sourceFrom).ToolTipText = FormatShowTip(findCircleTool.expectCircleRow);
                             }
                             else if (inputItemName == "预期圆中心列" || inputItemName == "ExpectCircleCenterY")
                             {
-                                string sourceToolName = Regex.Split(sourceFrom, "->")[0];
-                                sourceToolName = sourceToolName.Substring(3, Regex.Split(sourceFrom, "->")[0].Length - 3);
-                                string toolItem = Regex.Split(sourceFrom, "->")[1];
-                                findCircleTool.expectCircleCol = (HTuple)Convert.ToDouble((HObject)FindToolInfoByName(sourceToolName).GetOutput(toolItem).value);
+                                double number;
+                                if (TryConvertSourceDouble(sourceValue, out number))
+                                    findCircleTool.expectCircleCol = new HTuple(number);
                                 GetToolIONodeByNodeText(L_toolList[i].toolName, "<--" + inputItemName + sourceFrom).ToolTipText = FormatShowTip(findCircleTool.expectCircleCol);
                             }
                             if (inputItemName == "预期圆半径" || inputItemName == "ExpectCircleRadius")
                             {
-                                string sourceToolName = Regex.Split(sourceFrom, "->")[0];
-                                sourceToolName = sourceToolName.Substring(3, Regex.Split(sourceFrom, "->")[0].Length - 3);
-                                string toolItem = Regex.Split(sourceFrom, "->")[1];
-                                findCircleTool.expectCircleRadius = (HTuple)Convert.ToDouble((HObject)FindToolInfoByName(sourceToolName).GetOutput(toolItem).value);
+                                double number;
+                                if (TryConvertSourceDouble(sourceValue, out number))
+                                    findCircleTool.expectCircleRadius = new HTuple(number);
                                 GetToolIONodeByNodeText(L_toolList[i].toolName, "<--" + inputItemName + sourceFrom).ToolTipText = FormatShowTip(findCircleTool.expectCircleRadius);
                             }
                         }
@@ -13246,13 +12979,19 @@ namespace VMPro
                 }
                 //////if (Machine.machineRunStatu == MachineRunStatu.Running && !Configuration.SpeedMode)
                 //////    Frm_Main.Instance.OutputMsg("", Color.Black);
-                GC.Collect();
+                // 不在每轮流程末尾强制执行全代 GC。连续运行时这会把每次循环都变成
+                // Stop-the-world 停顿，并集中触发大量 HALCON 包装对象的终结器。
+                // 托管内存由运行时按压力回收，原生句柄则由各工具的 finally 负责释放。
                 ProcessRunUiEvents();
                 return L_result;
             }
             catch (Exception ex)
             {
-                Log.SaveError(ex);
+                string toolContext = toolIndex >= 0 && toolIndex < L_toolList.Count
+                    ? string.Format("流程 [{0}]，工具 [{1}]，索引 {2}", jobName,
+                        L_toolList[toolIndex].toolName, toolIndex)
+                    : string.Format("流程 [{0}]，进入工具前", jobName);
+                Log.SaveError(ex, toolContext);
                 return null;
             }
             finally
@@ -13414,14 +13153,37 @@ namespace VMPro
 
         private void PostRunResultToUi(bool succeeded, double elapsedMs)
         {
-            try
+            // 单次运行保留完成消息；连续运行不再每帧追加成功日志，否则隐藏的
+            // 输出窗口很快积累上千条，首次切入视觉时重建 ListView 会明显卡顿。
+            if (succeeded && !Configuration.SpeedMode && !isRunLoop)
             {
-                MethodInvoker display = delegate
+                Frm_Main.Instance.OutputMsg(Project.Instance.configuration.language == Language.English
+                    ? "The process was successfully run,Elapsed：" + elapsedMs + "ms"
+                    : "流程 [" + jobName + "] 运行成功，耗时：" + elapsedMs + "ms", Color.Black);
+            }
+
+            if (isRunLoop && Machine.curFormMode != FormMode.VisionForm)
+                return;
+
+            string windowName = debugImageWindow;
+            Frm_ImageWindow.TryPostRuntimeDisplay(delegate
+            {
+                try
                 {
+                    Frm_ImageWindow imageWindow = null;
+                    if (!string.IsNullOrEmpty(windowName))
+                        Frm_ImageWindow.D_imageWindow.TryGetValue(windowName, out imageWindow);
+                    if (imageWindow == null || imageWindow.IsDisposed)
+                        imageWindow = Frm_ImageWindow.D_imageWindow.Values.FirstOrDefault(
+                            candidate => candidate != null && !candidate.IsDisposed);
+                    if (imageWindow == null || imageWindow.IsDisposed)
+                        return;
+
                     HTuple row, col, row1, col1;
-                    HOperatorSet.GetPart(GetImageWindowControl().hwc_imageWindow.HWindowHalconID, out row, out col, out row1, out col1);
-                    Frm_Main.Instance.set_display_font(GetImageWindowControl().hwc_imageWindow.HWindowHalconID, 15, "sans", "true", "false");
-                    Frm_Main.Instance.disp_message(GetImageWindowControl().hwc_imageWindow.HWindowHalconID,
+                    HTuple windowHandle = imageWindow.hwc_imageWindow.HWindowHalconID;
+                    HOperatorSet.GetPart(windowHandle, out row, out col, out row1, out col1);
+                    Frm_Main.Instance.set_display_font(windowHandle, 15, "sans", "true", "false");
+                    Frm_Main.Instance.disp_message(windowHandle,
                         succeeded ? "运行成功" : "运行失败",
                         "image",
                         row + (row1 - row) / 31,
@@ -13429,21 +13191,12 @@ namespace VMPro
                         succeeded ? "green" : "red",
                         "false");
 
-                    if (succeeded && !Configuration.SpeedMode)
-                        Frm_Main.Instance.OutputMsg(Project.Instance.configuration.language == Language.English
-                            ? "The process was successfully run,Elapsed：" + elapsedMs + "ms"
-                            : "流程 [" + jobName + "] 运行成功，耗时：" + elapsedMs + "ms", Color.Black);
-                };
-
-                if (Frm_Main.Instance.InvokeRequired)
-                    Frm_Main.Instance.BeginInvoke(display);
-                else
-                    display();
-            }
-            catch (Exception ex)
-            {
-                Log.SaveError(ex);
-            }
+                }
+                catch (Exception ex)
+                {
+                    Log.SaveError(ex);
+                }
+            });
         }
 
     }

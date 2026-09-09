@@ -171,7 +171,7 @@
             this.label1.Name = "label1";
             this.label1.Size = new System.Drawing.Size(252, 27);
             this.label1.TabIndex = 157;
-            this.label1.Text = "威乐普科技有限公司";
+            this.label1.Text = "威乐普电子科技有限公司";
             this.label1.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
             // tbx_password

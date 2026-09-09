@@ -64,7 +64,7 @@
             this.lbl_version.Name = "lbl_version";
             this.lbl_version.Size = new System.Drawing.Size(59, 19);
             this.lbl_version.TabIndex = 1;
-            this.lbl_version.Text = "Version";
+            this.lbl_version.Text = "版本 1.0.0";
             // 
             // lbl_step
             // 
@@ -130,7 +130,7 @@
             this.label1.Name = "label1";
             this.label1.Size = new System.Drawing.Size(57, 19);
             this.label1.TabIndex = 12;
-            this.label1.Text = "VM Pro";
+            this.label1.Text = "WLP VM";
             // 
             // pictureBox1
             // 
@@ -164,7 +164,7 @@
             this.Margin = new System.Windows.Forms.Padding(2);
             this.Name = "Frm_Welcome";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-            this.Text = "Vision & Motion Tool";
+            this.Text = "WLP VM";
             this.Load += new System.EventHandler(this.Frm_Welcome_Load);
             this.MouseDown += new System.Windows.Forms.MouseEventHandler(this.setForm_MouseDown);
             this.MouseMove += new System.Windows.Forms.MouseEventHandler(this.setForm_MouseMove);

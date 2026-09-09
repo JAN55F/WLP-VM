@@ -272,7 +272,7 @@ namespace VMPro
         private void btn_confirm_Click(object sender, EventArgs e)
         {
             this.TopMost = true;
-            button100.Image = Resources.钉;
+            RefreshTitleButtonVisuals();
             Job.RunAndWaitToCurrentTool(jobName, toolName);
         }
 

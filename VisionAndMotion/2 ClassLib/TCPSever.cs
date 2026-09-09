@@ -13,6 +13,9 @@ namespace VMPro
     [Serializable]
     internal class TCPSever
     {
+        [NonSerialized]
+        private object clientSyncRoot = new object();
+
         internal TCPSever(string severName)
         {
             this.Name = severName;
@@ -60,6 +63,65 @@ namespace VMPro
         /// 程序关闭前自动断开服务器
         /// </summary>
         public bool AutoDisconnectBeforeClose = true;
+
+        internal object ClientSyncRoot
+        {
+            get
+            {
+                if (clientSyncRoot == null)
+                    Interlocked.CompareExchange(ref clientSyncRoot, new object(), null);
+                return clientSyncRoot;
+            }
+        }
+
+        internal string[] GetConnectedClientNamesSnapshot()
+        {
+            lock (ClientSyncRoot)
+            {
+                for (int i = 0; i < L_STCPSever.Count; i++)
+                {
+                    if (L_STCPSever[i].severName == Name)
+                        return L_STCPSever[i].L_Client.Keys.ToArray();
+                }
+            }
+            return new string[0];
+        }
+
+        internal bool TryDisconnectClient(string clientName)
+        {
+            if (string.IsNullOrEmpty(clientName))
+                return false;
+
+            Socket clientSocket = null;
+            lock (ClientSyncRoot)
+            {
+                for (int i = 0; i < L_STCPSever.Count; i++)
+                {
+                    if (L_STCPSever[i].severName != Name)
+                        continue;
+
+                    if (!L_STCPSever[i].L_Client.TryGetValue(clientName, out clientSocket))
+                        return false;
+                    L_STCPSever[i].L_Client.Remove(clientName);
+                    break;
+                }
+            }
+
+            if (clientSocket == null)
+                return false;
+
+            try
+            {
+                if (clientSocket.Connected)
+                    clientSocket.Disconnect(false);
+                clientSocket.Close();
+            }
+            catch (Exception ex)
+            {
+                Log.SaveError(ex);
+            }
+            return true;
+        }
 
         internal void EnsureRuntime()
         {
@@ -164,11 +226,9 @@ namespace VMPro
                                 L_STCPSever[i].SeverObj.Bind(point);
                                 L_STCPSever[i].SeverObj.Listen(10);
                                 listened = true;
-                                Frm_Main.Instance.BeginInvoke(new Action(() =>
-                                {
-                                    Frm_TCPServer.Instance.btn_listen.TextStr = "停止监听";
-                                    Frm_DeviceManager.Instance.lbl_tip.Text = "TCP服务端已开始监听";
-                                }));
+                                Frm_TCPServer.TryApplyListeningState(this, true);
+                                Frm_DeviceManager.TrySetTipForDevice("TCPSever", Name,
+                                    "TCP服务端已开始监听", Color.Green);
                             }
                             catch (Exception ex)
                             {
@@ -176,11 +236,10 @@ namespace VMPro
                                 Log.SaveError(ex);
                                 if (showFailureMessage)
                                 {
-                                    Frm_Main.Instance.BeginInvoke(new Action(() =>
-                                    {
-                                        Frm_MessageBox.Instance.MessageBoxShow("\r\n服务端监听失败：" + ex.Message + "\r\n\r\n请检查IP地址和端口是否被占用");
-                                        Frm_TCPServer.Instance.btn_listen.TextStr = "开始监听";
-                                    }));
+                                    Machine.ShowMessageOnMainUiThread(
+                                        "\r\n服务端监听失败：" + ex.Message + "\r\n\r\n请检查IP地址和端口是否被占用",
+                                        TipType.Error);
+                                    Frm_TCPServer.TryApplyListeningState(this, false);
                                 }
                                 else
                                 {
@@ -205,26 +264,19 @@ namespace VMPro
                                     // 服务器Socket已关闭，退出监听循环
                                     break;
                                 }
+                                string remoteEndPoint = socket.RemoteEndPoint.ToString();
+                                lock (ClientSyncRoot)
+                                    L_STCPSever[i].L_Client.Add(remoteEndPoint, socket);
+
                                 Thread th_receive = new Thread(Recieve);
                                 th_receive.IsBackground = true;
                                 th_receive.Start(socket);
 
-                                string remoteEndPoint = socket.RemoteEndPoint.ToString();
-                                L_STCPSever[i].L_Client.Add(remoteEndPoint, socket);
                                 Frm_Main.Instance.OutputMsg(string.Format("客户端已连接，信息: {0}", remoteEndPoint), Color.Green);
-                                Frm_Main.Instance.BeginInvoke(new Action(() =>
-                                {
-                                    Frm_TCPServer.Instance.lbx_connectedList.Items.Add(remoteEndPoint);
-                                    Frm_TCPServer.Instance.cbx_connectedList.Add(remoteEndPoint);
-                                    if (Frm_TCPServer.Instance.cbx_connectedList.Items.Length > 0)
-                                        Frm_TCPServer.Instance.cbx_connectedList.SelectedIndex = 0;
-                                }));
+                                Frm_TCPServer.TryRefreshConnectedClients(this);
                             }
                             listened = false;
-                            Frm_Main.Instance.BeginInvoke(new Action(() =>
-                            {
-                                Frm_TCPServer.Instance.btn_listen.TextStr = "开始监听";
-                            }));
+                            Frm_TCPServer.TryApplyListeningState(this, false);
                         }
                     }
                 });
@@ -244,17 +296,17 @@ namespace VMPro
         {
             try
             {
-                if (Frm_TCPServer.Instance.Visible)
-                {
-                    string curTime = DateTime.Now.ToString("HH:mm:ss");
-                    Frm_TCPServer.Instance.tbx_log.AppendText(curTime + "<-  : " + msg + "\r\n");
-                }
+                string curTime = DateTime.Now.ToString("HH:mm:ss");
+                Frm_TCPServer.TryAppendLog(this, curTime + "<-  : " + msg + "\r\n");
                 byte[] buffer = Encoding.Default.GetBytes(msg);
                 for (int i = 0; i < L_STCPSever.Count; i++)
                 {
                     if (L_STCPSever[i].severName == Name)
                     {
-                        foreach (KeyValuePair<string, Socket> item in L_STCPSever[i].L_Client)
+                        KeyValuePair<string, Socket>[] clients;
+                        lock (ClientSyncRoot)
+                            clients = L_STCPSever[i].L_Client.ToArray();
+                        foreach (KeyValuePair<string, Socket> item in clients)
                         {
                             if (item.Key == clientStr)
                                 item.Value.Send(buffer);
@@ -284,11 +336,8 @@ namespace VMPro
                 string result = Encoding.Default.GetString(buffer, 0, length);
                 if (length > 0)
                 {
-                    if (Frm_TCPServer.Instance.Visible)
-                    {
-                        string curTime = DateTime.Now.ToString("HH:mm:ss");
-                        Frm_TCPServer.Instance.tbx_log.AppendText(curTime + "->  : " + result + "\r\n");
-                    }
+                    string curTime = DateTime.Now.ToString("HH:mm:ss");
+                    Frm_TCPServer.TryAppendLog(this, curTime + "->  : " + result + "\r\n");
                     return result;
                 }
                 else
@@ -323,11 +372,7 @@ namespace VMPro
                     if (length > 0)
                     {
                         string logLine = DateTime.Now.ToString("HH:mm:ss") + "->  : " + result + "\r\n";
-                        Frm_Main.Instance.BeginInvoke(new Action(() =>
-                        {
-                            if (Frm_TCPServer.Instance.Visible)
-                                Frm_TCPServer.Instance.tbx_log.AppendText(logLine);
-                        }));
+                        Frm_TCPServer.TryAppendLog(this, logLine);
                         receivedStr = result;
                     }
                     else
@@ -348,29 +393,23 @@ namespace VMPro
                             if (L_STCPSever[j].severName == Name)
                             {
                                 string clientKey = null;
-                                foreach (var kv in L_STCPSever[j].L_Client)
+                                lock (ClientSyncRoot)
                                 {
-                                    if (kv.Value == clientSocket) { clientKey = kv.Key; break; }
+                                    foreach (var kv in L_STCPSever[j].L_Client)
+                                    {
+                                        if (kv.Value == clientSocket) { clientKey = kv.Key; break; }
+                                    }
+                                    if (clientKey != null)
+                                        L_STCPSever[j].L_Client.Remove(clientKey);
                                 }
-                                if (clientKey != null)
-                                    L_STCPSever[j].L_Client.Remove(clientKey);
                                 break;
                             }
                         }
 
                         string localName = Name;
-                        Frm_Main.Instance.BeginInvoke(new Action(() =>
-                        {
-                            if (Frm_TCPServer.Instance.Visible)
-                            {
-                                if (Frm_DeviceManager.Instance.dgv_deviceList.SelectedRows.Count > 0 &&
-                                    Frm_DeviceManager.Instance.dgv_deviceList.SelectedRows[0].Cells[0].Value.ToString() == localName)
-                                {
-                                    Frm_TCPServer.Instance.btn_listen.TextStr = "连接";
-                                    Frm_DeviceManager.Instance.lbl_tip.Text = "连接已断开";
-                                }
-                            }
-                        }));
+                        Frm_TCPServer.TryRefreshConnectedClients(this);
+                        Frm_DeviceManager.TrySetTipForDevice("TCPSever", localName,
+                            "客户端连接已断开", Color.Red);
                         Frm_Main.Instance.OutputMsg("客户端连接已断开", Color.Red);
                         return;
                     }
@@ -394,7 +433,10 @@ namespace VMPro
                         continue;
 
                     //断开当前服务端的所有客户端
-                    foreach (KeyValuePair<string, Socket> item in L_STCPSever[i].L_Client.ToList())
+                    KeyValuePair<string, Socket>[] clients;
+                    lock (ClientSyncRoot)
+                        clients = L_STCPSever[i].L_Client.ToArray();
+                    foreach (KeyValuePair<string, Socket> item in clients)
                     {
                         if (item.Value.Connected)
                             item.Value.Disconnect(false);
@@ -409,21 +451,17 @@ namespace VMPro
                     }
                     catch { }
 
-                    STCPSever stcpSever = L_STCPSever[i];
-                    stcpSever.SeverObj = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-                    stcpSever.L_Client = new Dictionary<string, Socket>();
-                    L_STCPSever[i] = stcpSever;
-                    listened = false;
-                    Frm_Main.Instance.BeginInvoke(new Action(() =>
+                    lock (ClientSyncRoot)
                     {
-                        if (Frm_TCPServer.Instance.Visible)
-                        {
-                            Frm_TCPServer.Instance.btn_listen.TextStr = "开始监听";
-                            Frm_TCPServer.Instance.lbx_connectedList.Items.Clear();
-                            Frm_TCPServer.Instance.cbx_connectedList.Clear();
-                        }
-                        Frm_DeviceManager.Instance.lbl_tip.Text = "TCP服务端已停止监听";
-                    }));
+                        STCPSever stcpSever = L_STCPSever[i];
+                        stcpSever.SeverObj = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                        stcpSever.L_Client = new Dictionary<string, Socket>();
+                        L_STCPSever[i] = stcpSever;
+                    }
+                    listened = false;
+                    Frm_TCPServer.TryApplyListeningState(this, false);
+                    Frm_DeviceManager.TrySetTipForDevice("TCPSever", Name,
+                        "TCP服务端已停止监听", Color.FromArgb(52, 64, 84));
                     break;
                 }
             }

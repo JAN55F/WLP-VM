@@ -5,12 +5,12 @@ using System.Runtime.InteropServices;
 // 有关程序集的常规信息通过以下
 // 特性集控制。更改这些特性值可修改
 // 与程序集关联的信息。
-[assembly: AssemblyTitle("VM Pro")]
-[assembly: AssemblyDescription("一款关于机器视觉图像处理和运动控制的通用化程序")]
-[assembly: AssemblyConfiguration("20260101.0.1.6")]
-[assembly: AssemblyCompany("威乐普科技有限公司")]
-[assembly: AssemblyProduct("森林里的熊")]
-[assembly: AssemblyCopyright("Copyright © 威乐普科技有限公司 2026")]
+[assembly: AssemblyTitle("WLP VM")]
+[assembly: AssemblyDescription("面向视觉流程编排、检测、定位与设备协同的通用视觉软件")]
+[assembly: AssemblyConfiguration("")]
+[assembly: AssemblyCompany("威乐普电子科技有限公司")]
+[assembly: AssemblyProduct("WLP VM")]
+[assembly: AssemblyCopyright("Copyright © 威乐普电子科技有限公司 2026")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 [assembly: SuppressIldasm()]
@@ -33,5 +33,6 @@ using System.Runtime.InteropServices;
 // 可以指定所有这些值，也可以使用“内部版本号”和“修订号”的默认值，
 // 方法是按如下所示使用“*”:
 // [assembly: AssemblyVersion("1.0.*")]
-[assembly: AssemblyVersion("0.0.0.1")]
-[assembly: AssemblyFileVersion("0.0.0.1")]
+[assembly: AssemblyVersion("1.0.0.0")]
+[assembly: AssemblyFileVersion("1.0.0.0")]
+[assembly: AssemblyInformationalVersion("1.0.0")]

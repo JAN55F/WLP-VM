@@ -12,6 +12,8 @@ namespace VMPro
 {
     public partial class Frm_PosTableEdit : Frm_FormBase
     {
+        private bool tableListRefreshedForVisibleCycle;
+
         public Frm_PosTableEdit()
         {
             InitializeComponent();
@@ -46,6 +48,73 @@ namespace VMPro
         {
             this.Hide();
             e.Cancel = true;
+        }
+
+        protected override void OnVisibleChanged(EventArgs e)
+        {
+            base.OnVisibleChanged(e);
+            if (!Visible)
+            {
+                tableListRefreshedForVisibleCycle = false;
+                return;
+            }
+
+            if (!tableListRefreshedForVisibleCycle)
+            {
+                RefreshSmartPositionTableList();
+                tableListRefreshedForVisibleCycle = true;
+            }
+        }
+
+        /// <summary>
+        /// 在点表编辑器显示时从当前方案重建列表，避免启动阶段创建隐藏窗体。
+        /// </summary>
+        internal void RefreshSmartPositionTableList()
+        {
+            try
+            {
+                string selectedTableName = string.Empty;
+                if (dataGridView1.SelectedRows.Count > 0 && dataGridView1.SelectedRows[0].Cells[1].Value != null)
+                    selectedTableName = dataGridView1.SelectedRows[0].Cells[1].Value.ToString();
+
+                dataGridView1.Rows.Clear();
+                dataGridView2.Rows.Clear();
+                SmartPosTable smartPositionTable = Project.Instance.curEngine.smartPosTable;
+                for (int i = 0; i < smartPositionTable.L_Table.Count; i++)
+                {
+                    int rowIndex = dataGridView1.Rows.Add();
+                    dataGridView1.Rows[rowIndex].Cells[0].Value = i + 1;
+                    dataGridView1.Rows[rowIndex].Cells[1].Value = smartPositionTable.L_Table[i].tableName;
+                }
+
+                if (dataGridView1.Rows.Count == 0)
+                    return;
+
+                int selectedIndex = 0;
+                for (int i = 0; i < smartPositionTable.L_Table.Count; i++)
+                {
+                    if (string.Equals(smartPositionTable.L_Table[i].tableName, selectedTableName, StringComparison.Ordinal))
+                    {
+                        selectedIndex = i;
+                        break;
+                    }
+                }
+
+                dataGridView1.ClearSelection();
+                dataGridView1.Rows[selectedIndex].Selected = true;
+                dataGridView1.CurrentCell = dataGridView1.Rows[selectedIndex].Cells[1];
+                Table selectedTable = smartPositionTable.L_Table[selectedIndex];
+                for (int i = 0; i < selectedTable.L_axis.Count; i++)
+                {
+                    int rowIndex = dataGridView2.Rows.Add();
+                    dataGridView2.Rows[rowIndex].Cells[0].Value = i + 1;
+                    dataGridView2.Rows[rowIndex].Cells[1].Value = selectedTable.L_axis[i];
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.SaveError(ex);
+            }
         }
 
         private void button6_Click(object sender, EventArgs e)
@@ -260,22 +329,10 @@ namespace VMPro
 
         private void Frm_PosTableEdit_Load(object sender, EventArgs e)
         {
-            try
+            if (!tableListRefreshedForVisibleCycle)
             {
-                dataGridView2.Rows.Clear();
-                if (Project.Instance.curEngine.smartPosTable.L_Table.Count > 0)
-                {
-                    for (int i = 0; i < Project.Instance.curEngine.smartPosTable.L_Table[0].L_axis.Count; i++)
-                    {
-                        int idx = dataGridView2.Rows.Add();
-                        dataGridView2.Rows[idx].Cells[0].Value = i + 1;
-                        dataGridView2.Rows[idx].Cells[1].Value = Project.Instance.curEngine.smartPosTable.L_Table[0].L_axis[i];
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Log.SaveError(ex);
+                RefreshSmartPositionTableList();
+                tableListRefreshedForVisibleCycle = true;
             }
         }
     }

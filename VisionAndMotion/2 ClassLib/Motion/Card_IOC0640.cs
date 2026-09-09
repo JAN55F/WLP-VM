@@ -27,8 +27,7 @@ namespace VMPro
                 cardCount = IOC0640.ioc_board_init();
                 if (cardCount <= 0)
                 {
-                    Frm_MessageBox messageBox = new Frm_MessageBox();
-                    messageBox.MessageBoxShow("未识别到雷赛IOC0640运动控制卡");
+                    Machine.ShowMessageOnMainUiThread("未识别到雷赛IOC0640运动控制卡");
                     initSucceed = false;
                 }
                 else

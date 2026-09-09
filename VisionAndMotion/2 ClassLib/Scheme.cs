@@ -164,7 +164,8 @@ namespace VMPro
         {
             try
             {
-                Frm_Main.Instance.lbl_title.Text = string.Format("{0} - {1}", Project.Instance.configuration.CompanyName, Project.Instance.configuration.ProgramTitle);
+                Frm_Main.Instance.lbl_title.Text = Configuration.BuildApplicationTitle(
+                    Project.Instance.configuration.ProgramTitle);
                 Frm_Main.Instance.lbl_curEngine.Text = string.Format("当前方案：{0}", engine.schemeName);
                 Frm_Job.Instance.tbc_jobs.TabPages.Clear();
                 for (int i = 0; i < Project.Instance.curEngine.L_jobList.Count; i++)

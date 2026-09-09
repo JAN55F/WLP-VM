@@ -54,7 +54,7 @@ namespace VMPro
                 statu = mc.GT_SetCaptureMode(1, 1);
                 statu = mc.GT_SetCaptureMode(1, 1);
                 if (statu != 0)
-                    Frm_MessageBox.Instance.MessageBoxShow("固高GTS运动控制卡初始化失败");
+                    Machine.ShowMessageOnMainUiThread("固高GTS运动控制卡初始化失败");
                 else
                     initSucceed = true;
             }

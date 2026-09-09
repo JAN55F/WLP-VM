@@ -47,13 +47,18 @@ namespace VMPro
                         lock (objComm)
                         {
                             DateTime now = DateTime.Now;
-                            string filePath = string.Format("{0}Log\\Comm\\{1}\\", Project.Instance.configuration.dataPath, now.ToString("yyyyMMdd"));
+                            string filePath = Path.Combine(
+                                Project.Instance.configuration.dataPath,
+                                "Log",
+                                "Comm",
+                                now.ToString("yyyyMMdd"));
                             string fileName = now.ToString("HH时") + ".txt";         //每小时创建一个txt，防止通讯数据交换频率高，数据量大，文本文件过大
                             if (!Directory.Exists(filePath))
                                 Directory.CreateDirectory(filePath);
-                            if (!File.Exists(filePath + fileName))
-                                File.Create(filePath + fileName).Close();
-                            File.AppendAllText(filePath + fileName, DateTime.Now.ToString("yyyy/MM/dd mm:HH:ss    ") + message + Environment.NewLine);
+                            string fullPath = Path.Combine(filePath, fileName);
+                            if (!File.Exists(fullPath))
+                                File.Create(fullPath).Close();
+                            File.AppendAllText(fullPath, DateTime.Now.ToString("yyyy/MM/dd mm:HH:ss    ") + message + Environment.NewLine);
                         }
                         break;
                     case LogType.Operate :
@@ -89,33 +94,42 @@ namespace VMPro
         /// <param name="ex">异常对象</param>
         internal static void SaveError(Exception ex)
         {
+            SaveError(ex, null);
+        }
+
+        /// <summary>
+        /// 保存带业务上下文的异常。定位信息必须来自异常自己的 StackTrace，不能记录
+        /// SaveError 调用点，否则连续运行日志只能看到日志函数本身，无法定位具体工具。
+        /// </summary>
+        internal static void SaveError(Exception ex, string context)
+        {
             try
             {
                 lock (objError)
                 {
-                    StackFrame tmpSF = new StackTrace(new StackFrame(true)).GetFrame(0);
-                    string rowNo = "";
-                    if (ex.ToString().Contains("行号") || ex.ToString().Contains("line"))
-                    {
-                        if (ex.ToString().Contains("行号"))
-                        {
-                            rowNo = ex.ToString().Split(new string[] { "行号" }, StringSplitOptions.RemoveEmptyEntries)[1];
-                        }
-                        else
-                        {
-                            rowNo = ex.ToString().Split(new string[] { "line" }, StringSplitOptions.RemoveEmptyEntries)[1];
-                        }
-                    }
-                    else
-                    {
-                        rowNo = "未知";
-                    }
+                    if (ex == null)
+                        return;
+
+                    StackTrace trace = new StackTrace(ex, true);
+                    StackFrame tmpSF = trace.GetFrames() == null
+                        ? null
+                        : trace.GetFrames().FirstOrDefault(frame => !string.IsNullOrEmpty(frame.GetFileName()));
+                    if (tmpSF == null)
+                        tmpSF = trace.GetFrame(0);
+                    string fileName = tmpSF == null || string.IsNullOrEmpty(tmpSF.GetFileName())
+                        ? "未知"
+                        : tmpSF.GetFileName();
+                    string methodName = ex.TargetSite == null ? "未知" : ex.TargetSite.Name;
+                    int lineNumber = tmpSF == null ? 0 : tmpSF.GetFileLineNumber();
+                    int columnNumber = tmpSF == null ? 0 : tmpSF.GetFileColumnNumber();
                     string data = "----------     " + DateTime.Now.ToString() + "     ----------" + Environment.NewLine +
-                                  "出错文件：" + tmpSF.GetFileName() + Environment.NewLine +
-                                  "出错函数：" + tmpSF.GetMethod().Name + Environment.NewLine +
-                                  "出错行号：" + rowNo + Environment.NewLine +
-                                  "出错列号：" + tmpSF.GetFileColumnNumber() + Environment.NewLine +
-                                  "出错信息：" + ex.Message.ToString() + Environment.NewLine;
+                                  "业务上下文：" + (string.IsNullOrEmpty(context) ? "未提供" : context) + Environment.NewLine +
+                                  "异常类型：" + ex.GetType().FullName + Environment.NewLine +
+                                  "出错文件：" + fileName + Environment.NewLine +
+                                  "出错函数：" + methodName + Environment.NewLine +
+                                  "出错行号：" + (lineNumber > 0 ? lineNumber.ToString() : "未知") + Environment.NewLine +
+                                  "出错列号：" + (columnNumber > 0 ? columnNumber.ToString() : "未知") + Environment.NewLine +
+                                  "完整异常：" + ex.ToString() + Environment.NewLine;
                     data += Environment.NewLine;
                     string ErrorPath = Project.Instance.configuration.dataPath + "\\Config\\Log\\Error";
                     if (!Directory.Exists(ErrorPath))

@@ -124,7 +124,7 @@ namespace VMPro
             this.ckb_displayLine.Name = "ckb_displayLine";
             this.ckb_displayLine.Size = new System.Drawing.Size(181, 20);
             this.ckb_displayLine.TabIndex = 30;
-            this.ckb_displayLine.TextStr = "启用流程连线";
+            this.ckb_displayLine.TextStr = "显示全部流程连线";
             // 
             // ckb_saveWhileExit
             // 

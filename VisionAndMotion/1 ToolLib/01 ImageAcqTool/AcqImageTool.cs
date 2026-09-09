@@ -196,13 +196,8 @@ namespace VMPro
 
         private void InvokeIfHandleCreated(Control control, MethodInvoker action)
         {
-            if (control == null || control.IsDisposed || !control.IsHandleCreated || action == null)
-                return;
-
-            if (control.InvokeRequired)
-                control.BeginInvoke(action);
-            else
-                action();
+            if (action != null)
+                TryPostControlAction(control, delegate { action(); });
         }
 
         private Frm_Main TryGetMainForm()

@@ -30,9 +30,69 @@ namespace VMPro
         {
             get
             {
-                if (_instance == null)
+                if (_instance == null || _instance.IsDisposed)
                     _instance = new Frm_Scaner();
                 return _instance;
+            }
+        }
+
+        internal static bool TryGetExistingInstance(out Frm_Scaner form)
+        {
+            form = _instance;
+            if (form == null || form.IsDisposed || form.Disposing)
+            {
+                form = null;
+                return false;
+            }
+            return true;
+        }
+
+        internal static bool TryAppendOutput(Scaner source, string line)
+        {
+            Frm_Scaner form;
+            if (source == null || !TryGetExistingInstance(out form) || !form.IsHandleCreated)
+                return false;
+
+            bool appended = false;
+            MethodInvoker apply = delegate
+            {
+                try
+                {
+                    Frm_Scaner current;
+                    if (!TryGetExistingInstance(out current) ||
+                        !ReferenceEquals(current, form) ||
+                        !ReferenceEquals(scaner, source) ||
+                        !current.Visible ||
+                        (!current.TopLevel && current.Parent == null))
+                        return;
+
+                    current.tbx_output.AppendText(line);
+                    appended = true;
+                }
+                catch (Exception ex)
+                {
+                    Log.SaveError(ex);
+                }
+            };
+
+            try
+            {
+                if (form.InvokeRequired)
+                {
+                    form.BeginInvoke(apply);
+                    return false;
+                }
+                else
+                    apply();
+                return appended;
+            }
+            catch (ObjectDisposedException)
+            {
+                return false;
+            }
+            catch (InvalidOperationException)
+            {
+                return false;
             }
         }
 

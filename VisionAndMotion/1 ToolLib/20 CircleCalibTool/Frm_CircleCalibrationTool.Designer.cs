@@ -88,7 +88,7 @@
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 17F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(531, 392);
+            this.ClientSize = new System.Drawing.Size(1060, 700);
             this.Controls.Add(this.tbx_mmPixelRoute);
             this.Controls.Add(this.label15);
             this.Controls.Add(this.label14);
@@ -96,10 +96,6 @@
             this.Controls.Add(this.label13);
             this.Name = "Frm_CircleCalibrationTool";
             this.Text = "圆标定";
-            this.Controls.SetChildIndex(this.tbx_ringRadiusLength, 0);
-            this.Controls.SetChildIndex(this.tbx_cliperNum, 0);
-            this.Controls.SetChildIndex(this.cbx_polarity, 0);
-            this.Controls.SetChildIndex(this.tbx_threshold, 0);
             this.Controls.SetChildIndex(this.label13, 0);
             this.Controls.SetChildIndex(this.textBox1, 0);
             this.Controls.SetChildIndex(this.label14, 0);

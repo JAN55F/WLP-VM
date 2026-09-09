@@ -44,8 +44,7 @@ namespace VMPro
             try
             {
                 InitializeComponent();
-                dockPanel.DefaultFloatWindowSize = new System.Drawing.Size(180, 500);
-                Control.CheckForIllegalCrossThreadCalls = false;
+                ApplyModernMainLayout();
             }
             catch
             {
@@ -210,8 +209,7 @@ namespace VMPro
                 //////Frm_Job.Instance.Show();
                 //////Frm_Job.Instance.Dock = DockStyle.Fill;
                 //  Frm_Main.Instance.OutputMsg("保存项目成功", Color.Green);
-                dockPanel.SaveAsXml(Project.Instance.configuration.layoutFilePath);
-                Application.DoEvents();
+                SaveDockLayout(false);
             }
             catch (Exception ex)
             {
@@ -246,7 +244,9 @@ namespace VMPro
                 else if (persistString == typeof(Frm_Monitor).ToString())
                     return Frm_Monitor.Instance;
                 else if (persistString == typeof(Frm_MotionControl).ToString())
-                    return Frm_Monitor.Instance;
+                    // 运动控制现为主窗体内嵌工作区，不再是 DockContent。
+                    // 旧代码错误地把它恢复成数值监控页，会造成监控页重复。
+                    return null;
                 else
                 {
                     string[] parsedStrings = persistString.Split(new char[] { ',' });
@@ -348,10 +348,20 @@ namespace VMPro
         {
             try
             {
+                Frm_Output existingOutput;
+                if (Frm_Output.TryGetExistingInstance(out existingOutput))
+                {
+                    // Frm_Output 只在此处更新线程安全模型；控件绘制由其 UI Timer 合并提交。
+                    existingOutput.OutputMsg(msg, color);
+                    Interlocked.Exchange(ref elapsedTime, 0);
+                    Log.SaveLog(LogType.Operate, msg);
+                    return;
+                }
+
                 ShowTestData showTestData = delegate()
                 {
                     Frm_Output.Instance.OutputMsg(msg, color);
-                    elapsedTime = 0;
+                    Interlocked.Exchange(ref elapsedTime, 0);
                     //lbl_output.Text = DateTime.Now.ToString("HH:mm:ss") + "    " + msg;
                     //if (color == Color.Red)
                     //{
@@ -450,7 +460,6 @@ namespace VMPro
         {
             try
             {
-                Frm_ImageWindow dummyDoc = new Frm_ImageWindow();
                 string imageWindowName = Frm_Job.Instance.tbc_jobs.SelectedTab.Text;
 
 
@@ -458,6 +467,7 @@ namespace VMPro
                 {
                     return;
                 }
+                Frm_ImageWindow dummyDoc = new Frm_ImageWindow();
                 dummyDoc.Text = imageWindowName;
                 Frm_ImageWindow.D_imageWindow.Add(imageWindowName, dummyDoc);
                 Project.Instance.configuration.imageWindowName = Frm_ImageWindow.D_imageWindow.Keys.ToList();
@@ -498,38 +508,42 @@ namespace VMPro
         {
             try
             {
-                Frm_ImageWindow dummyDoc = new Frm_ImageWindow();
-            Again:
-                Frm_InputMessage frm_inputMessage = new Frm_InputMessage();
-                Frm_InputMessage.input = string.Empty;
-                frm_inputMessage.txt_input.DefaultText = "请输入新流程名";
-                frm_inputMessage.txt_input.TextStr = (Frm_Job.Instance.tbc_jobs.SelectedTab == null ? "图像" : Frm_Job.Instance.tbc_jobs.SelectedTab.Text);
-                frm_inputMessage.lbl_title.Text = Project.Instance.configuration.language == Language.English ? "Please input name of standard image" : "请输入图像窗体名称";
-                frm_inputMessage.btn_confirm.Text = Project.Instance.configuration.language == Language.English ? "OK" : "确定";
-                frm_inputMessage.TopMost = true;
-                frm_inputMessage.ShowDialog();
-                if (Frm_InputMessage.input == string.Empty)
+                string imageWindowName;
+                while (true)
                 {
-                    return;
-                }
-                if (FindImageWindow(Frm_InputMessage.input) != null)
-                {
-                    Frm_MessageBox messageBox = new Frm_MessageBox();
+                    using (Frm_InputMessage inputMessage = new Frm_InputMessage())
+                    {
+                        Frm_InputMessage.input = string.Empty;
+                        inputMessage.txt_input.DefaultText = "请输入新流程名";
+                        inputMessage.txt_input.TextStr = Frm_Job.Instance.tbc_jobs.SelectedTab == null ? "图像" : Frm_Job.Instance.tbc_jobs.SelectedTab.Text;
+                        inputMessage.lbl_title.Text = Project.Instance.configuration.language == Language.English ? "Please input name of standard image" : "请输入图像窗体名称";
+                        inputMessage.btn_confirm.Text = Project.Instance.configuration.language == Language.English ? "OK" : "确定";
+                        inputMessage.TopMost = true;
+                        inputMessage.ShowDialog();
+                        imageWindowName = Frm_InputMessage.input;
+                    }
+
+                    if (string.IsNullOrEmpty(imageWindowName))
+                        return;
+                    if (FindImageWindow(imageWindowName) == null)
+                        break;
+
                     Frm_MessageBox.Instance.MessageBoxShow("\r\n已经存在此名称的图像窗体，名称不可重复，请重新输入！");
-                    goto Again;
                 }
-                dummyDoc.Text = Frm_InputMessage.input;
-                Frm_ImageWindow.D_imageWindow.Add(Frm_InputMessage.input, dummyDoc);
+
+                Frm_ImageWindow dummyDoc = new Frm_ImageWindow();
+                dummyDoc.Text = imageWindowName;
+                Frm_ImageWindow.D_imageWindow.Add(imageWindowName, dummyDoc);
                 Project.Instance.configuration.imageWindowName = Frm_ImageWindow.D_imageWindow.Keys.ToList();
-                Frm_JobInfo.Instance.comboBox1.Add(Frm_InputMessage.input);
+                Frm_JobInfo.Instance.comboBox1.Add(imageWindowName);
 
                 //自动绑定相同名称的流程和窗口
                 for (int i = 0; i < Project.Instance.curEngine.L_jobList.Count; i++)
                 {
-                    if (Project.Instance.curEngine.L_jobList[i].jobName == Frm_InputMessage.input)
+                    if (Project.Instance.curEngine.L_jobList[i].jobName == imageWindowName)
                     {
-                        Project.Instance.curEngine.FindJobByName(Frm_Job.Instance.tbc_jobs.SelectedTab.Text).debugImageWindow = Frm_InputMessage.input;
-                        Frm_Main.Instance.OutputMsg(string.Format("图像窗口 [{0}] 已添加，并已自动和流程 [{0}] 进行绑定", Frm_InputMessage.input, Frm_InputMessage.input), Color.Black);
+                        Project.Instance.curEngine.FindJobByName(Frm_Job.Instance.tbc_jobs.SelectedTab.Text).debugImageWindow = imageWindowName;
+                        Frm_Main.Instance.OutputMsg(string.Format("图像窗口 [{0}] 已添加，并已自动和流程 [{0}] 进行绑定", imageWindowName, imageWindowName), Color.Black);
                     }
                 }
 
@@ -1257,7 +1271,7 @@ namespace VMPro
                         // SaveAll();
                         Project.Instance.configuration.Save();
 
-                        dockPanel.SaveAsXml(Project.Instance.configuration.layoutFilePath);
+                        SaveDockLayout(false);
                     }
                     else if (Frm_ConfirmBox.Instance.Result == ConfirmBoxResult.Cancel)
                     {
@@ -1325,14 +1339,19 @@ namespace VMPro
                     case FormMode.MotionForm:
                         Machine.SwitchFrom(FormMode.MotionForm);
                         break;
+                    default:
+                        Machine.SwitchFrom(FormMode.VisionForm);
+                        break;
                 }
 
                 try
                 {
-                    if (File.Exists(Application.StartupPath + "\\" + Project.Instance.configuration.layoutFilePath))
-                        Frm_Main.Instance.dockPanel.LoadFromXml(Application.StartupPath + "\\" + Project.Instance.configuration.layoutFilePath, Frm_Main.Instance.deserializeDockContent);
+                    MigrateLegacySampleLayoutIfNeeded();
+                    string selectedLayoutPath = ResolveDockLayoutPath(Project.Instance.configuration.layoutFilePath);
+                    if (File.Exists(selectedLayoutPath))
+                        Frm_Main.Instance.dockPanel.LoadFromXml(selectedLayoutPath, Frm_Main.Instance.deserializeDockContent);
                     else
-                        Frm_Main.Instance.dockPanel.LoadFromXml(Application.StartupPath + "\\Config\\Resources\\Layout\\" + "经典布局1.config", Frm_Main.Instance.deserializeDockContent);
+                        Frm_Main.Instance.dockPanel.LoadFromXml(ResolveDockLayoutPath("Config\\Resources\\Layout\\经典布局1.config"), Frm_Main.Instance.deserializeDockContent);
                 }
                 catch { }
 
@@ -1365,18 +1384,8 @@ namespace VMPro
                 //////tsm_lockLayout.Checked = Project .Instance .configuration .lockLayout;
                 dockPanel.AllowEndUserDocking = !Project.Instance.configuration.lockLayout;
 
-                //提前在这里添加了，否则后面会看到闪烁
-                Frm_Main.Instance.panel4.Controls.Clear();
-                Frm_MotionControl.Instance.TopLevel = false;
-                Frm_MotionControl.Instance.Parent = Frm_Main.Instance.panel4;
-                Frm_MotionControl.Instance.Dock = DockStyle.Fill;
-                Frm_MotionControl.Instance.Show();
-
-                Frm_Main.Instance.panel2.Controls.Clear();
-                Frm_UserForm.Instance.TopLevel = false;
-                Frm_UserForm.Instance.Parent = Frm_Main.Instance.panel2;
-                Frm_UserForm.Instance.Dock = DockStyle.Fill;
-                Frm_UserForm.Instance.Show();
+                // 首页和运动页按当前工作区延迟创建，避免启动时加载隐藏页面及其轮询资源。
+                EnsureEmbeddedWorkspace(Machine.curFormMode);
 
                 //////if (Project.Instance.configuration.layoutFilePath.Contains("经典布局1"))
                 //////    checkBoxItem1.Checked = true;
@@ -1389,11 +1398,31 @@ namespace VMPro
                 }
 
                 //  if (Frm_ImageWindow.Instance.DockState == DockState.Hidden)
-                if (Project.Instance.configuration.imageWindowName.Count == 0)
+                if (Frm_ImageWindow.D_imageWindow.Count == 0)
                 {
-                    Frm_ImageWindow.Instance.Show(dockPanel);
+                    string defaultImageWindowName;
+                    if (Project.Instance.configuration.imageWindowName.Count > 0 &&
+                        !string.IsNullOrWhiteSpace(Project.Instance.configuration.imageWindowName[0]))
+                    {
+                        defaultImageWindowName = Project.Instance.configuration.imageWindowName[0];
+                    }
+                    else
+                    {
+                        defaultImageWindowName = Project.Instance.configuration.language == Language.English ? "Image" : "图像";
+                        Project.Instance.configuration.imageWindowName.Clear();
+                        Project.Instance.configuration.imageWindowName.Add(defaultImageWindowName);
+                    }
+
+                    Frm_ImageWindow defaultImageWindow = Frm_ImageWindow.Instance;
+                    defaultImageWindow.Text = defaultImageWindowName;
+                    Frm_ImageWindow.D_imageWindow.Add(defaultImageWindowName, defaultImageWindow);
+                    defaultImageWindow.Show(dockPanel);
                 }
-                Frm_ImageWindow.D_imageWindow[Frm_ImageWindow .D_imageWindow .Keys .ToArray ()[0]].Activate();
+
+                Frm_ImageWindow firstImageWindow = Frm_ImageWindow.D_imageWindow.Values.FirstOrDefault(
+                    imageWindow => imageWindow != null && !imageWindow.IsDisposed);
+                if (firstImageWindow != null)
+                    firstImageWindow.Activate();
 
                 //Frm_UserForm.Init();
                 //Frm_UserForm.Instance.timer_lowSpeed.Enabled = true;
@@ -1404,6 +1433,7 @@ namespace VMPro
                 //////Frm_Main.th_update = new Thread(Machine.UpdateAll);
                 //////Frm_Main.th_update.IsBackground = true;
                 //////Frm_Main.th_update.Start();
+                ModernUiTheme.RefreshToolStripItems(this);
             }
             catch (Exception ex)
             {
@@ -1866,8 +1896,7 @@ namespace VMPro
                 CreateNewImageWindow();
 
                 //需要重新保存一下布局
-                File.Delete(Application.StartupPath + "\\" + Project.Instance.configuration.layoutFilePath);
-                dockPanel.SaveAsXml(Project.Instance.configuration.layoutFilePath);
+                SaveDockLayout(true);
             }
             catch (Exception ex)
             {
@@ -1889,14 +1918,11 @@ namespace VMPro
         }
         private void buttonItem25_Click(object sender, EventArgs e)
         {
-            Frm_ToolBox.Instance.Show(dockPanel, DockState.DockLeft);
+            ShowToolboxInVisionSidebar();
         }
         private void buttonItem27_Click(object sender, EventArgs e)
         {
-            if (Frm_Output.Instance.DockState == DockState.Hidden || Frm_Output.Instance.DockState == DockState.Unknown)
-                Frm_Output.Instance.Show(dockPanel, DockState.DockBottom);
-            else
-                Frm_Output.Instance.Activate();
+            ShowOutputInVisionBottomPanel();
         }
         private void buttonItem31_Click(object sender, EventArgs e)
         {
@@ -1995,31 +2021,19 @@ namespace VMPro
         {
             try
             {
-                //屏幕宽
-                int iWidth = Screen.PrimaryScreen.Bounds.Width;
-                //屏幕高
-                int iHeight = Screen.PrimaryScreen.Bounds.Height;
-                //按照屏幕宽高创建位图
-                Image img = new Bitmap(iWidth, iHeight);
-                //从一个继承自Image类的对象中创建Graphics对象
-                Graphics gc = Graphics.FromImage(img);
-                //抓屏并拷贝到myimage里
-                gc.CopyFromScreen(new System.Drawing.Point(0, 0), new System.Drawing.Point(0, 0), new Size(iWidth, iHeight));
-                //this.BackgroundImage = img;
-
-                //保存
-                string path = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
-                if (!Directory.Exists(path))
+                Rectangle bounds = Screen.FromControl(this).Bounds;
+                using (Bitmap image = new Bitmap(bounds.Width, bounds.Height))
+                using (Graphics graphics = Graphics.FromImage(image))
+                using (System.Windows.Forms.SaveFileDialog saveImageDialog = new System.Windows.Forms.SaveFileDialog())
                 {
-                    Directory.CreateDirectory(path);
+                    graphics.CopyFromScreen(bounds.Location, Point.Empty, bounds.Size);
+                    saveImageDialog.Title = Project.Instance.configuration.language == Language.English ? "Please select the image saving path" : "请选择图像保存路径";
+                    saveImageDialog.Filter = "图像文件(*.jpg)|*.jpg|Image File|*.tif|Image File(*.png)|*.png|Image File(*.bmp)|*.bmp";
+                    saveImageDialog.InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+                    saveImageDialog.FileName = DateTime.Now.ToString("yyyy_MM_dd");
+                    if (saveImageDialog.ShowDialog() == DialogResult.OK)
+                        image.Save(saveImageDialog.FileName);
                 }
-                System.Windows.Forms.SaveFileDialog dig_saveImage = new System.Windows.Forms.SaveFileDialog();
-                dig_saveImage.Title = (Project.Instance.configuration.language == Language.English ? "Please select the image saving path" : "请选择图像保存路径");
-                dig_saveImage.Filter = "图像文件(*.jpg)|*.jpg|Image File|*.tif|Image File(*.png)|*.png|Image File(*.bmp)|*.bmp";
-                dig_saveImage.InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
-                dig_saveImage.FileName = DateTime.Now.ToString("yyyy_MM_dd");
-                if (dig_saveImage.ShowDialog() == DialogResult.OK)
-                    img.Save(dig_saveImage.FileName);       //保存位图
             }
             catch (Exception ex)
             {
@@ -2399,21 +2413,7 @@ namespace VMPro
 
         private void tim_recordTime_Tick(object sender, EventArgs e)
         {
-            if (Machine.willExit)
-                return;
-
-            if (Machine.machineRunStatu == MachineRunStatu.Running)
-            {
-                Machine.runTime += DateTime.Now - Machine.lastTime;
-                Machine.lastTime = DateTime.Now;
-                toolStripStatusLabel1.Text = string.Format("运行时长：{0}H", Math.Round(Machine.runTime.TotalHours, 2).ToString());
-            }
-            else
-            {
-                if (Frm_MotionControl.Instance.Visible)
-                    Machine.UpdateIO();
-            }
-            Machine.UpdateAll();
+            ProcessUiRefreshTick();
         }
 
         private void buttonItem75_Click_1(object sender, EventArgs e)
@@ -2745,8 +2745,7 @@ namespace VMPro
 
         private void Frm_Main_SizeChanged(object sender, EventArgs e)
         {
-            //////pictureBox1.Location = new System.Drawing.Point(this.Width - 80, pictureBox1.Location.Y);
-            //////lbl_runStatu.Location = new System.Drawing.Point(this.Width - 80, lbl_runStatu.Location.Y);
+            UpdateMotionRefreshActivity();
         }
 
         private void buttonItem6_Click_1(object sender, EventArgs e)
@@ -2937,15 +2936,14 @@ namespace VMPro
 
             if (this.WindowState == FormWindowState.Normal)
             {
-                this.MaximizedBounds = Screen.PrimaryScreen.WorkingArea;
+                UpdateMaximizedBoundsForCurrentScreen();
                 this.WindowState = FormWindowState.Maximized;
-                button2.BackgroundImage = Resources.Min;
             }
             else if (this.WindowState == FormWindowState.Maximized)
             {
                 this.WindowState = FormWindowState.Normal;
-                button2.BackgroundImage = Resources.Max;
             }
+            UpdateMainMaximizeButtonGlyph();
         }
 
         private void button3_Click(object sender, EventArgs e)
@@ -2957,15 +2955,14 @@ namespace VMPro
         {
             if (this.WindowState == FormWindowState.Normal)
             {
-                this.MaximizedBounds = Screen.PrimaryScreen.WorkingArea;
+                UpdateMaximizedBoundsForCurrentScreen();
                 this.WindowState = FormWindowState.Maximized;
-                button2.BackgroundImage = Resources.Min;
             }
             else if (this.WindowState == FormWindowState.Maximized)
             {
                 this.WindowState = FormWindowState.Normal;
-                button2.BackgroundImage = Resources.Max;
             }
+            UpdateMainMaximizeButtonGlyph();
         }
 
         private void pictureBox1_DoubleClick(object sender, EventArgs e)
@@ -2973,13 +2970,12 @@ namespace VMPro
             if (this.WindowState == FormWindowState.Normal)
             {
                 this.WindowState = FormWindowState.Maximized;
-                button2.BackgroundImage = Resources.Min;
             }
             else if (this.WindowState == FormWindowState.Maximized)
             {
                 this.WindowState = FormWindowState.Normal;
-                button2.BackgroundImage = Resources.Max;
             }
+            UpdateMainMaximizeButtonGlyph();
         }
 
         internal void toolStripButton9_Click(object sender, EventArgs e)
@@ -3243,8 +3239,7 @@ namespace VMPro
                 CreateNewImageWindow();
 
                 //需要重新保存一下布局
-                File.Delete(Application.StartupPath + "\\" + Project.Instance.configuration.layoutFilePath);
-                dockPanel.SaveAsXml(Project.Instance.configuration.layoutFilePath);
+                SaveDockLayout(true);
             }
             catch (Exception ex)
             {
@@ -3256,7 +3251,7 @@ namespace VMPro
 
         private void 工具箱ToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            Frm_ToolBox.Instance.Show(dockPanel, Frm_ToolBox.lastDockState);
+            ShowToolboxInVisionSidebar();
         }
 
 
@@ -3531,31 +3526,19 @@ namespace VMPro
         {
             try
             {
-                //屏幕宽
-                int iWidth = Screen.PrimaryScreen.Bounds.Width;
-                //屏幕高
-                int iHeight = Screen.PrimaryScreen.Bounds.Height;
-                //按照屏幕宽高创建位图
-                Image img = new Bitmap(iWidth, iHeight);
-                //从一个继承自Image类的对象中创建Graphics对象
-                Graphics gc = Graphics.FromImage(img);
-                //抓屏并拷贝到myimage里
-                gc.CopyFromScreen(new System.Drawing.Point(0, 0), new System.Drawing.Point(0, 0), new Size(iWidth, iHeight));
-                //this.BackgroundImage = img;
-
-                //保存
-                string path = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
-                if (!Directory.Exists(path))
+                Rectangle bounds = Screen.FromControl(this).Bounds;
+                using (Bitmap image = new Bitmap(bounds.Width, bounds.Height))
+                using (Graphics graphics = Graphics.FromImage(image))
+                using (System.Windows.Forms.SaveFileDialog saveImageDialog = new System.Windows.Forms.SaveFileDialog())
                 {
-                    Directory.CreateDirectory(path);
+                    graphics.CopyFromScreen(bounds.Location, Point.Empty, bounds.Size);
+                    saveImageDialog.Title = Project.Instance.configuration.language == Language.English ? "Please select the image saving path" : "请选择图像保存路径";
+                    saveImageDialog.Filter = "图像文件(*.jpg)|*.jpg|Image File|*.tif|Image File(*.png)|*.png|Image File(*.bmp)|*.bmp";
+                    saveImageDialog.InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+                    saveImageDialog.FileName = DateTime.Now.ToString("yyyy_MM_dd");
+                    if (saveImageDialog.ShowDialog() == DialogResult.OK)
+                        image.Save(saveImageDialog.FileName);
                 }
-                System.Windows.Forms.SaveFileDialog dig_saveImage = new System.Windows.Forms.SaveFileDialog();
-                dig_saveImage.Title = (Project.Instance.configuration.language == Language.English ? "Please select the image saving path" : "请选择图像保存路径");
-                dig_saveImage.Filter = "图像文件(*.jpg)|*.jpg|Image File|*.tif|Image File(*.png)|*.png|Image File(*.bmp)|*.bmp";
-                dig_saveImage.InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
-                dig_saveImage.FileName = DateTime.Now.ToString("yyyy_MM_dd");
-                if (dig_saveImage.ShowDialog() == DialogResult.OK)
-                    img.Save(dig_saveImage.FileName);       //保存位图
             }
             catch (Exception ex)
             {
@@ -3587,15 +3570,8 @@ namespace VMPro
                 //Project.Instance.L_engineList.Clear();
                 //Project.Instance.configuration = new Configuration();
 
-                try
-                {
-                    File.Delete(Application.StartupPath + "\\Config\\Resources\\Layout\\经典布局1.config");
-                    File.Copy(Application.StartupPath + "\\Config\\Resources\\Layout\\经典布局\\经典布局1 - 副本.config", Application.StartupPath + "\\Config\\Resources\\Layout\\经典布局1.config");
-                    File.Delete(Application.StartupPath + "\\Config\\Resources\\Layout\\经典布局2.config");
-                    File.Copy(Application.StartupPath + "\\Config\\Resources\\Layout\\经典布局\\经典布局2 - 副本.config", Application.StartupPath + "\\Config\\Resources\\Layout\\经典布局1.config");
-
-                }
-                catch { }
+                // 工厂布局随程序发布且只读。重置用户配置时不删除模板，避免缺少
+                // 历史“副本”文件时把标准布局永久移除。
 
                 //删除所有配置文件
                 if (Directory.Exists(Application.StartupPath + "\\Config\\Project"))
@@ -3744,7 +3720,8 @@ namespace VMPro
                     return;
 
 
-                if (Frm_Job.Instance.btn_runLoop.Text == "连续运行")
+                if (Frm_Job.Instance.btn_runLoop.Text == "连续运行" ||
+                    Frm_Job.Instance.btn_runLoop.Text == "Run Loop")
                     Job.FindJobByName(Frm_Job.Instance.tbc_jobs.SelectedTab.Text).LoopRun(true);
                 else
                     Job.FindJobByName(Frm_Job.Instance.tbc_jobs.SelectedTab.Text).LoopRun(false);
@@ -3878,7 +3855,7 @@ namespace VMPro
         {
             try
             {
-                Frm_ToolBox.Instance.Show(dockPanel, Frm_ToolBox.lastDockState);
+                ShowToolboxInVisionSidebar();
             }
             catch (Exception ex)
             {
@@ -4066,8 +4043,7 @@ namespace VMPro
                 CreateNewImageWindow();
 
                 //需要重新保存一下布局
-                File.Delete(Application.StartupPath + "\\" + Project.Instance.configuration.layoutFilePath);
-                dockPanel.SaveAsXml(Project.Instance.configuration.layoutFilePath);
+                SaveDockLayout(true);
             }
             catch (Exception ex)
             {
@@ -4182,12 +4158,12 @@ namespace VMPro
 
         private void 运行一次ToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            toolStripButton11_Click(null, null);
+            toolStripButton11.PerformClick();
         }
 
         private void 连续运行ToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            toolStripButton12_Click(null, null);
+            toolStripButton12.PerformClick();
         }
         Stopwatch sw = new Stopwatch();
         Thread th;
@@ -4259,18 +4235,47 @@ namespace VMPro
 
         private void toolStripButton26_Click(object sender, EventArgs e)
         {
-            for (int i = 0; i < Project.Instance.curEngine.FindJobByName(Frm_Job.Instance.tbc_jobs.SelectedTab.Text).L_toolList.Count; i++)
+            if (!CanNavigatePreviousLocalImage())
+                return;
+
+            Job selectedJob = Project.Instance.curEngine.FindJobByName(
+                Frm_Job.Instance.tbc_jobs.SelectedTab.Text);
+            for (int i = 0; i < selectedJob.L_toolList.Count; i++)
             {
-                if (Project.Instance.curEngine.FindJobByName(Frm_Job.Instance.tbc_jobs.SelectedTab.Text).L_toolList[i].toolType == ToolType.ImageAcq)
+                if (selectedJob.L_toolList[i].toolType == ToolType.ImageAcq)
                 {
-                    AcqImageTool imageAcqTool = ((AcqImageTool)Project.Instance.curEngine.FindJobByName(Frm_Job.Instance.tbc_jobs.SelectedTab.Text).L_toolList[i].tool);
-                    if (imageAcqTool.imageSourceMode == ImageSourceMode.FromDirectory)
+                    AcqImageTool imageAcqTool = selectedJob.L_toolList[i].tool as AcqImageTool;
+                    if (imageAcqTool != null && imageAcqTool.imageSourceMode == ImageSourceMode.FromDirectory)
                     {
                         imageAcqTool.currentImageIndex = imageAcqTool.currentImageIndex - 2;
                         Job.RunAndWait(Frm_Job.Instance.tbc_jobs.SelectedTab.Text);
                     }
                 }
             }
+        }
+
+        private bool CanNavigatePreviousLocalImage()
+        {
+            if (Project.Instance.curEngine == null ||
+                Frm_Job.Instance.tbc_jobs.SelectedTab == null)
+                return false;
+
+            Job selectedJob = Project.Instance.curEngine.FindJobByName(
+                Frm_Job.Instance.tbc_jobs.SelectedTab.Text);
+            if (selectedJob == null || selectedJob.L_toolList == null)
+                return false;
+
+            for (int index = 0; index < selectedJob.L_toolList.Count; index++)
+            {
+                if (selectedJob.L_toolList[index] == null ||
+                    selectedJob.L_toolList[index].toolType != ToolType.ImageAcq)
+                    continue;
+
+                AcqImageTool imageTool = selectedJob.L_toolList[index].tool as AcqImageTool;
+                if (imageTool != null && imageTool.imageSourceMode == ImageSourceMode.FromDirectory)
+                    return true;
+            }
+            return false;
         }
 
 
@@ -4656,8 +4661,7 @@ namespace VMPro
 
         private void 输出ToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if (Frm_Output.Instance.DockState == DockState.Hidden || Frm_Output.Instance.DockState == DockState.Unknown)
-                Frm_Output.Instance.Show(Frm_Main.Instance.dockPanel, DockState.DockRight);
+            ShowOutputInVisionBottomPanel();
         }
 
         private void toolStripButton27_Click_1(object sender, EventArgs e)

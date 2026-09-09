@@ -21,6 +21,7 @@ namespace VMPro
         {
             InitializeComponent();
             Init_Language();
+            InitializeModernEditor();
         }
 
         /// <summary>
@@ -83,7 +84,7 @@ namespace VMPro
             {
                 if (!Permission.CheckPermission(PermissionLevel.Admin))
                     return;
-                if (btn_runLoop.Text == "连续运行")
+                if (btn_runLoop.Text == "连续运行" || btn_runLoop.Text == "Run Loop")
                     Job.FindJobByName(Frm_Job.Instance.tbc_jobs.SelectedTab.Text).LoopRun(true);
                 else
                     Job.FindJobByName(Frm_Job.Instance.tbc_jobs.SelectedTab.Text).LoopRun(false);
@@ -108,16 +109,21 @@ namespace VMPro
             {
 
                 Frm_Monitor.Instance.dgv_monitor.Rows.Clear();
-                if (Frm_Job.Instance.tbc_jobs.RowCount > 0)
+                // 隐藏流程页签后，窗体首次显示前 RowCount 可能仍为 0，
+                // 但 TabPages 和 SelectedTab 已经有效。不能依赖 RowCount 判断是否有流程，
+                // 否则必须切换一次流程才会完成当前流程的状态初始化。
+                if (Frm_Job.Instance.tbc_jobs.TabPages.Count > 0 &&
+                    Frm_Job.Instance.tbc_jobs.SelectedTab != null)
                 {
                     Job currentJob = Job.FindJobByName(Frm_Job.Instance.tbc_jobs.SelectedTab.Text);
                     if (currentJob == null)
                         return;
 
+                    bool english = Project.Instance.configuration.language == Language.English;
                     if (currentJob.isRunLoop)
-                        Frm_Job.Instance.Text = "流程编辑器    Runing...";
+                        Frm_Job.Instance.Text = english ? "Workflow Editor · Running" : "流程编辑器 · 运行中";
                     else
-                        Frm_Job.Instance.Text = "流程编辑器";
+                        Frm_Job.Instance.Text = english ? "Workflow Editor" : "流程编辑器";
 
                     if (Machine.machineRunStatu == MachineRunStatu.Running && currentJob.jobRunMode == JobRunMode.LoopRunAfterStart)
                     {

@@ -129,8 +129,8 @@ namespace VMPro
             //发送的SMTP服务地址 ，每个邮箱的是不一样的。。根据发件人的邮箱来定
             model.SendSetSmtp = "smtp.ym.163.com";
             model.ConsigneeAddress = "1070645289@qq.com";
-            model.ConsigneeTheme = "您收到一条来自用户对VM Pro的反馈信息";
-            model.ConsigneeHand = "VM Pro信息反馈";
+            model.ConsigneeTheme = "您收到一条来自用户对 WLP VM 的反馈信息";
+            model.ConsigneeHand = "WLP VM 信息反馈";
             model.ConsigneeName = "作者";
             model.SendContent = tbx_emailAddress.Text.Trim() == "" ? tbx_feedBackMessage.Text : tbx_feedBackMessage.Text.Trim() + Environment.NewLine + "用户邮箱：" + tbx_emailAddress.Text.Trim();
             if (MailSend(model) == true)
@@ -174,8 +174,8 @@ namespace VMPro
                 //发送的SMTP服务地址 ，每个邮箱的是不一样的。。根据发件人的邮箱来定
                 model.SendSetSmtp = "smtp.163.com";
                 model.ConsigneeAddress = "1070645289@qq.com";
-                model.ConsigneeTheme = "您收到一条来自用户对VM Pro的反馈信息";
-                model.ConsigneeHand = "VM Pro信息反馈";
+                model.ConsigneeTheme = "您收到一条来自用户对 WLP VM 的反馈信息";
+                model.ConsigneeHand = "WLP VM 信息反馈";
                 model.ConsigneeName = "作者";
                 model.SendContent = tbx_emailAddress.Text.Trim() == "" ? tbx_feedBackMessage.Text : tbx_feedBackMessage.Text.Trim() + Environment.NewLine + "用户邮箱：" + tbx_emailAddress.Text.Trim();
                 if (MailSend(model) == true)

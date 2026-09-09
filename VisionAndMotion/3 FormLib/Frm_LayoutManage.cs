@@ -215,8 +215,7 @@ namespace VMPro
         {
             Project.SaveProject();
             Project.Instance.configuration.Save();
-            if (Path.GetFileNameWithoutExtension(Project.Instance.configuration.layoutFilePath) != "经典布局1" && Path.GetFileNameWithoutExtension(Project.Instance.configuration.layoutFilePath) != "经典布局2")
-                Frm_Main.Instance.dockPanel.SaveAsXml(Project.Instance.configuration.layoutFilePath);
+            Frm_Main.Instance.SaveDockLayout(false);
             this.Close();
         }
         private void Btn_MouseDown(object sender, MouseEventArgs e)

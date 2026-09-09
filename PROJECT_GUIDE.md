@@ -1,6 +1,6 @@
-# VM Pro Project Guide
+# WLP VM Project Guide
 
-> 最后更新时间：2026-07-15（Asia/Shanghai）
+> 最后更新时间：2026-09-09（Asia/Shanghai）
 >
 > 后续定位代码时先读本文件。它是快速导览，不替代源码；如果导览和源码不一致，以源码为准，并同步更新本文件。
 
@@ -10,12 +10,13 @@
 
 | 项目 | 路径 | 作用 |
 | --- | --- | --- |
-| Start | `Start/Start.csproj` | WinForms 启动项目，程序入口在 `Start/Program.cs`。 |
+| Start | `Start/Start.csproj` | WinForms 启动项目，程序入口在 `Start/Program.cs`；输出 `WLP VM.exe`，应用图标为 `Start/WLPVM.ico`。 |
 | VMPro | `VisionAndMotion/VMPro.csproj` | 主业务项目：流程、工具、设备管理、主界面。绝大多数修改在这里。 |
 | 1 WinFormsUI | `DockForm/WinFormsUI/1 WinFormsUI.csproj` | DockPanel 停靠窗口库。通常不改。 |
 | HWindow_Tool | `ImageWindow/HWindow_Tool.csproj` | Halcon 图像窗口/ROI 显示控件。 |
 | LightController | `LightController/LightController.csproj` | 光源控制器抽象和实现。 |
 | Controls | `ControlLib/Controls/Controls.csproj` | 自定义 WinForms 控件。 |
+| FastColoredTextBox | `CodeEdit/FastColoredTextBox/2 FastColoredTextBox.csproj` | 脚本编辑器控件，已纳入主解决方案。 |
 
 常见附属解决方案：
 
@@ -25,8 +26,13 @@
 
 构建注意：
 
+- 使用 Visual Studio 2022 Build Tools 的完整 MSBuild 构建旧式 .NET Framework 解决方案，不使用 `dotnet build`。当前可复现入口为 `MSBuild.exe "VM Pro.sln" /t:Build /p:Configuration=Debug /p:Platform="Mixed Platforms"`。
+- `Debug|Mixed Platforms` 下，VMPro 为 AnyCPU；Start 在解决方案中的配置名映射为 `Debug|x86`，但 `Start.csproj` 的该 PropertyGroup 明确设置 `PlatformTarget=AnyCPU`。`Release|x86` 是现有兼容配置，不代表本轮已完成所有原生 SDK 的发布验证。
+- 使用 `/t:Build`，不要把 `/t:Rebuild` 或单独 `/t:Compile` 当作正常验证路径：仓库包含依赖现有输出目录/外部 SDK 的历史引用，清理后不一定能从纯净环境完整重建。
+- 不要在解决方案或项目构建命令中全局传入 `/p:TargetFrameworkVersion=v4.7.2`。该属性会传播到项目引用，把原本分别面向 4.0/4.5/4.5.2 的 `WeifenLuo.WinFormsUI.Docking.dll`、`FastColoredTextBox.dll`、`Controls.dll`、`HWindow_Tool.dll` 和 `CVMPro.dll` 一并写成 4.7.2；随后按 4.5.2 构建 `Start` 时会拒绝解析 `CVMPro.dll`，`VMPro` 命名空间缺失只是连锁错误。若共享 `VisionAndMotion/bin/Debug` 已被这样污染，保留源码中的原始 `TargetFrameworkVersion`，执行上一条解决方案级 `Debug|Mixed Platforms` `/t:Build` 即可恢复；不要先清空 `bin/obj`，因为历史 SDK 引用依赖现有输出目录。恢复后应核对 `CVMPro.dll` 为 4.5.2、DockPanel/FastColoredTextBox 为 4.0、Controls 为 4.5，并重新加载 Visual Studio 解决方案以清除旧诊断。
+- 不要把全局 `/p:OutDir=...` 直接传给 `VMPro.csproj` 的整棵项目引用执行 `/t:Rebuild`：该属性会传播到 `HWindow_Tool`，改变历史 HALCON 程序集的解析位置。本机无硬件复核中由此产生 127 个引用错误。需要隔离壳层验证时，先在正常配置下验证项目引用，再用 `Start.csproj /p:BuildProjectReferences=false /p:OutDir=...` 生成隔离启动目录，并核对复制进去的 `CVMPro.dll`、`HWindow_Tool.dll` 时间戳或哈希。
 - 当前项目依赖 .NET Framework 3.5/4.0/4.5/4.5.2、Halcon、相机 SDK、运动控制 SDK、HslCommunication 等 Windows/VS 环境组件。
-- 在非 Windows 或缺少 Developer Pack 的环境下，`dotnet build` 会因为缺少 .NET Framework targeting pack 失败。
+- 本目录现在是 Git 仓库根目录，可直接使用 `git status`、`git diff --check` 检查改动；不要把 `bin/`、`obj/` 的历史产物当成源码证据。
 
 ## 2. 顶层源码结构
 
@@ -41,18 +47,28 @@
 | `ImageWindow/` | Halcon 视图、ROI、序列化辅助。 |
 | `LightController/` | 光源控制库。 |
 | `ControlLib/Controls/` | 自定义控件库。 |
+| `CodeEdit/FastColoredTextBox/` | 主解决方案使用的脚本编辑控件源码。 |
+| `Tests/` | 不启动完整程序的布局生成器和 UI 壳层烟测。 |
 | `packages/` | NuGet 包，当前含 HslCommunication、Newtonsoft.Json 等。 |
 
 ## 3. 程序启动和项目生命周期
 
 | 功能 | 入口文件 | 核心函数/位置 |
 | --- | --- | --- |
-| 程序启动 | `Start/Program.cs` | `Main()`：读取配置、单实例提示、启动主窗体。 |
-| 主程序初始化 | `VisionAndMotion/2 ClassLib/VM.cs` | `Init()`：显示欢迎页，实例化主窗体，后台启动 `Machine.InitAll()`，等待 `Machine.loading == false` 后先隐藏欢迎页，再显示主窗体。 |
+| 程序启动 | `Start/Program.cs` | `Main()`：从 `Config\Config.ini` 预读语言，处理单实例提示，再进入主程序初始化。 |
+| 主程序初始化 | `VisionAndMotion/2 ClassLib/VM.cs` | `Init()`：先执行 `Configuration.Read(false)`，再显示欢迎页并实例化主窗体；后台启动 `Machine.InitAll()`，等待 `Machine.loading == false` 后先隐藏欢迎页，再显示主窗体。 |
 | 设备初始化 | `VisionAndMotion/2 ClassLib/Machine.cs` | `InitAll()`：启动时初始化硬件、自动连接设备。 |
 | 项目单例和序列化 | `VisionAndMotion/2 ClassLib/Project.cs` | `Project.Instance`、`LoadProject()`、`InportProject()`、`ExportProject()`、`EnsureCommunicationRuntime()`。 |
 | 配置项 | `VisionAndMotion/2 ClassLib/Configuration.cs` | 程序标题、语言、运行参数等。 |
 | 方案 | `VisionAndMotion/2 ClassLib/Scheme.cs` | 方案下挂多个 Job。 |
+
+运行目录中有三份名称相近但职责不同的 INI，不能合并，也不要新增第四份同名配置：
+
+| 运行时路径 | 主要读写者 | 职责 |
+| --- | --- | --- |
+| `Config\Config.ini` | `Start/Program.cs`、`Machine.EnsureFolder()` | 启动最早阶段预读语言，供主配置载入前的单实例/错误提示使用，并作为 `Config` 目录下的启动基础配置文件。 |
+| `Config\Configuration.ini` | `Configuration.cs`、`VM.Init()` | 最终语言、程序标题、运行参数、工作区开关、当前 Dock 布局等主业务配置；在欢迎页/主窗体构造前由 `Configuration.Read(false)` 读取。 |
+| `Config.ini` | `Frm_Main.cs`、`Frm_Regiest.cs`、`Frm_UserManager.cs` | 程序根目录级注册信息；用户管理窗体仍保留该历史 INI 实例，但当前未见实际读写。 |
 
 定位提示：
 
@@ -61,6 +77,7 @@
 - `Config\LastProject.txt` 保存最后一次成功打开或保存的 `.pjt` 路径。启动时 `Machine.InitAll()` 调用 `Project.LoadStartupProject()` 优先恢复该文件；记录失效时回退到 `Config\Project\Vision` 中最近修改的项目，主文件加载失败时再尝试 `.bak`。
 - `.pjt` 保存完整项目（全部方案、流程及工具），`.eng` 只保存一个方案。`Scheme.OpenScheme()`/`LoadScheme()` 必须把 `.eng` 反序列化为 `Scheme` 并写回当前项目，不能把 `.eng` 当成 `Project`，也不能再用 `Frm_Main.openProject` 阻止后续项目保存。
 - 启动后设备没有恢复/连接，先看 `Project.EnsureCommunicationRuntime()` 和 `Machine.InitAll()`。
+- 菜单、快捷栏和欢迎页会在构造时读取语言，因此 `VM.Init()` 必须在创建这些窗体前执行 `Configuration.Read(false)`。`Start/Program.cs` 对 `Config\Config.ini` 的读取只是最早提示所需的语言预读，最终值来自 `Config\Configuration.ini`；`Machine.InitAll()` 不得再次调用 `Configuration.Read()`，否则列表型配置可能重复，且首次壳层语言会与最终配置不一致。
 - 卡在“启动成功”欢迎页不进入主界面时，先看 `Machine.InitAll()` 末尾和 `VM.Init()` 的等待循环：`VM.Init()` 只有等 `Machine.loading == false` 才会进入主窗体。欢迎页文字设为“启动成功”以后，应立即 `loading = false`，并由 `VM.Init()` 在主线程调用 `Frm_Welcome.Instance.Hide()` 后再 `frm.ShowDialog()`。
 - 启动阶段不要预跑流程。旧逻辑曾在 `Machine.InitAll()` 末尾为每个 Job 创建临时 `HWindowControl`，把 `Project.Instance.curEngine.L_jobList[i].www` 指到该窗口句柄后调用 `Run(true)`；如果任意流程预跑访问相机、模板、Halcon 窗口或外设时卡住，会导致欢迎页或主窗体切换死锁。需要预热图像或流程时，应放到主窗体完全显示后的显式操作中，不要阻塞启动链路。
 
@@ -80,16 +97,22 @@
 
 - `L_toolList`：当前流程工具列表。
 - 工具界面打开分支：搜索 `case ToolType.xxx`，约在 `Job.cs` 中部，负责打开对应 `Frm_xxxTool`。
+- 流程模块右键必须以本次 `HitTest` 命中节点为准：顶层模块提供运行、禁用/启用和删除；删除模块或输出端口时要同步清理 `L_toolList`、`D_itemAndSource`、本流程及其他流程中的下游 `ToolIO.value`，不得留下指向已删模块的字符串源。
+- 模块双击入口为 `TVW_DoubleClick()`/`GetModuleNodeAt()`：双击端口行也解析到所属模块，不再依赖可能滞后的 `SelectedNode` 或只接受文字区域。入口用 `moduleEditorOpenBusy` 防快速连点/消息泵重入，并必须在 `finally` 中恢复 `Job.loadForm`，避免某个窗体打开分支异常后把后续编辑一直锁住。
+- `Frm_Job.ModernEditor.cs` 的首次激活不能依赖隐藏页签的 `TabControl.RowCount` 或等待用户切换流程。第一个 `TabPage` 加入及流程窗体首次显示时必须调用 `ActivateCurrentWorkflowEditor()`，同步下拉选择、启用展开/折叠/删除/属性按钮，并刷新当前连线层。窗体 `VisibleChanged` 只做一次激活，不能再紧接着 `BeginInvoke` 第二次完整刷新；流程下拉内容未变化时只同步选中索引，不能 `Items.Clear()` 后重建。
+- 连线的输入端和输出端分别按所属模块的展开状态投影：展开的一端连到具体输入/输出端口，折叠的一端才收口到模块标题。只展开一端时不得把已展开端也降级为模块；只有两端都折叠时，同一有向模块对才归并为一条概要线。
+- “显示全部连线”关闭时进入端口聚焦模式：选择顶层模块标题或空白处不画线；只有选择已展开模块中的具体输入端口或输出端口，才显示直接连接到该端口的来源线或去向线。不要再按整个模块汇总显示相关连线。
 - 工具运行主循环：搜索 `Run(` 或具体 `else if (L_toolList[i].toolType == ToolType.xxx)`，各工具运行和上下游数据读写都集中在这里。
 - 通讯类工具启动初始化时跳过：搜索 `initRun`。
 
 运行流程的触发入口和线程模型（重要）：
 
 - `Job.Run(bool initRun)` 是单次跑完整条流程的核心函数，内部会逐个调用各工具的 `Run()`，其中采集图像、PLC、TCP 等工具会做阻塞式 IO（相机采图、读寄存器、socket 收发）。
-- `Job.Run()` 是按“后台工作线程”设计的：函数开头只用 `BeginInvoke(...)` 非阻塞投递 UI 更新，流程结束后的 HALCON 状态文字也通过 `PostRunResultToUi()` 回到 UI 线程显示。后台流程线程不能直接操作 WinForms/HALCON 窗口。
+- `Job.Run()` 是按“后台工作线程”设计的：函数开头用 `BeginInvoke(...)` 非阻塞投递状态更新，结束状态通过 `PostRunResultToUi()` 回到 UI 线程；公共 `ToolBase.ShowImage()` / `ShowObj()` 入口也必须只在目标图像窗体的 UI 线程读取 Dock/控件状态并显示。工具内部仍有大量直接 HALCON 算子调用，不能据此宣称所有历史工具都已线程安全，新增或修改工具时要继续审查。
 - 统一入口在 `Job.cs`：`Job.RunAsync(jobName)` 异步运行指定流程；`Job.RunAndWait(jobName)` 把实际运行放到后台线程，等待期间继续处理 UI 消息，适合“运行后立刻读取输出结果”的标定/取点按钮。不要在 UI 事件里再直接调用 `Job.FindJobByName(...).Run()`。
 - 主界面“运行一次”、图像窗口右键“运行流程”、采集设备页和各工具窗体的“运行流程”入口都应走 `RunAndWait()` 或 `RunAsync()`，避免相机、PLC、TCP 等阻塞 IO 卡死 WinForms 消息循环。
-- `Job.LoopRun()` 的连续运行线程、`Task_SmartLineA` 自动流程、`OneKeyEyeHandCalibTool` 内部自动标定链仍保留直接 `job.Run()`，因为它们本身在业务工作线程里顺序执行，并依赖同步结果。排查卡死时先区分入口是在 UI 线程还是已有工作线程。
+- `Job.LoopRun()` 的连续运行线程、`Task_SmartLineA` 自动流程、`OneKeyEyeHandCalibTool` 内部自动标定链仍保留直接 `job.Run()`，因为它们本身在业务工作线程里顺序执行，并依赖同步结果。连续运行每轮不得强制 `GC.Collect()`；`Run()` 返回 null 表示内部未恢复异常，循环必须停止并指出错误日志，不能继续形成异常风暴。排查卡死时先区分入口是在 UI 线程还是已有工作线程。
+- 连续运行位于首页或运动页时，工具仍执行并更新流程输出，但 `ToolBase.ShowImage()/ShowObj()` 不向隐藏的 HALCON 图像窗口排队，`PostRunResultToUi()` 也不逐轮追加成功日志；返回视觉页后的下一轮恢复最新图像和叠加显示。否则隐藏绘制队列和上千条输出项会把“首页 -> 视觉”的首次显示拖慢。
 - `Job.BeginSingleRun()`/`EndSingleRun()` 维护单次运行忙碌标记；`activeRunCount` 覆盖所有直接 `Job.Run()` 入口；`loopRunThread` 跟踪停止连续运行后尚未结束的最后一轮。三者共同组成 `IsExecutionActive`，线程真正退出前不能启动第二次运行或执行工具预览。
 
 新增/修改工具的标准路径：
@@ -118,7 +141,44 @@
 | 启动设置 | `VisionAndMotion/3 FormLib/SettingPages/Frm_StartSettings.cs` | 启动行为配置。 |
 | 用户管理 | `VisionAndMotion/3 FormLib/SettingPages/Frm_UserManager.cs` | 用户权限相关配置。 |
 
+### 5.1 浅蓝与暖光白主界面（2026-09-09 当前）
+
+- `ModernUiTheme.cs` 统一暖光白页面、浅蓝强调色、微软雅黑字体、控件前景/背景与 ToolStrip 渲染；`VM.Init()` 安装全局主题，`Frm_FormBase.OnLoad()` 为后续打开的公共窗体补应用。文本操作按钮、输入控件与内容卡片适度圆角；窗口控制区、HALCON 图像控件和数据密集型网格不做无差别圆角。HALCON 控件不做全局字体替换。
+- `Frm_Main.ModernLayout.cs` 将主壳层固定为“蓝色标题带 → 全局命令/标准菜单合并栏 → 工作区内容 → 状态栏”的桌面软件结构，窗口最小尺寸为 `1024 × 640`，最大化范围使用当前屏幕工作区。
+- 顶层菜单归并为 6 个不重叠入口：项目、流程、视觉、设备、系统、帮助，并嵌入启动/暂停/停止/复位右侧的同一条 50 px 主命令栏，不再单独占一行；菜单对象仍是原 `MenuStrip/ToolStripMenuItem`，因此快捷键、代理命令、权限和展开同步链不变。全局命令栏固定为启动/暂停/停止/复位 4 个机器命令和首页/视觉/运动 3 个工作区导航，共 7 个主命令；退出位于“项目”，锁定/登录/选项位于“系统”，保留原事件和权限判断。“系统 → 选项”仍代理原 `toolStripButton10`，因此管理员权限检查不会被绕过。标题栏隐藏与“帮助”重复的旧更多按钮，只保留最小化、最大化/还原和关闭。
+- 三个工作区由 `ApplyWorkspaceMode()` 统一切换：主页（只读生产概览、当前方案/流程数/运行时长和常用入口）、视觉（DockPanel 编辑区）、运动（运动控制）。主页和运动页首次进入时才创建，离开后隐藏并保留状态；视觉快捷栏仅在视觉工作区显示。
+- “首页 -> 视觉”的实际入口链为 `toolStripButton5_Click()`/首页按钮 -> `Machine.SwitchFrom(VisionForm)` -> `Frm_Main.ApplyWorkspaceMode()` -> `dockPanel.Visible = true` -> 当前 DockContent 的 `VisibleChanged`。这条 UI 线程链只允许布局、当前流程命令状态和一次重绘；连续运行产生的图像/日志不能在这里补处理历史积压，工作区图标也应复用缓存位图，不能每次切换重新查询 DPI 和重复赋值。
+- 工具箱由 `Frm_ToolBox.ModernCategories.cs` 仅重排既有节点，不改变叶节点文字、图标或创建分支，固定为 7 类：图像输入与预处理、检测与识别、标定与定位、几何与 ROI、逻辑与计算、设备与通信、输出与显示；空的历史“3D”根节点移除。
+- `Frm_Job.ModernEditor.cs` 不再把所有流程页签按两列、多行长期铺在流程树上方；旧 `tbc_jobs` 继续承载流程内容并保留创建、删除、运行和 `Job.GetJobTree()` 兼容链，但页签头压缩隐藏，顶部改为固定 44 px 的“当前流程”下拉切换区。下拉会同步流程新增、删除、重命名和外部页签切换，流程数量增加不再挤占编辑树高度。编辑器底部不再展示“单次运行/连续运行”，命令区由 98 px 压缩为 54 px，保留五个流程管理命令并新增一个“显示全部连线”切换；关闭该切换时，无选择或选择模块标题都不画线，只有选择已展开模块内的具体输入/输出端口才显示该端口的直接连线。连线两端分别按自己所属模块的展开状态投影：展开端连到具体端口，折叠端连到模块标题；两端都折叠时，同一对模块的多个端口连接只画一条关系线。两个旧运行按钮对象仍隐藏保留，供历史状态链写入 `Enabled/Text`，实际运行继续从视觉快捷栏、菜单或 F5/F6 进入。流程模块拖拽由 `Job.TryMoveToolNode()` 在移除节点前统一计算并校正插入位置，同时同步流程树与 `L_toolList`；拖到首项、子端口或空白末尾均不得产生负索引或半更新状态。`FlowEditorTreeView` 不再在原生 TreeView HWND 上用 `Graphics.FromHwnd` 补画连线，连线改由不接管鼠标的独立双缓冲层绘制，原生 HotTracking 关闭，避免鼠标移动局部擦除造成闪烁或拖拽期间的窗口绘制竞争；端口圆点中心固定在覆盖层左侧并用短线接入连线区，不能让覆盖层遮掉圆点右半边。`Frm_ToolBox.ModernUi.cs` 采用“紧凑搜索/命令区 + 工具树”两行布局：搜索输入逻辑高度 26 px，底部工具说明卡片及其选择更新事件移除，释放的空间全部交给工具树；工具搜索、清空、上下键/回车和分类展开折叠语义不变。
+- 旧 `.pjt/.eng/.job` 流程加载统一走 `Job.PrepareLoadedWorkflowData()`、`AttachLoadedWorkflow()` 和 `RebuildLoadedWorkflowTree()`：先清除序列化残留的连续运行、单次忙碌、停止请求、双击次数、旧 TreeNode 连线及工具锁，再初始化空工具/IO集合；编辑树必须先创建全部模块和输入输出端口，第二遍才按名称恢复本流程连线，因此来源模块排在目标模块之后也可恢复。跨流程与全局变量来源保留给运行时解析，不画成当前流程内连线；格式错误或已不存在的本地来源只在对应端口显示提示，不得让整个流程页加载中断。`LoadJob(string)`、`LoadJob(Job)`、`OpenJob(Job)`、`InportJob(Job)` 不得各自复制恢复代码，也不得重新注册旧 `BeforeExpand/BeforeCollapse + m_MouseClicks` 双击拦截。`D_itemAndSource` 是纯 UI 运行期索引，不再序列化；旧项目的非空工具对象、模板、ROI、标定和参数不得为“兼容”而替换。
+- 设置导航固定为 6 个顶层分类：常规、项目、方案、启动、运行、用户与安全；历史“功能”改名为“启动”，“用户管理/安全”归并到“用户与安全”。
+- “项目”菜单覆盖常用方案与项目生命周期：新建/打开/最近/克隆方案、导出方案、保存项目、导入/导出项目及退出。不要恢复顶层“删除当前方案”代理：历史 `toolStripButton18` 路径只直接修改模型集合，缺少完整 UI 刷新和持久化保障；删除方案统一走“系统 → 选项 → 方案管理”（`Frm_EngineManager`）的受控确认、刷新和保存路径。
+- 工厂默认布局是 `Start/Config/Resources/Layout/经典布局1.config`：右侧 30% 由流程和工具箱共用标签 Pane，并以全高度贯穿工作区；中央列上方承载图像文档，输出和监控共用的底部 22% 标签 Pane 只延伸到右侧编辑列左边，不再占用流程编辑器下方空间。视觉快捷栏只直显单次运行、连续运行、保存项目、读取图像 4 个动作，另保留单一“批量运行”下拉；上一张本地图像、暂停目录图自动切换保留在“视觉 → 图像”，极速模式保留在“视觉 → 辅助工具”。全局变量保留在“视觉”，并通过原 `toolStripButton34` 代理执行以保留刷新行为。方案、流程、图像管理、布局、设备及重复/空实现入口不再与主菜单平级占用顶栏。经典模板只读；用户调整需要保存时自动转存 `dockPanel.config`，避免升级覆盖工厂模板。只有可明确识别的仓库旧演示快照会在内存中迁移到新版专注布局，任意其他自定义布局不改写；手动入口为“视觉 → 布局 → 专注布局（标准）”，重启后生效。旧项目的多图像窗口与复杂自定义 Dock 布局仍需真实项目回归。
+- `CreateProxyMenuItem()` 为迁移到六类菜单的原按钮统一生成文字入口，`Tag` 保存源 `ToolStripItem`，点击继续调用源项 `PerformClick()`；代理菜单不复制旧低分辨率 `Image`，避免高 DPI 模糊，也不能改成直接调用业务函数而绕过原权限、确认或刷新路径。主菜单展开时递归同步源项的 `Enabled`、`Available` 和 `CheckOnClick/Checked` 状态；设计器原有 F5/F6 仍落到“单次运行当前流程/连续运行当前流程”，并分别绑定 `toolStripButton11/12` 的可用状态，不能让快捷键从禁用菜单绕过机器运行门槛。
+- 当前产品版本由 `Configuration.ProductVersion` 固定为 `1.0.0`，`Start` 与 `CVMPro` 的程序集/FileVersion 为 `1.0.0.0`、ProductVersion 为 `1.0.0`；主客户端标题使用 `WLP VM v1.0.0` 后缀。`Frm_Welcome.cs` 使用独立的暖白启动画面、浅蓝矢量视觉图、柔和进度条，显示“版本 1.0.0”，不再读取日期式 `AssemblyConfiguration`；内部 WLP 品牌标记由 `WelcomeBrandMark` 抗锯齿绘制，退出按钮使用透明过渡圆角底图，加载进度仍由原 `bar_step/lbl_step` 驱动，视觉刷新计时器仅在窗口可见时运行。欢迎页作为无边框顶层 `Form` 仍保留 `Region` 外形裁切，这个边界不能用内部控件的抗锯齿结果替代。
+- `ControlLib/Controls/ModernInputControl.cs` 是输入底板基类；`CTextBox`、`CComboBox`、`CNumeric`、`CNumericUpDown` 四类共享输入控件统一继承它。底板用 GDI+ `AntiAlias`、半像素内缩和暖白/浅蓝调色绘制，不再给 24–26 px 小输入控件使用二值 `Region` 裁切；下拉箭头、密码可见性、数值加减等符号用代码绘制。`CTextBox.TextStr` 程序赋值时同时更新内部值、编辑器文本和占位状态，一次实际变化最多发出一次 `TextStrChanged`；`CNumeric` 把空文本、单独负号/小数点等视为编辑中间态，只有完整数字才提交 `ValueChanged`，失焦时回到最后有效值，避免 `Convert.ToDouble` 异常和重复通知。`CNumericUpDown` 小宽度布局分档：50 px 只显示可编辑数值（键盘/滚轮仍可步进），70 px 采用纵向加减按钮，90 px 及以上再使用横向按钮，负数和两位小数不得被遮挡。
+- `ModernUiTheme.StyleRoundedButton()` 与卡片主题使用带透明过渡像素的 PArgb 背景图绘制圆角，并主动清除普通按钮/卡片旧 `Region`；已有超大功能位图会以高质量插值缩小并按前景色着色，不能把业务图标当成按钮皮肤覆盖。无边框顶层 `Form`（包括欢迎页外轮廓）仍有 WinForms `Region` 路径，这一层的边缘平滑度必须在目标系统和 DPI 下另验，不能由内部控件预览代替。
+- `ModernVectorIconFactory.cs` 为主命令栏、视觉快捷栏生成代码矢量图形的精确像素位图，按控件当前 `DpiX` 选择尺寸并缓存；笔画使用圆角线帽/连接及抗锯齿，ToolStrip 关闭二次图像缩放。`Start/WLPVM.ico` 提供 16/20/24/32/40/48/64/128/256 共 9 个尺寸，`Start.csproj` 同时用作 `ApplicationIcon` 和内容资源；`Start/app.manifest` 与 `Start/Properties/app.manifest` 的程序集标识统一为 `WLPVM.app`，欢迎页/主窗体从当前宿主可执行文件提取同一图标。启动清单目前未声明全局或 Per-Monitor DPI 感知，Windows 对整个旧式 WinForms 进程的虚拟化仍可能再次缩放，启用清单前必须回归全部历史绝对布局。
+- 工具配置窗体继续通过 `Frm_FormBase` 继承统一主题。`VisionAndMotion/1 ToolLib/37 SaveImageTool/Frm_SaveImageTool.cs` 是模块内重排样板：来源、存储规则、文件管理三张卡片复用原参数控件与运行事件；旧图片式勾选/按钮皮肤隐藏。清空保存位置属于不可撤销操作，必须做受保护路径检查、待写入检查和二次确认。
+
+### 5.2 UI 资源调度边界
+
+- 主 UI 计时器基准为 100 ms，但时钟、运行时长及通用状态更新限频到 1 s；运动 IO 仅在运动工作区可见、窗口未最小化且机器不处于运行状态时按 300 ms 更新，避免所有工作区持续轮询。
+- `Frm_MotionControl` 的刷新线程改为首次需要时才创建；仅在运动界面有效可见时活跃，隐藏后降频，并将控件快照/界面回写放回 UI 线程。设备管理、运动控制与点表编辑窗体不再由 `Machine.InitAll()` 无条件实例化；点表视图在进入对应模块时从当前项目刷新。
+- `Frm_Output` 将日志模型更新与 WinForms 控件更新分离：后台调用仅更新受锁保护的模型并入有界队列，UI Timer 每 100 ms 最多提交 48 条、一次滚动；筛选切换、清空和队列积压使用完整快照重建，窗口隐藏时暂停绘制。报警历史使用唯一 `DateTime` 键并按最早时间淘汰，避免同一时刻突发日志丢失或计数漂移。
+- 存储图像模块的后台写图队列是跨流程实例共享的线程安全单工作线程；自动清理只在启用且保留天数大于 0 时限频调度，不应每保存一张图就新建清理线程。写图、过期目录清理和手动清空共享文件操作边界，避免目录删除与写文件并发。窗口截图的 `HObject` 所有权会移交给队列并在写入后释放，输入图像仍是上游借用对象；队列上限为 64 项，满载时会对调用方背压以保证不丢请求和内存有界，因此不能宣称保存入口始终非阻塞。
+- `Machine.UpdateAll()` 只负责运行状态更新；已移除主刷新路径里的同步 UI `Invoke`、全局资源锁和人为 `Sleep`。`HWndCtrl` 的背景图、叠加对象、图形上下文与释放路径由同一窗口锁保护；涉及 HALCON 进程级 `flush_graphic` 时固定使用 `GraphicRenderLock → objectStackLock`，禁止反向取锁。
+- `Machine.InitAll()` 的板卡、通讯和外设初始化仍在后台线程；欢迎页、主窗体、项目 UI 重建、状态栏/菜单和板卡初始化失败提示通过主窗体句柄派发到 UI 线程。`VM.Init()` 先在 UI 线程读取最终配置，再构造欢迎页/主窗体及其句柄，最后启动初始化线程；`Machine.InitAll()` 不重复读配置。`Configuration.Read(false)` 只更新配置模型字段，主窗体构造也不得全局关闭 WinForms 跨线程检查。
+- 流程树 `Job.TVW_AfterSelect()` 必须在控件所属线程执行完整工具预览分支。单击/双击区分使用每个 `Job` 持有的 WinForms UI Timer 延迟 500 ms；新选择以请求代次取消旧回调，双击显式取消待执行 Timer。禁止恢复 `new Thread + Sleep` 后直接读取 `TreeView.SelectedNode` 的旧写法，也不能只对节点读取局部 `Invoke`，因为后续各 `Frm_*`、DataGridView 和 HALCON 窗口同样属于 UI 对象。
+- 这次调度优化不等于硬件 IO 已完全异步化：可见运动页的 `Machine.UpdateIO()` 仍可能等待驱动/资源锁，真实设备的最坏延迟必须现场测量。
+- 没有启动完整程序，因为 `VM.Init()` 会进入 `Machine.InitAll()` 并自动初始化/连接设备；当前只允许做无硬件构造、Dock XML 加载和 `DrawToBitmap` 壳层烟测。没有真实相机、PLC、运动卡或现场 DPI/多屏验证。
+- 2026-09-08 最终验证：UI 基线的 `Controls.csproj /t:Rebuild` 为 0 警告/0 错误、`VMPro.csproj /t:Rebuild` 为 961 警告/0 错误；点击视觉线程修复后的 `VMPro.csproj /t:Build` 为 539 警告/0 错误，`VM Pro.sln /t:Build /p:Configuration=Debug /p:Platform="Mixed Platforms"` 为 4 警告/0 错误。隔离 `UiShellSmoke` 退出码 0，通过 1088 项断言；新增严格跨线程检查下两个空流程节点快速选择、首页/视觉切换及 900 ms 延迟窗口回归，不连接相机、PLC 或运动卡。WLP EXE 嵌入图标与源 ICO 匹配 100%，欢迎页品牌块浅蓝绘制覆盖 80.13%。最终 `CVMPro.dll` 为 8,532,480 bytes，SHA-256 `11A828BF847E4144525D169F37DC1938648DF1C811706BCD40A635E11325A27A`；`WLP VM.exe` 为 31,232 bytes，SHA-256 `AE425B788A48B8746CEB6A19422EE7CF87E99DBCFCF27CA2DFD97CF2E0BC642B`。直接构建 `Start.csproj /p:Platform=x86` 会因 `VMPro.csproj` 没有该项目级平台输出映射而失败；使用解决方案 `Debug|Mixed Platforms` 映射。2026-09-07 的旧 DLL 哈希不再作为当前证据。
+- 2026-09-09 流程/工具箱紧凑布局验证：解决方案 `Debug|Mixed Platforms` 构建为 0 错误；`FlowEditorSmoke` 通过 39 项断言，除流程下拉、隐藏运行入口、拖拽同步和独立连线层外，新增覆盖连接点不被覆盖层遮挡、显示全部、选中首/中间模块聚焦及无选择隐藏。`ToolboxUiSmoke` 通过 13 项断言。Dock 模板与主窗体加载阶段确认右侧流程/工具箱贯穿到底、底部日志在右侧编辑列之前截止；主壳层阶段确认六类菜单嵌入机器命令同一行且不与左右命令重叠，视觉区因此增加 30 px 高度。版本资源已验证：`WLP VM.exe` 与 `CVMPro.dll` 均为 FileVersion `1.0.0.0`、ProductVersion `1.0.0`；主标题和欢迎页版本阶段通过。完整 `UiShellSmoke` 随后仍停在与本轮无关的“存储图像窗体圆角外形”断言，因此不把新增总断言数标为完整通过。预览位于 `Tests/artifacts/compact-workflow-toolbox/`。没有启动会进入 `Machine.InitAll()` 的完整程序，也没有连接相机、PLC 或运动卡。
+
 设备管理 UI 调度：
+
+- PLC、TCP 客户端/服务端、串口和扫码器的运行对象不得通过 `Frm_*.Instance` 隐式创建配置页；只向已存在、未释放且仍绑定当前设备的页面派发状态，页面重新显示时从模型恢复状态。隐藏页面丢弃显示型日志，避免后台通信持续堆积 UI 工作。
+- TCP/PLC 的连接中状态是非序列化运行时字段；切换 A/B 设备后，A 的迟到完成不能覆盖 B 的页面。TCP 客户端共享 Socket 表必须通过专用锁交换/查询，网络调用不得在表锁内执行；手动断开必须阻止接收线程立即自动重连。
 
 - `Frm_DeviceManager.ShowSelectedDevice()`：根据设备类型显示子页面。
 - `Frm_DeviceManager.ShowChildForm()`：把子窗体嵌入右侧区域。
@@ -131,7 +191,7 @@
 
 窗体标题栏注意：
 
-- 继承 `Frm_FormBase` 的窗口标题栏按钮由 `Frm_FormBase.AlignTitleButtons()` 在运行时统一右对齐，顺序为 `置顶`、`最小化`、`最大化`、`关闭`。
+- 继承 `Frm_FormBase` 的窗口标题栏按钮由 `Frm_FormBase.AlignTitleButtons()` 在运行时统一右对齐，顺序为 `置顶`、`最小化`、`最大化/还原`、`关闭`。四个按钮的最小点击宽度为 34 px，图形由 `ModernVectorIconFactory` 按 DPI 重绘，关闭使用独立红色悬停态；窗口状态或置顶状态改变后调用 `RefreshTitleButtonVisuals()`，不要在子窗体重新覆盖旧位图。
 - 不要优先在各子窗体 Designer 里手调 `button100.Location`；旧 Designer 里可能有历史坐标，但运行时应由基类统一覆盖。
 - 继承 `Frm_FormBase` 的模态弹窗统一通过 `Frm_FormBase.ShowDialog()` 创建临时顶层 owner，保证提示、错误、确认、输入类窗口不被其他置顶窗口盖住。
 
@@ -211,9 +271,22 @@ PLC 当前重点：
 - `AcqImageTool.Run()` 是采集输出替换的核心：先更新 `toolPar.ResultPar.图像`，流程再把输出写入下游输入。排查“拍照后卡死/旧图替换异常”时先区分卡在相机 SDK 同步采图，还是卡在 Halcon 窗口刷新；不要把显示窗口刷新当作输出替换的必要步骤。
 - 硬触发等待必须有超时保护，避免 `SDK_Camera.waitingHardTriggerImage` 没被回调清掉时无限等待。Halcon 相机的 `GrabImage` 也应尽量设置 `grab_timeout`，保持和 Basler/HIK/MindVision 这类已有超时的 SDK 行为一致。
 - 采集图像编辑窗体“运行流程”卡死的根因：`Frm_AcqImageTool.btn_runJob_Click` 旧实现直接在 UI 线程同步调用 `Job.FindJobByName(jobName).Run()`。`Run()` 会走到 `AcqImageTool.Run()` 的阻塞采图（`SDK_Camera.GrabOneImage()` -> `HOperatorSet.GrabImage`），在 UI 线程执行会卡住整个消息循环，界面就“卡死”。程序刚启动时相机首帧还没就绪（采集接口若没真正生效的 `grab_timeout`，首次 `GrabImage` 会一直等），所以“刚启动运行流程一定卡死”；之后偶发丢帧/采图延迟时表现为“偶尔卡死”。当前运行入口已收口到 `Job.RunAndWait()`/`RunAsync()`，运行期间由统一忙碌标记防重入；排查同类卡死时，先确认新增入口有没有绕开统一入口，再看相机 SDK 的 `GrabImage` 有没有超时。
-- 这个旧 WinForms/.NET Framework 方案依赖 Halcon 和相机 SDK，macOS 下 `dotnet build` 可能长时间无输出或卡住；验证优先交给 Windows/Visual Studio 和实际相机环境。
+- 这个旧 WinForms/.NET Framework 方案依赖 HALCON 和相机 SDK；不要在 macOS/非 Windows 环境使用 `dotnet build` 作为构建结论，验证应使用 Windows + VS2022 Build Tools MSBuild，硬件行为再由受控真机环境确认。
+
+斑点分析工具注意：
+
+- `BlobAnalyseTool.Run(false, false, ...)` 由流程工作线程执行，不得直接调用 `GetImageWindowControl().hwc_imageWindow`。图像窗口可能尚未创建、正在切换或已关闭，`GetImageWindowControl()` 返回 null 时不能让显示失败中断斑点计算和输出。
+- 流程显示统一由 `QueueRuntimeDisplay()` 在工作线程复制 HALCON 对象，再作为一个 UI 回调按“背景 -> 搜索区 -> 结果区 -> 外接圆 -> 中心十字”绘制。第一个成功斑点工具可重绘背景，后续斑点工具只叠加图层；外接圆和十字必须合并后批量投递，不得按斑点数堆积 UI 消息。
+- 斑点运行前用 `ToolBase.TryGetHalconImageSize()` 拦截 null 及 object ID 0 图像。结果表只通过 `Frm_BlobAnalyseTool.CurrentInstance` 取已存在窗体并安全投递，后台流程不得因刷新表格而隐式创建斑点编辑窗口。
 
 查找线工具注意：
+
+- 2026-09-09 已完整重制：窗口固定为“左侧大图 + 右侧基本参数/运行参数/结果显示 + 底部预览/运行工具/运行流程”，使用 `ModernUiTheme` 暖白、浅蓝风格。不要恢复旧的绝对坐标参数面板。
+- 窗体只通过 `Frm_FindLineTool.BindTool()` 绑定真实工具并回填参数；`Job.cs` 只解析 `图像/跟随`、必要时重定位 ROI，不再直接逐个操作窗体控件。`BindTool()` 不得调用会清空运行时图像的 `EnsureLoadedState()`。
+- 参数改变、ROI 移动和鼠标松开统一走 150ms 防抖预览；流程正在运行时只保存参数，不得与流程并发调用 HALCON。边缘极性、边缘选择、阈值、卡尺数/宽度、最低得分和剔除点数都在运行前归一化。
+- `ShowContour()` 是预览入口，`Run()` 是正式运行入口，两者共用 `NormalizeParameters()`、`BuildExpectedLines()`、`ApplyMetrologyParams()` 和拟合/剔除规则。正式运行对每个跟随位姿单独捕获测量失败，一个位姿异常不再把整个界面或流程崩掉。
+- 临时 `HObject` 和 Metrology handle 必须走 `finally`/`Dispose()` 释放；投递到 UI 线程的图形必须先做副本，防止工作线程释放后 UI 再访问失效 HALCON 对象。
+- 对外仍只输出第一条成功的 `线`；多线输出需要同时扩展 `ResultPar`、连线类型和下游工具，不是单纯 UI 功能。
 
 - 核心文件是 `VisionAndMotion/1 ToolLib/09 FindLineTool/FindLineTool.cs`，界面文件是 `VisionAndMotion/1 ToolLib/09 FindLineTool/Frm_FindLineTool.cs`。优先阅读顺序：构造函数默认 ROI -> `ShowContour()` 预览 -> `Run()` 正式运行 -> `SyncDisplayedRoi()` 与窗体鼠标事件。
 - 线查找的搜索区域不是普通矩形，而是 `ROIRectangle2` 表示的“可旋转卡尺区域”。`FindLineTool.GetBaseLine()` 直接从该 ROI 的顶点数据中取第 7/9 号端点作为预期线起止点，因此改 ROI 数据结构或端点顺序时会直接影响找线结果。
@@ -223,8 +296,8 @@ PLC 当前重点：
 - 找线窗口通过 `ViewWindow.displayInteractiveROI()` 直接把 `FindLineTool.L_regions` 中的对象挂入 `ROIController`，业务层和显示层共用同一个 ROI 实例，不能再由 `displayROI()` 创建副本。每轮 `mouseDownAction()` 会复位 `currX/currY`，`HWndCtrl.mouseUp()` 会用松开事件坐标再执行一次 `mouseMoveAction()`，保证被系统合并掉的最后一个移动坐标也能提交。
 - `ROIRectangle2` 内部整体拖动使用 `activeHandleIdx=-1`；`displayActive()` 必须把该状态映射到中心手柄后再访问 `rows/cols`。所有 ROI 工具的 MouseMove 最终都会进入 `HWndCtrl.repaint()`；该函数必须在静态 `GraphicRenderLock` 内把 `flush_graphic=false`、背景/叠加/ROI 整帧绘制、`flush_graphic=true` 和最终提交作为一个不可交错的事务。这样既看不到 `ClearWindow()` 产生的背景闪烁，也不会让多个 HALCON 窗口并发切换进程级刷新状态。
 - `FindLineTool.Run(runTool=false)` 是流程运行模式：不能写找线窗体文本框或直接操作 `Frm_FindLineTool`，但在 `displayLine=true` 时必须像查找圆一样通过工具基类 `ShowObj(finalLine, "green")` 把最终线送到主预览窗口；`runTool=true` 则使用 `Frm_FindLineTool.Instance.hWindow_Final1.DispObj()` 显示在工具窗口。不要再把最终线绘制整体限制为 `displayLine && runTool`，否则流程运行只计算结果却看不到主界面叠加线。
-- `VisionAndMotion/2 ClassLib/Job.cs` 的 `ToolType.FindLine` 打开分支会在显示窗体后立刻完成 4 件事：绑定 `Frm_FindLineTool.jobName/toolName` 和 `Frm_FindLineTool.findLineTool`、按流程输入连接解析 `图像/跟随`、在没有 ROI 时按当前图像尺寸补建默认 `Rect2`、最后调用 `findLineTool.ShowContour(true, false)` 做一次“显示 ROI 但不按跟随位姿平移”的预览。排查“打开窗体后看见的线与运行结果不一致”时，先看这条 `trans=false` 的预览链。
-- 同一个 `Job.cs` 打开分支末尾还会回填界面控件，包括 `edgeSelect`、`minScore`、`polarity`、`cliperNum`、`threshold`、`Length`、`caliperWidth`、`ignoreNum` 和 `displayLine`。如果修改了 `FindLineTool` 字段却发现窗体打开后又被旧值覆盖，优先检查这里的回填逻辑。
+- `VisionAndMotion/2 ClassLib/Job.cs` 的 `ToolType.FindLine` 打开分支先解析 `图像/跟随`，在没有 ROI 时按当前图像尺寸补建默认 `Rect2`，重定位后再交给 `BindTool()` 统一绑定和回填。排查打开窗体后预览与运行不一致时，检查“输入解析 -> ROI 重定位 -> `BindTool()` -> `ShowContour(true, false)`”整条链。
+- 界面参数回填已从 `Job.cs` 收口到 `Frm_FindLineTool.BindTool()`。如果字段在打开后显示不一致，优先检查 `BindTool()` 和 `bindingUi` 防重入，不要再在 `Job.cs` 新增控件赋值。
 - 跟随输入通过 `templatePose + InputPar.跟随` 做刚性变换。`FindLineTool.BuildExpectedLines()` 会把学习时的预期线变换到每个当前位姿，因此一个工具运行可能对多个跟随位姿各测一条线。
 - `templatePose` 是 ROI 编辑时的匹配位姿基准，不得每次打开找线窗口都覆盖。打开窗口只通过 `EnsureTemplatePoseFromCurrentInput()` 补齐新工具的空基准；用户实际拖动或缩放 ROI 后，`SyncDisplayedRoi()` 才调用 `CaptureTemplatePoseFromCurrentInput()` 按当前匹配位置重新标定。
 - 图片位姿变化后重新打开找线窗口，先调用 `RebaseRoiToCurrentFollowPose()`，用 `templatePose -> 当前跟随位姿` 的刚性变换同步更新 `ROIRectangle2` 的中心和角度，再把当前位姿设为新基准。随后 `ShowContour(true, false)` 显示的 ROI、卡尺和正式运行坐标保持一致，不允许只变换测量线而仍显示原始 ROI。
@@ -232,24 +305,20 @@ PLC 当前重点：
 - HALCON 参数统一收口在 `FindLineTool.ApplyMetrologyParams()`：`measure_transition=polarity`、`num_measures=cliperNum`、`measure_length1=Length`、`measure_length2=caliperWidth`、`measure_threshold=threshold`、`measure_select=edgeSelect`、`min_score=minScore`。调找线稳定性优先改这里，不要散改 `AddMetrologyObjectLineMeasure()` 的常量。
 - `FindLineTool.Run()` 在 `ignoreNum == 0` 时直接取 HALCON 返回的线结果；`ignoreNum > 0` 时会先按“点到初拟合线的距离”排序，剔除最远的若干点，再用 `FitLineAfterReject()` 重拟合。以后若要增强抗毛刺能力，优先从这段离群点剔除逻辑入手。
 - 对外输出在 `FindLineTool.ToolPar.ResultPar`，当前只写一条 `线`；界面上的起点/终点文本框只是同步显示。若要支持多条线结果，不能只改 UI，需要同时扩展结果结构和下游连接逻辑。
+- `HObject != null` 不等于存在有效 HALCON 图像：尚未采图或旧项目恢复后对象 ID 可能仍为 0。构造默认 ROI、打开窗体、预览和运行中的图像尺寸读取必须先走 `ToolBase.TryGetHalconImageSize()`；无有效图像时保留兜底 ROI 并正常打开窗口，不能直接调用 `GetImageSize()`。
 
 查找圆工具注意：
 
-- 核心文件是 `VisionAndMotion/1 ToolLib/10 FindCircleTool/FindCircleTool.cs`，界面文件是 `VisionAndMotion/1 ToolLib/10 FindCircleTool/Frm_FindCircleTool.cs`。源码里已经按“构造函数 -> `DrawExpectCircle()` -> `ShowContour()` -> `Run()` -> `Work()`”写了阅读顺序，后续定位优先沿这条链走。
-- `Frm_FindCircleTool` 是单例窗体，但流程里可以存在多个查找圆工具。当前 `findCircleTool` 属性不会直接缓存唯一实例，而是优先用 `jobName/toolName` 通过 `GetBoundTool()` 反查当前绑定的工具对象；如果这个绑定逻辑被破坏，多开多个查找圆工具时很容易串参数。
-- `FindCircleTool.L_regions[0]` 保存用户可编辑的预期圆 ROI，真正运行时会读取 `getModelData()` 得到 row、column、radius。`DrawExpectCircle()` 负责把该 ROI 放回窗口，并在有跟随输入时记录当前 `templatePose` 作为后续刚性变换基准。
-- 查找圆和查找线一样支持跟随位姿，但这里只对圆心做刚性变换，半径保持不变。`ShowContour()` 与 `Run()` 都会根据 `templatePose -> InputPar.跟随` 生成 `newExpecCircleRow/newExpectCircleCol/newExpectCircleRadius`，因此一个工具可以对多个跟随位姿分别找圆。
-- `Frm_FindCircleTool.Hwindow_MouseUp()` 仍是预期圆编辑后的同步点：用户拖动或缩放 ROI 后，要把 `smallestActiveROI()` 取回的当前圆写回 `regions/L_regions`。当前没有像查找线那样在 `MouseMove` 里实时同步，所以圆查找的预览刷新节奏仍以松手后为主。
-- `VisionAndMotion/2 ClassLib/Job.cs` 的 `ToolType.FindCircle` 打开分支除了绑定 `Frm_FindCircleTool.jobName/toolName` 和 `Frm_FindCircleTool.findCircleTool` 之外，还会按流程输入连接重新解析 `图像/跟随`，然后先根据当前 `templatePose + 跟随` 算出“打开窗体时的预期圆心”，再把 `L_regions` 清空并用 `genCircle()` 重新生成一个当前位姿下的可编辑 ROI，最后调用 `findCircleTool.ShowContour(true, false)` 画预览。也就是说，查找圆在打开窗体时会主动重建 ROI，而不是直接复用内存里的旧 ROI。
-- 同一打开分支在预览后会把当前跟随位姿重新写回 `templatePose`，再回填 UI 控件和图标状态：`displayCaliper/displayFeature/displayCircle/displayCircleCenter`、`edgeSelect`、`minScore`、`ringRadiusLength`、`threshold`、`cliperNum`、`polarity`、`caliperWidth`、`ignoreNum`。如果以后出现“打开窗体后圆位置跳了”或“切流程后参数串到别的查找圆工具”，先看这个分支有没有被改坏。
-- `FindCircleTool.ShowContour()` 只做调参预览，不写流程输出。它会重建 Metrology 圆测量对象，显示蓝色卡尺、橙色特征点和绿色拟合圆，并根据 `trans` 决定是否应用跟随位姿。打开工具或只想查看原始 ROI 时，避免误用会改显示基准的调用路径。
-- HALCON 核心调参在 `FindCircleTool.Run()` 和 `ShowContour()` 中通过 `SetMetrologyObjectParam()` 统一设置：`measure_transition=polarity`、`num_measures=cliperNum`、`measure_length1=ringRadiusLength`、`measure_length2=caliperWidth`、`measure_threshold=threshold`、`measure_select=edgeSelect`。`Run()` 额外启用了 `min_score=minScore`，但 `ShowContour()` 里目前保留了 `min_score` 注释未启用，调试预览和正式运行可能因此略有差异。
-- `FindCircleTool.Work()` 是当前重写后的屏蔽区域主入口。它使用 `brush_region` 作为画笔、`final_region` 作为最终屏蔽区域，`radioButton2` 做 `Union2` 添加屏蔽，`radioButton3` 做 `Difference` 擦除屏蔽。后续如果看到“涂抹后需要重新学习”的提示或显示异常，优先从这里查，而不是先怀疑 `Run()`。
-- `FindCircleTool.Run()` 运行时如果 `final_region` 有效，会先生成整幅图区域再做 `Difference(rec1, final_region)`，只在剩余区域内找边。也就是说屏蔽区不是后处理删除结果点，而是在 Metrology 前就缩小了参与测量的图像域。
-- `ignoreNum == 0` 时，圆结果直接使用 HALCON 返回的 `all_param`；`ignoreNum > 0` 时，会先按点到初拟合圆轮廓的距离排序，剔除最远的若干点，再调用 `LeastSquaresFit()` 重拟合，并把保留点画成橙色、剔除点画成红色。这是当前抗离群点的主要策略。
-- `FindCircleTool.Execute(ToolRunContext context)` 已经接入新的工具执行包装：`Job.Run()` 通过 `Execute()` 获取 `ToolRunResult`，统一上报成功、取消、超时和耗时。当前 `TimeoutMs` 还没有真正中断内部 `Run()`；如果以后要做可取消或超时退出，需要把 `Run()` 继续拆成可中断流程。
-- `FindCircleTool.ResultPar` 现已明确包含 `圆心` 列表、`是否找到圆`、`结果圆`、`圆半径`。虽然内部支持对多个跟随位姿分别找到多个圆心，但对外主结果只回填第一个 `foundCircles[0]`。如果要支持多圆输出，必须扩展 `ResultPar` 和流程连线定义，不能只改 UI 文本框。
-- 坐标含义沿用旧项目约定：`ResultPar.圆心` 的 `X` 实际存 row，`Y` 实际存 column。查找圆、下游定位和显示控件都建立在这个约定上，任何“纠正坐标名”的修改都要连带检查所有使用点。
+- 2026-09-09 已完整重制：查找圆与查找线使用同一结构和视觉层级，左侧编辑 `ROICircle`，右侧分页调整边缘、卡尺、质量和显示参数，结果页统一显示圆心、半径、耗时和状态。
+- 核心测量只保留一条 `MeasureCircle()` 链路：预览和正式运行共用相同的 Metrology 建模、参数、最低得分、离群点剔除和图层生成逻辑，不再保留两套可漂移的预览/运行实现。
+- 构造函数只创建数据和默认 ROI，不得创建窗体或调用 HALCON 测量。`Frm_FindCircleTool` 通过 `BindTool()` 持有当前流程的真实工具，切换多个查找圆节点时不得使用隐式新建工具作为运行对象。
+- `Job.cs` 打开查找圆时依次执行：`EnsureLoadedState()` -> 清理上次输入 -> 按连线解析 `图像/跟随` -> 必要时按当前位姿重定位 ROI -> `BindTool()` -> 预览。不再每次清空重建 ROI，也不在 `Job.cs` 逐个回填 UI 控件。
+- ROI 拖动/缩放、参数变化和显示开关统一走 150ms 防抖预览；鼠标松开后回写 `L_regions` 并更新当前 `templatePose`，流程运行中禁止并发预览。
+- 屏蔽区数据为兼容旧工程仍保留，运行时会在测量前排除有效 `final_region`；旧的阻塞式涂抹 `Work()` 交互已移除，新 UI 只提供可恢复的“清除屏蔽区”。未来若恢复画笔，必须使用独立编辑状态和确认/取消，不得在 UI 线程循环阻塞。
+- `Run()` 在入口先归一化参数、清空旧结果，再对每个跟随位姿独立测量和捕获异常；结果为空时返回失败状态，不向界面抛出。所有 HALCON 对象和 handle 在成功、失败、异常三条路径上都必须释放。
+- 对外兼容字段仍用 `List<XY> _圆心` 保存，公开 `圆心` 输出第一个结果，`圆心列表` 供多位姿结果使用，`是否找到圆/圆半径/结果圆` 与该列表同步。现有坐标约定仍是 `XY.X=row`、`XY.Y=column`。
+- `FindCircleTool.Execute()` 仍通过 `Run()` 接入执行包装；`TimeoutMs` 目前只能在运行结束后判断超时，不能中断已进入的 HALCON 调用。如需强制取消，必须增加独立工作进程或 HALCON 可取消包装。
+
 
 模板匹配工具注意：
 
@@ -437,11 +506,15 @@ PLC 当前重点：
 | 修改模板匹配输入刷新/训练/编辑 | `ShapeMatchTool.cs`、`Frm_ShapeMatchTool.cs`、`Frm_MoreEdit.cs`；先确认流程输入 `toolPar.InputPar.图像` 是否来自采集工具输出。 |
 | 修改 Halcon 显示/ROI | `ImageWindow/HWindow_Final.cs`、`ImageWindow/Model/ROI*.cs`。 |
 | 修改运动控制 | `Motion/Card*.cs`、`Frm_MotionControl.cs`、`Frm_AxisSetting.cs`。 |
-| 修改主菜单/布局 | `Frm_Main.cs`、`Frm_LayoutManage.cs`。 |
+| 修改主菜单/布局 | `Frm_Main.cs`、`Frm_Main.ModernLayout.cs`、`ModernUiTheme.cs`、`Frm_LayoutManage.cs`。 |
+| 修改共享输入/圆角/命令图标 | `ControlLib/Controls/ModernInputControl.cs`、`CTextBox.cs`、`CComboBox.cs`、`CNumeric.cs`、`CNumericUpDown.cs`，以及 `ModernUiTheme.cs`、`ModernVectorIconFactory.cs`。 |
+| 修改工具箱分类 | `Frm_ToolBox.cs`、`Frm_ToolBox.ModernCategories.cs`；保留叶节点文字与创建分支兼容性。 |
 | 修改公共标题栏按钮 | `Frm_FormBase.cs` 的 `AlignTitleButtons()`，不要逐窗体改 `button100.Location`。 |
 | 修改语言/程序配置 | `Configuration.cs` 和设置页。 |
 
-公司名称当前固定为“威乐普科技有限公司”：`Configuration.Read()` 忽略旧 `Configuration.ini` 中的示例名，`Project.LoadProject()` 在反序列化 `.pjt` 后也会再次覆盖，避免项目内嵌的历史名称恢复到标题栏。
+公司名称固定为“威乐普电子科技有限公司”，软件产品名固定为 `WLP VM`。`Configuration.Read()` 忽略旧 `Configuration.ini` 中的公司示例名；空标题、`未命名`、历史 `VM Pro`/通用视觉产品名和已知旧演示标题都归一化为 `WLP VM`。其他用户自定义项目名保持不变，主标题格式为“威乐普电子科技有限公司 - WLP VM · 项目名”，因此加载自定义项目不会覆盖软件品牌。最近项目菜单只替换已知旧品牌/演示文件的显示名，实际路径和项目文件不重命名。
+
+`Start.csproj` 的可执行程序输出名已改为 `WLP VM.exe`，应用图标为包含 9 个尺寸的 `Start/WLPVM.ico`，manifest 标识为 `WLPVM.app`。`VM Pro.sln`、`VMPro` 命名空间、`CVMPro.dll` 和第三方 `HintPath` 是源码/部署兼容名，本轮不重命名。新安装/新建配置的 `Configuration.dataPath` 默认为 `D:\WLP VM`；已有 `Configuration.ini` 或项目中序列化的 `D:\VM Pro` 不自动迁移、不移动数据，`Frm_SaveImageTool` 保留旧 `D:\VM Pro` 保存路径的切换兼容分支。新建“存储图像”工具仍使用桌面 `WLP VM 图像` 专用目录。
 
 ## 12. 快速搜索建议
 
@@ -462,17 +535,31 @@ rg -n "LoadVariable|ReindexCustomVariables|GlobelVariable|Variable" "VisionAndMo
 
 - 插件机投产前阻断项（2026-07-15 源码审查）：`Frm_Main.toolStripButton4_Click()` 在检查 `Homing/WaitReset` 之前先把 `Machine.machineRunStatu` 改成 `Running`，导致“未复位禁止启动”判断永远不会命中。修复前不能依赖该软件互锁保证运动安全。
 - 插件机定制主逻辑尚未启用：`Machine.InitAll()` 中 `Task_SmartLineA.AutoRun()` 被注释，且 `Task_SmartLineA.AutoRun()` 自身入口立即 `return`。当前“开始”只会启动配置为 `LoopRunAfterStart` 的通用视觉流程，不等于已实现插件机的 PLC/运动时序。
-- 当前 `Start/bin/Debug/Config` 仍是历史“手机组装”部署快照：`Configuration.ini` 的 `ProgramTitle=手机组装`，唯一项目文件为 `Config/Project/Vision/手机组装.pjt`，窗口名也是 Cover/HSG/螺丝流程。`LastProject.txt` 还指向另一台 Windows 主机的绝对路径；虽然加载逻辑会回退到最近 `.pjt`，但这套配置不能作为插件机方案直接上机。
+- 当前 `Start/bin/Debug/Config` 仍是历史产线部署快照：配置标题、约 55 MB 项目文件、窗口/流程内容和 `LastProject.txt` 的旧绝对路径都不是通用出厂配置。运行时仅迁移品牌显示和已知旧布局，不会改写或重命名项目数据；因此这套配置不能作为客户方案直接上机。
 - 当前部署快照 `FailStop=False`，连续流程中某轮 NG/异常后不会因此自动停止循环；插件机上线前必须根据 PLC 握手和不良处理时序明确失败策略，不能沿用该默认值。
 - 手眼标定暂不可用于生产：`EyeHandCalibTool.Calibrate()` 的 `OutsideHand` 分支应读取表格第 1/2/3/4 列（像素X、像素Y、机械X、机械Y）并排除最后空行，当前却读取 0/1/2/3 列并遍历全部行；求矩阵失败后仍会继续分解旧矩阵，最后可能输出“标定成功”。
 - 标定精度检查当前没有计算残差：`Frm_EyeHandCalibTool.button11_Click()` 保存数据后直接写入“标定完成，精度较高”。投产前必须增加独立验证点、像素到机械反投影残差、最大/平均误差阈值，并用实机走位确认 Row/Column 与 X/Y 方向。
-- 一键手眼标定的 TCP `Connect/Receive` 没有超时、取消和完整状态机，且后台线程直接操作 WinForms 控件。未加入运动边界、急停/安全门硬件互锁验证前，不应在插件机上使用“一键标定”自动走位。
+- 一键手眼标定的 TCP `Connect/Receive` 仍没有统一取消与完整状态机；本轮仅补了 2 s 连接超时、共享 Socket 生命周期、手动断开和配置页 UI 派发。未加入运动边界、急停/安全门硬件互锁验证前，不应在插件机上使用“一键标定”自动走位。
 - `VisionAndMotion/2 ClassLib/PLCDevice.cs` 是旧编码/unknown-8bit 文件，编辑时避免整文件转码；尽量做小范围修改。
-- 项目不是 Git 仓库根目录，当前工作区下 `git status` 不可用。
+- 当前目录是 Git 仓库根目录；提交前用 `git status --short` 核对范围，并用 `git diff --check` 检查空白错误。
+- 相机 SDK 仍有必须独立处理的高风险资源所有权问题：`SDK_HIKVision.ImageCallBack()` 对回调传入的 `pData` 调用 `Marshal.FreeHGlobal()`，需先依据海康 SDK 的缓冲区所有权契约确认并在真机受控测试；`SDK_MindVision` 使用跨实例静态 `frameBuffer`，多相机并发、重复枚举和释放边界尚未验证。不要把这些问题混入纯 UI 发布，也不要用生产设备重试来证明安全。
 - 部分工具箱 case 中存在历史乱码/占位英文 case，修改工具名称时要谨慎，不要误删仍被旧项目引用的名称。
 - `Job.cs` 很大，多个阶段都按 `ToolType` 分支处理。改某个工具时，要同时检查“打开工具窗体”和“运行工具”两个分支。
-- `Job.Run()` 设计为后台线程执行（内部用 `Invoke`/`DoEvents` 回写 UI）。任何“运行流程/运行一次”入口都必须放后台线程，不能在按钮事件里同步调用，否则相机采图等阻塞 IO 会卡死 UI。仍以 UI 线程同步调用 `Run()` 的历史入口有 `Frm_OneDimensionalCalibTool.cs`、`Frm_EthernetReceiveTool.cs`、`Frm_AcqDevice.cs`，后续若复现卡死可一并改成后台线程。
+- `Job.Run()` 设计为后台线程执行。任何“运行流程/运行一次”入口都必须放后台线程，不能在按钮事件里同步调用，否则相机采图等阻塞 IO 会卡死 UI；公共状态和图像显示入口负责异步派发，但各具体工具仍需检查是否绕过公共入口直接访问 WinForms/HALCON。仍以 UI 线程同步调用 `Run()` 的历史入口要逐个迁移，不能用 `Application.DoEvents()` 掩盖阻塞。
 ## Recent Notes
 
+- 2026-09-09: 查找边（直线）和圆查找完整重制为当前暖白/浅蓝界面：左侧 HALCON 交互图、右侧基本/运行/结果分页、底部预览/运行工具/运行流程，参数层级参考海康 VisionMaster 的 ROI + 卡尺边缘测量工作流。两工具收口真实对象绑定、输入解析、ROI 跟随/回写、150ms 防抖预览、参数归一化、多位姿测量、结果显示和 HALCON 资源释放；圆查找的预览/正式运行统一到 `MeasureCircle()`，查找线预览也与正式运行共用同一参数和离群点规则。无图、无 ROI、单位姿测量失败和无结果改为状态返回并记录日志，不向窗体抛异常。macOS 使用 .NET Framework 4.8 参考包完成 `VMPro.csproj` 编译，产出 `CVMPro.dll` 且 0 编译错误；本结论不代表 Windows 实际界面、HALCON 授权、相机图像或现场节拍已通过。
+- 2026-09-09: 修复斑点分析连续运行的 `NullReferenceException`：原路径在工作线程直接调用 `GetImageWindowControl().hwc_imageWindow.HobjectToHimage(...)`，图像窗口未就绪或切页时可返回 null。斑点背景、搜索区、结果、外接圆和十字改为快照后单次 UI 批量投递，无可用窗口时只跳过显示，工具计算与输出不中断；结果表也不再从后台隐式创建编辑窗口。输入同步增加 object ID 0 检查。当前实际工程目录为 `VM Pro -1.0.4`；macOS 只做源码编译，Windows 连续运行和 HALCON 显示由目标环境验收。
+- 2026-09-09: 修正流程连线的混合展开状态：输入端和输出端各自判断所属模块是否展开，已展开的一端始终落到具体步骤端口，另一端折叠时只收口该端。仅在两端都折叠时按模块对归并；`FlowEditorSmoke` 增加两个方向的混合端点回归。Windows 界面效果由目标环境验收。
+- 2026-09-09: 收口连续运行异常和首页进入视觉卡顿路径：`LoopRun()` 复用当前 Job，不再每轮重复查找；`Run()` 内部异常返回 null 时立即停止连续运行，错误日志记录流程、工具、异常类型和真实异常堆栈；移除每轮 `GC.Collect()`。新增统一受保护 UI 投递，采集、模板匹配、查找线、查找圆及流程结束回调的异步异常不再逃逸到 WinForms；查找圆流程运行不再从工作线程直接读取工具窗体句柄或写结果控件。连续运行停留首页/运动页时跳过隐藏 HALCON 绘制及逐轮成功日志，进入视觉后下一轮恢复最新显示；流程窗体首次显示取消重复延迟刷新，下拉内容不变时不重建，主命令图标复用 DPI/位图缓存。macOS 上 `VMPro.csproj /t:Compile` 通过且 `FlowEditorSmoke` 源码编译通过；Windows HALCON、相机及实际切页耗时仍由目标环境验证。
+- 2026-09-09: 修复打开圆查找时报 `HalconDotNet.HOperatorException #4056 get_image_size object ID is NULL (0)`：新增统一 `TryGetHalconImageSize()`，不再把非 null 的空 `HObject` 当有效图像；圆查找备用对象使用不读取当前流程图像的构造路径，属性 getter 不再递归创建窗体，打开/预览/运行/屏蔽入口均先验证图像。查找线的同类构造、打开、预览和运行入口同步加固。无有效输入图像时窗口仍可打开并保留兜底 ROI，实际查找需先运行上游采集。`FlowEditorSmoke` 增加对象 ID 为 0 的反射回归；本轮仅完成 macOS 上 .NET Framework 4.8 目标编译，Windows HALCON 运行待目标环境验证。
+- 2026-09-09: 隐藏“显示全部连线”后的聚焦粒度由模块改为具体端口：选中模块标题不显示连线，选中输入端口只显示该输入的来源，选中输出端口显示该输出的去向；折叠模块因无可选端口不显示聚焦线。同步更新按钮提示和 `FlowEditorSmoke` 的模块/输入端口/输出端口回归。Windows 实际交互待目标环境验收。
+- 2026-09-09: 修复首次进入视觉页必须先切换流程才能使用展开/折叠/删除的问题：现代流程工具栏在第一个默认流程加入及窗体首次显示时主动激活当前流程，不再使用尚未生成的隐藏页签 `RowCount` 判断。完全折叠状态继续按有向模块对归并连线，同一对模块只画一条概要线；`FlowEditorSmoke` 增加首次流程未切换即启用命令和完全折叠归并回归。当前工程目录已由 `VM Pro -NEW` 改名为 `VM Pro -1.0.1`；Windows 实际界面运行仍由目标环境验收。
+- 2026-09-09: 旧项目/方案/流程的恢复路径统一重建：全部流程运行状态先归零，流程树改为“先建齐模块端口、再恢复连线”，移除旧双击次数对展开/折叠的拦截；坏连接只标记单端口，不再中断整个默认流程。查找线/查找圆补齐旧文件缺失集合、运行锁、输入参数和位姿基准，打开和运行改用统一来源解析，且打开查找圆不再清空已有学习基准。保留现有 `.pjt/.job` 二进制、非空工具对象及模板/ROI/标定参数；本轮 macOS 仅完成 .NET Framework 4.8 目标的 MSBuild 编译和烟测源编译，Windows 打开默认项目、展开连线、圆查找及连续运行仍由目标环境验收。
+- 2026-09-09: 流程模块右键改为精确命中当前模块，补齐单模块禁用/启用和删除后的模型、端口、连线与跨流程下游清理；双击改为命中模块或其端口均可打开，补充运行中阻止、重入门闩和 `finally` 状态恢复。连线后续已改为两端独立判断：展开端保留具体端口，折叠端才收口到模块，两端都折叠时才归并为唯一模块关系线。主窗口与 `Frm_FormBase` 标题按钮改用 DPI 矢量图形和更大点击区，并为最大化/还原、置顶状态提供即时视觉反馈。`FlowEditorSmoke` 已增加命中、禁用/启用、删除清理、折叠连线归并和标题按钮回归；本轮仅完成 macOS 上的项目源文件 Roslyn 语义编译，Windows MSBuild、烟测执行和实际打开各工具窗口由目标 Windows 环境继续验收。
+- 2026-09-08: 软件产品名更新为 `WLP VM`，公司名固定为“威乐普电子科技有限公司”；主菜单从 9 类收敛为项目/流程/视觉/设备/系统/帮助 6 类，主命令栏固定为 7 个机器/工作区命令，视觉快捷栏收敛为 4 个直达 + 1 个批量运行菜单。项目菜单保留导出方案但不暴露不完整的顶层删除代理；删除统一走系统 → 选项 → 方案管理。低频但有效的上一张本地图像、暂停目录图自动切换和极速模式归入视觉菜单，全局变量继续代理原刷新入口。选项及 F5/F6 运行菜单同步源命令状态，标题栏移除重复更多按钮，菜单代理不复制旧低清位图，重复或空实现入口不占顶栏。
+- 2026-09-08: 四类共享输入控件改用统一抗锯齿底板；`CTextBox`/`CNumeric` 收口原子事件与数字编辑中间态，`CNumericUpDown` 补齐 50/70 px 响应式布局。普通圆角按钮/卡片及欢迎页内部品牌/退出控件移除二值 `Region`，主命令图标按当前像素尺寸代码绘制；`WLPVM.ico` 提供 9 个尺寸并统一 Start/manifest/窗体宿主图标。新配置默认 `D:\WLP VM`，旧序列化 `D:\VM Pro` 不迁移。外层窗体 `Region` 与尚未声明的全局 DPI 感知仍是现场显示验证边界。
+- 2026-09-07: 第二轮统一为浅蓝暖白视觉；视觉工作区改为中央图像、右侧流程/工具箱标签、底部输出/监控标签；启动页重绘为矢量图；存储图像模块采用三卡片布局并补齐安全清空和写图/清理调度边界。无硬件渲染与烟测覆盖这些界面，完整程序、相机/PLC/运动卡和现场 DPI 仍待验证。
+- 2026-09-07: 主界面首轮完成蓝白简约重排：主页生产概览、三工作区、首轮 9 个菜单入口、7 类工具箱、6 类设置导航、只读工厂 Dock 模板，以及按可见性限频的 UI/运动/日志刷新；通信配置页改为按需创建并按绑定目标派发，配置后台读取不再触碰主窗体，公共图像显示回到 UI 线程。当前菜单结构以 2026-09-08 的 6 类收敛结果为准。
 - 2026-07-15: ImageAcq -> Match 只传递本次会话新采集/新选择的图像。项目加载后 `AcqImageTool.OnDeserialized()` 清空 `lastPreviewImagePath` 和 `ResultPar.图像`；打开采集或模板匹配窗口不再自动调用 `TryLoadLastPreviewImage()`。
 - 2026-06-27: Flow-run image display for ImageAcq depends on `Job.Run()` calling `AcqImageTool.Run(true, false, toolName)`. Passing `updateImage=false` still updates outputs, but the main image window will not show the newly acquired image. If `useTemplateImageInRun` is enabled, `AcqImageTool.Run()` must also call `ShowImage(...)` in that branch.

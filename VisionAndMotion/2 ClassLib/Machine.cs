@@ -57,7 +57,7 @@ namespace VMPro
         /// <summary>
         /// 是否正在启动
         /// </summary>
-        internal static bool loading = true;
+        internal static volatile bool loading = true;
         /// <summary>
         /// 资源锁
         /// </summary>
@@ -74,14 +74,52 @@ namespace VMPro
         [DllImport("Kernel32.DLL ", SetLastError = true)]
         public static extern bool SetEnvironmentVariable(string lpName, string lpValue);
 
+        /// <summary>
+        /// 在主界面线程同步执行启动阶段的控件操作。
+        /// VM.Init 会在启动工作线程之前创建主窗体及其句柄，因此这里不会
+        /// 在后台线程意外创建 WinForms 句柄。
+        /// </summary>
+        private static void RunOnMainUiThread(Action action)
+        {
+            if (action == null)
+                return;
+
+            Frm_Main mainForm = Frm_Main.Instance;
+            if (mainForm.IsDisposed || mainForm.Disposing)
+                return;
+            if (!mainForm.IsHandleCreated)
+                throw new InvalidOperationException("主窗体句柄尚未创建，不能从启动线程更新界面。");
+
+            if (mainForm.InvokeRequired)
+                mainForm.Invoke(action);
+            else
+                action();
+        }
+
+        /// <summary>
+        /// 在主 UI 线程显示启动阶段的提示窗体。硬件初始化仍由调用线程执行，
+        /// 这里只切换 WinForms 窗体的创建和显示线程。
+        /// </summary>
+        internal static void ShowMessageOnMainUiThread(string message, TipType tipType = TipType.Tip)
+        {
+            RunOnMainUiThread(delegate
+            {
+                using (Frm_MessageBox messageBox = new Frm_MessageBox())
+                    messageBox.MessageBoxShow(message, tipType);
+            });
+        }
+
         //更新进度
         internal static void UpdateStep(int percentValue, string stepMsg, bool succeed)
         {
             try
             {
-                Frm_Welcome.Instance.bar_step.Value = percentValue;
-                Frm_Welcome.Instance.lbl_step.Text = stepMsg + "......";
-                Application.DoEvents();
+                RunOnMainUiThread(delegate
+                {
+                    Frm_Welcome welcome = Frm_Welcome.Instance;
+                    welcome.bar_step.Value = percentValue;
+                    welcome.lbl_step.Text = stepMsg + "......";
+                });
             }
             catch (Exception ex)
             {
@@ -96,15 +134,16 @@ namespace VMPro
             try
             {
                 UpdateStep(2, Project.Instance.configuration.language == Language.English ? "Init" : "初始化", true);
-                Project.Instance.configuration.Read();
+                // VM.Init 已在创建欢迎页和主窗体前读取配置；这里不再重复读取，
+                // 避免集合项重复，并保证壳层首次构造即使用已保存语言。
 
-                Frm_Welcome.Instance.lbl_companyName.Text = Project.Instance.configuration.CompanyName;
-
-                Frm_Main.Instance.lbl_title.Text = string.Format("{0} - {1}", Project.Instance.configuration.CompanyName, Project.Instance.configuration.ProgramTitle);
-
-
-                Frm_Main.Instance.Init_Tool_Tips();
-                Application.DoEvents();
+                RunOnMainUiThread(delegate
+                {
+                    Frm_Welcome.Instance.lbl_companyName.Text = Project.Instance.configuration.CompanyName;
+                    Frm_Main.Instance.lbl_title.Text = Configuration.BuildApplicationTitle(
+                        Project.Instance.configuration.ProgramTitle);
+                    Frm_Main.Instance.Init_Tool_Tips();
+                });
 
                 //设置环境变量，防止因Halcon版本问题弹出关于HalconRoot的报错  
                 //SetEnvironmentVariable("HALCONROOT", "TEST");
@@ -265,13 +304,16 @@ namespace VMPro
                 //显示生产界面
                 UpdateStep(78, Project.Instance.configuration.language == Language.English ? "Initialize form" : "初始化窗体", true);
                 if (Project.Instance.configuration.showProductionFormAfterStart)
-                    Machine.SwitchToProductForm();
+                    RunOnMainUiThread(Machine.SwitchToProductForm);
 
                 UpdateStep(80, Project.Instance.configuration.language == Language.English ? "Check registration status" : "检查注册状态", true);
-                Frm_Main.Instance.regiestCode = Regiest.Get_RNum(Regiest.Get_MNum());
-
-                if (Project.Instance.configuration.maxSizeAfterStart)
-                    Frm_Main.Instance.WindowState = FormWindowState.Maximized;
+                string registrationCode = Regiest.Get_RNum(Regiest.Get_MNum());
+                RunOnMainUiThread(delegate
+                {
+                    Frm_Main.Instance.regiestCode = registrationCode;
+                    if (Project.Instance.configuration.maxSizeAfterStart)
+                        Frm_Main.Instance.WindowState = FormWindowState.Maximized;
+                });
 
                 ////// //获取开机后运行模式
                 ////// if (Project .Instance .configuration .SwitchedToAuto)
@@ -297,10 +339,12 @@ namespace VMPro
 
                 //加载流程
 
-                Job.InitImageList();
+                RunOnMainUiThread(Job.InitImageList);
                 UpdateStep(90, Project.Instance.configuration.language == Language.English ? "Load process file" : "加载流程文件", true);
                 // 优先加载上次成功保存/打开的项目；没有记录时再加载最近修改的 .pjt。
-                Project.LoadStartupProject();
+                // LoadProject 同时重建流程页、树和菜单；在不能拆分模型/UI 阶段前，
+                // 整体回到主线程执行，避免反序列化后的控件更新跨线程。
+                RunOnMainUiThread(delegate { Project.LoadStartupProject(); });
 
                 for (int i = 0; i < Project.Instance.curEngine.L_jobList.Count; i++)
                 {
@@ -315,21 +359,26 @@ namespace VMPro
 
                 for (int i = 0; i < Project.Instance.L_TCPClient.Count; i++)
                 {
-                    if (Project.Instance.L_TCPClient[i].AutoConnectAfterStart)
-                        Project.Instance.L_TCPClient[i].Connect();
+                    TCPClient tcpClient = Project.Instance.L_TCPClient[i];
+                    if (tcpClient.AutoConnectAfterStart)
+                        tcpClient.Connect();
 
-                    //状态显示图标
-                    ToolStripItem tsb = new ToolStripStatusLabel("", Resources.客户端1);
-                    tsb.AutoSize = false;
-                    tsb.Width = 20;
-                    tsb.Name = Project.Instance.L_TCPClient[i].Name;
-                    //tsb.BorderSides = ToolStripStatusLabelBorderSides.Right;
-                    tsb.ToolTipText = string.Format("名称：{0}\r\n状态：{1}\r\nIP    : {2}\r\nPort : {3}", Project.Instance.L_TCPClient[i].Name, Project.Instance.L_TCPClient[i].FindSocketByName().Connected ? "已连接" : "未连接", Project.Instance.L_TCPClient[i].severIP, Project.Instance.L_TCPClient[i].severPort);
-                    Frm_Main.Instance.statusStrip1.Items.Insert(1, tsb);
-                    Frm_Main.Instance.tss_curTime.BorderSides = ToolStripStatusLabelBorderSides.Left;
-
-                    tsb.Tag = Project.Instance.L_TCPClient[i];
-                    tsb.MouseEnter += tsb_MouseEnter;
+                    // 网络连接保留在后台；仅 ToolStripItem 的创建和挂接回到 UI 线程。
+                    bool connected = tcpClient.FindSocketByName().Connected;
+                    string toolTipText = string.Format("名称：{0}\r\n状态：{1}\r\nIP    : {2}\r\nPort : {3}", tcpClient.Name, connected ? "已连接" : "未连接", tcpClient.severIP, tcpClient.severPort);
+                    RunOnMainUiThread(delegate
+                    {
+                        ToolStripItem tsb = new ToolStripStatusLabel("", Resources.客户端1);
+                        tsb.AutoSize = false;
+                        tsb.Width = 20;
+                        tsb.Name = tcpClient.Name;
+                        //tsb.BorderSides = ToolStripStatusLabelBorderSides.Right;
+                        tsb.ToolTipText = toolTipText;
+                        tsb.Tag = tcpClient;
+                        tsb.MouseEnter += tsb_MouseEnter;
+                        Frm_Main.Instance.statusStrip1.Items.Insert(1, tsb);
+                        Frm_Main.Instance.tss_curTime.BorderSides = ToolStripStatusLabelBorderSides.Left;
+                    });
 
                 }
                 for (int i = 0; i < Project.Instance.L_TCPSever.Count; i++)
@@ -373,44 +422,41 @@ namespace VMPro
                         Project.Instance.L_PLCDevice[i].Connect(out errMsg);
                     }
                 }
-                Frm_DeviceManager.Instance.RefreshDeviceList();
-
-                //加载智能点表
-                Frm_MotionControl.Instance.comboBox1.Clear();
-                Frm_PosTableEdit.Instance.dataGridView1.Rows.Clear();
-                for (int i = 0; i < Project.Instance.curEngine.smartPosTable.L_Table.Count; i++)
-                {
-                    Frm_MotionControl.Instance.comboBox1.Add(Project.Instance.curEngine.smartPosTable.L_Table[i].tableName);
-                    int idx = Frm_PosTableEdit.Instance.dataGridView1.Rows.Add();
-                    Frm_PosTableEdit.Instance.dataGridView1.Rows[idx].Cells[0].Value = i + 1;
-                    Frm_PosTableEdit.Instance.dataGridView1.Rows[idx].Cells[1].Value = Project.Instance.curEngine.smartPosTable.L_Table[i].tableName;
-                }
-                if (Frm_MotionControl.Instance.comboBox1.Items.Length > 0)
-                    Frm_MotionControl.Instance.comboBox1.SelectedIndex = 0;
-                Frm_MotionControl.Instance.comboBox2.TextStr = Project.Instance.curEngine.smartPosTable.velPer * 100 + "%";
-
                 //添加最近打开过的文件列表
                 int count = Project.Instance.configuration.L_recentlyOpendFile.Count;
                 for (int i = 0; i < 5 - count; i++)
                 {
                     Project.Instance.configuration.L_recentlyOpendFile.Add(string.Empty);
                 }
-                for (int i = 0; i < Project.Instance.configuration.L_recentlyOpendFile.Count; i++)
+                RunOnMainUiThread(delegate
                 {
-                    switch (i)
+                    for (int i = 0; i < Project.Instance.configuration.L_recentlyOpendFile.Count; i++)
                     {
-                        case 0:
-                            if (Project.Instance.configuration.L_recentlyOpendFile[0] != string.Empty)
-                            {
-                                ToolStripMenuItem toolStripMenuItem = new ToolStripMenuItem((i + 1) + ". " + Path.GetFileName(Project.Instance.configuration.L_recentlyOpendFile[i]));
-                                toolStripMenuItem.Tag = Project.Instance.configuration.L_recentlyOpendFile[i];
-                                toolStripMenuItem.Click += toolStripMenuItem_Click;
-                                toolStripMenuItem.BackColor = Color.White;
-                                Frm_Main.Instance.最近的项目ToolStripMenuItem.DropDownItems.Add(toolStripMenuItem);
-                            }
-                            break;
+                        switch (i)
+                        {
+                            case 0:
+                                if (Project.Instance.configuration.L_recentlyOpendFile[0] != string.Empty)
+                                {
+                                    string recentPath = Project.Instance.configuration.L_recentlyOpendFile[i];
+                                    string recentFileName = Path.GetFileName(recentPath);
+                                    // 历史演示工程保留原文件路径以确保仍可加载，但菜单不再把
+                                    // 具体产线名误当成当前产品名称展示。
+                                    string recentTitle = Path.GetFileNameWithoutExtension(recentFileName);
+                                    if (string.Equals(recentTitle, "手机组装", StringComparison.Ordinal) ||
+                                        string.Equals(recentTitle, "通用视觉软件", StringComparison.OrdinalIgnoreCase) ||
+                                        string.Equals(recentTitle, "VM Pro", StringComparison.OrdinalIgnoreCase) ||
+                                        string.Equals(recentTitle, "VM Pro 通用视觉软件", StringComparison.OrdinalIgnoreCase))
+                                        recentFileName = Configuration.DefaultProgramTitle + Path.GetExtension(recentFileName);
+                                    ToolStripMenuItem toolStripMenuItem = new ToolStripMenuItem((i + 1) + ". " + recentFileName);
+                                    toolStripMenuItem.Tag = Project.Instance.configuration.L_recentlyOpendFile[i];
+                                    toolStripMenuItem.Click += toolStripMenuItem_Click;
+                                    toolStripMenuItem.BackColor = Color.White;
+                                    Frm_Main.Instance.最近的项目ToolStripMenuItem.DropDownItems.Add(toolStripMenuItem);
+                                }
+                                break;
+                        }
                     }
-                }
+                });
 
                 //更新最后一次结果图像列表
                 //////Frm_Main.Instance.tbx_percentageOfMovementSpeed.Text = Project.Instance.configuration.autoRunVelRoute.ToString();
@@ -418,48 +464,40 @@ namespace VMPro
 
 
                 UpdateStep(100, Project.Instance.configuration.language == Language.English ? "Check registration status" : "启动成功", true);
-                Application.DoEvents();
-
-                Application.DoEvents();
-                if (Project.Instance.configuration.enablePermissionControl)
-                    Frm_Main.Instance.tss_permissionInfo.Text = "当前用户：未登录";
-                else
-                    Frm_Main.Instance.tss_permissionInfo.Text = "当前用户：未登录";
-                if (!Project.Instance.configuration.allowResizeForm)
-                {
-                    Frm_Main.Instance.MinimumSize = Frm_Main.Instance.Size;
-                    Frm_Main.Instance.MaximumSize = Frm_Main.Instance.Size;
-                }
-
-
-                if (!Project.Instance.configuration.EnableMainForm)
-                {
-                    Frm_Main.Instance.toolStripButton9.Visible = false;
-                }
-                if (!Project.Instance.configuration.EnableVisionForm)
-                {
-                    Frm_Main.Instance.toolStripButton5.Visible = false;
-                }
-                if (!Project.Instance.configuration.EnableMotionForm)
-                {
-                    Frm_Main.Instance.toolStripButton1.Visible = false;
-                }
-
-
-                //////Frm_Main.Instance.ribbonTabItem1.Select();
                 Log.SaveLog(LogType.Operate, Project.Instance.configuration.language == Language.English ? "Startup successful" : "程序启动");
-                if (Machine.initSucceed)
+                RunOnMainUiThread(delegate
                 {
-                    Frm_Main.Instance.OutputMsg(Project.Instance.configuration.language == Language.English ? "Startup successful" : "启动成功", Color.Black);
-                    Frm_Welcome.Instance.lbl_step.Text = Project.Instance.configuration.language == Language.English ? "Startup successful" : "启动成功";
-                }
-                else
-                {
-                    Frm_Main.Instance.OutputMsg("启动出错", Color.Red);
-                    Frm_Welcome.Instance.lbl_step.Text = "                  启动出错";
-                    Frm_Welcome.Instance.lbl_step.ForeColor = Color.Red;
-                    Frm_Welcome.Instance.Height = 356;
-                }
+                    Frm_Main mainForm = Frm_Main.Instance;
+                    Frm_Welcome welcome = Frm_Welcome.Instance;
+
+                    mainForm.tss_permissionInfo.Text = "当前用户：未登录";
+                    if (!Project.Instance.configuration.allowResizeForm)
+                    {
+                        mainForm.MinimumSize = mainForm.Size;
+                        mainForm.MaximumSize = mainForm.Size;
+                    }
+
+                    if (!Project.Instance.configuration.EnableMainForm)
+                        mainForm.toolStripButton9.Visible = false;
+                    if (!Project.Instance.configuration.EnableVisionForm)
+                        mainForm.toolStripButton5.Visible = false;
+                    if (!Project.Instance.configuration.EnableMotionForm)
+                        mainForm.toolStripButton1.Visible = false;
+
+                    //////Frm_Main.Instance.ribbonTabItem1.Select();
+                    if (Machine.initSucceed)
+                    {
+                        mainForm.OutputMsg(Project.Instance.configuration.language == Language.English ? "Startup successful" : "启动成功", Color.Black);
+                        welcome.lbl_step.Text = Project.Instance.configuration.language == Language.English ? "Startup successful" : "启动成功";
+                    }
+                    else
+                    {
+                        mainForm.OutputMsg("启动出错", Color.Red);
+                        welcome.lbl_step.Text = "                  启动出错";
+                        welcome.lbl_step.ForeColor = Color.Red;
+                        welcome.Height = 356;
+                    }
+                });
 
                 // 启动界面到这里已经完成。不要在启动阶段预跑流程：
                 // 流程可能访问相机、模板、Halcon窗口或外设，容易把欢迎页和主窗体切换卡死。
@@ -860,10 +898,6 @@ namespace VMPro
                     //////        //急停
                     //////    }
                     //////}
-
-
-
-                    Thread.Sleep(10);
                 }
                 //////}
             }
@@ -879,21 +913,11 @@ namespace VMPro
         {
             try
             {
-                lock (lock_resources)
-                {
-                    //////while (true)
-                    //////{
-                    //////if (willExit)
-                    //////{
-                    //////    break;
-                    //////}
+                // 该入口由主窗体调度器低频调用。不要在 UI 线程内等待，也不要
+                // 在全局资源锁中同步 Invoke；具体设备状态由各自可见工作区刷新。
+                UpdateRunStatu();
 
-                    //更新程序运行状态
-                    UpdateRunStatu();
-
-
-
-                    //检测启动按钮
+                    ////////检测启动按钮
                     //////if (Card_Googol.initSucceed)
                     //////{
                     //////    Level statu = Card_Googol.GetDiSts(Di.启动信号);
@@ -932,25 +956,6 @@ namespace VMPro
                     //////        //急停
                     //////    }
                     //////}
-
-
-
-                    Frm_Main.ShowTestData showTestData = delegate()
-                    {
-                        Frm_Main.Instance.tss_curTime.Text = DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss");
-                        //int length = 0;
-                        //foreach (ToolStripItem item in Frm_Main.Instance.statusStrip1.Items)
-                        //{
-                        //    if (item.Name != "lbl_output")
-                        //        length += item.Width;
-                        //}
-                        //Frm_Main.Instance.lbl_output.Size = new Size(Frm_Main.Instance.statusStrip1.Size.Width - length - 15, Frm_Main.Instance.lbl_output.Size.Height);
-                        ////Frm_Main.Instance.lbl_output.Size = new Size(Frm_Main.Instance.statusStrip1.Size.Width - Frm_Main.Instance.lbl_runStatu.Size.Width - Frm_Main.Instance.tss_curTime.Size.Width - Frm_Main.Instance.tss_permissionInfo.Size.Width - 15, Frm_Main.Instance.lbl_output.Size.Height);
-                    };
-                    Frm_Main.Instance.statusStrip1.Invoke(showTestData);
-                    Thread.Sleep(10);
-                }
-                //////}
             }
             catch (Exception ex)
             {
@@ -1033,79 +1038,7 @@ namespace VMPro
         }
         internal static void SwitchFrom(FormMode formMode)
         {
-            switch (formMode)
-            {
-                case FormMode.MainForm:
-                    if (Machine.curFormMode != FormMode.MainForm)
-                    {
-                        Machine.curFormMode = FormMode.MainForm;
-                        Frm_Main.Instance.toolStripButton9.Image = Resources.主页__3_;
-                        Frm_Main.Instance.toolStripButton5.Image = Resources.图像__7_;
-                        Frm_Main.Instance.toolStripButton1.Image = Resources.电机__8_;
-                        Frm_Main.Instance.panel4.Visible = false;
-                        Frm_Main.Instance.dockPanel.Dock = DockStyle.None;
-                        Frm_Main.Instance.dockPanel.Height = 0;
-                        Frm_Main.Instance.panel2.Dock = DockStyle.Fill;
-                        Frm_Main.Instance.toolStrip2.Dock = DockStyle.None;
-                        Frm_Main.Instance.toolStrip2.Height = 0;
-                        Frm_Main.Instance.menuStrip1.Dock = DockStyle.None;
-                        Frm_Main.Instance.menuStrip1.Height = 0;
-                        Frm_Main.Instance.toolStripButton9.Font = new System.Drawing.Font(Frm_Main.Instance.toolStripButton9.Font.FontFamily, Frm_Main.Instance.toolStripButton9.Font.Size, FontStyle.Bold);
-                        Frm_Main.Instance.toolStripButton5.Font = new System.Drawing.Font(Frm_Main.Instance.toolStripButton5.Font.FontFamily, Frm_Main.Instance.toolStripButton5.Font.Size, FontStyle.Regular);
-                        Frm_Main.Instance.toolStripButton1.Font = new System.Drawing.Font(Frm_Main.Instance.toolStripButton1.Font.FontFamily, Frm_Main.Instance.toolStripButton1.Font.Size, FontStyle.Regular);
-
-
-                    }
-                    break;
-                case FormMode.VisionForm:
-                    if (Machine.curFormMode != FormMode.VisionForm)
-                    {
-                        Machine.curFormMode = FormMode.VisionForm;
-                        Frm_Main.Instance.toolStripButton5.Image = Resources.图像00;
-                        Frm_Main.Instance.toolStripButton9.Image = Resources.主页;
-                        Frm_Main.Instance.toolStripButton1.Image = Resources.电机__8_;
-                        Frm_Main.Instance.panel4.Visible = false;
-                        Frm_Main.Instance.toolStrip2.Height = 28;
-                        Frm_Main.Instance.toolStrip2.Dock = DockStyle.Top;
-                        Frm_Main.Instance.menuStrip1.Height = 28;
-                        Frm_Main.Instance.menuStrip1.Dock = DockStyle.Top;
-                        Frm_Main.Instance.toolStripButton5.Font = new System.Drawing.Font(Frm_Main.Instance.toolStripButton5.Font.FontFamily, Frm_Main.Instance.toolStripButton5.Font.Size, FontStyle.Bold);
-                        Frm_Main.Instance.toolStripButton9.Font = new System.Drawing.Font(Frm_Main.Instance.toolStripButton9.Font.FontFamily, Frm_Main.Instance.toolStripButton9.Font.Size, FontStyle.Regular);
-                        Frm_Main.Instance.toolStripButton1.Font = new System.Drawing.Font(Frm_Main.Instance.toolStripButton1.Font.FontFamily, Frm_Main.Instance.toolStripButton1.Font.Size, FontStyle.Regular);
-
-                        Frm_Main.Instance.panel2.Dock = DockStyle.None;
-                        Frm_Main.Instance.panel2.Height = 0;
-                        Frm_Main.Instance.dockPanel.Dock = DockStyle.Fill;
-
-                    }
-                    break;
-                case FormMode.MotionForm:
-                    if (Machine.curFormMode != FormMode.MotionForm)
-                    {
-                        Machine.curFormMode = FormMode.MotionForm;
-                        Frm_Main.Instance.panel4.Visible = true;
-                        Frm_Main.Instance.toolStripButton5.Image = Resources.图像__7_;
-                        Frm_Main.Instance.toolStripButton9.Image = Resources.主页;
-                        Frm_Main.Instance.toolStripButton1.Image = Resources.电机__6_;
-
-                        Frm_Main.Instance.toolStrip2.Dock = DockStyle.None;
-                        Frm_Main.Instance.toolStrip2.Height = 0;
-
-                        Frm_Main.Instance.menuStrip1.Dock = DockStyle.None;
-                        Frm_Main.Instance.menuStrip1.Height = 0;
-                        Frm_Main.Instance.toolStripButton5.Font = new System.Drawing.Font(Frm_Main.Instance.toolStripButton5.Font.FontFamily, Frm_Main.Instance.toolStripButton5.Font.Size, FontStyle.Regular);
-                        Frm_Main.Instance.toolStripButton9.Font = new System.Drawing.Font(Frm_Main.Instance.toolStripButton9.Font.FontFamily, Frm_Main.Instance.toolStripButton9.Font.Size, FontStyle.Regular);
-                        Frm_Main.Instance.toolStripButton1.Font = new System.Drawing.Font(Frm_Main.Instance.toolStripButton1.Font.FontFamily, Frm_Main.Instance.toolStripButton1.Font.Size, FontStyle.Bold);
-                        Application.DoEvents();
-                        Frm_Main.Instance.panel2.Dock = DockStyle.None;
-                        Frm_Main.Instance.panel2.Height = 0;
-                        Application.DoEvents();
-                        Frm_Main.Instance.dockPanel.Dock = DockStyle.None;
-                        Frm_Main.Instance.dockPanel.Height = 0;
-                        Frm_Main.Instance.panel4.Dock = DockStyle.Fill;
-                    }
-                    break;
-            }
+            Frm_Main.Instance.ApplyWorkspaceMode(formMode);
         }
         /// <summary>
         /// 停止自动运行

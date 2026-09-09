@@ -17,6 +17,11 @@ namespace VMPro
         {
             InitializeComponent();
             Init_Language();
+
+            outputFlushTimer = new System.Windows.Forms.Timer(components);
+            outputFlushTimer.Interval = OutputFlushIntervalMilliseconds;
+            outputFlushTimer.Tick += outputFlushTimer_Tick;
+            outputFlushTimer.Enabled = Visible;
         }
 
         /// <summary>
@@ -31,6 +36,12 @@ namespace VMPro
                     _instance = new Frm_Output();
                 return _instance;
             }
+        }
+
+        internal static bool TryGetExistingInstance(out Frm_Output output)
+        {
+            output = _instance;
+            return output != null && !output.IsDisposed && !output.Disposing;
         }
 
 
@@ -53,21 +64,33 @@ namespace VMPro
                 Log.SaveError(ex);
             }
         }
-        List<OutputItem> L_outputItem = new List<OutputItem>();
+        private const int MaximumOutputItems = 1000;
+        private const int OutputFlushIntervalMilliseconds = 100;
+        private const int MaximumItemsPerFlush = 48;
+
+        private readonly List<OutputItem> L_outputItem = new List<OutputItem>();
+        private readonly Queue<PendingOutputItem> pendingOutputItems = new Queue<PendingOutputItem>();
+        private readonly object obj = new object();
+        private System.Windows.Forms.Timer outputFlushTimer;
+        private OutputViewMode outputViewMode = OutputViewMode.All;
+        private bool countsDirty;
+        private bool fullRebuildPending;
         private int numGreen = 0;
         private int numYellow = 0;
         private int numRed = 0;
-        object obj = new object();
+
         internal void ClearLog()
         {
-            numGreen = 0;
-            numRed = 0;
-            numYellow = 0;
-            this.listView1.Items.Clear();
-            L_outputItem.Clear();
-            tsb_tip.Text = string.Format("提示({0})", numGreen);
-            tsb_warn.Text = string.Format("警告({0})", numYellow);
-            tsb_error.Text = string.Format("错误({0})", numRed);
+            lock (obj)
+            {
+                numGreen = 0;
+                numRed = 0;
+                numYellow = 0;
+                L_outputItem.Clear();
+                pendingOutputItems.Clear();
+                countsDirty = true;
+                fullRebuildPending = true;
+            }
         }
         /// <summary>
         /// 显示提示信息
@@ -82,29 +105,36 @@ namespace VMPro
                 {
                     if (msg == string.Empty)
                     {
-                        ListViewItem item = new ListViewItem();
-                        item.Text = string.Empty;
-                        item.SubItems.Add(msg);
-                        item.ForeColor = color;
-                        listView1.Items.Add(item);
+                        EnqueueUiMutation(new PendingOutputItem
+                        {
+                            AddItem = true,
+                            Item = new OutputItem { msg = msg, time = string.Empty, color = color }
+                        });
                     }
                     else
                     {
-
+                        DateTime messageTime = DateTime.Now;
                         if (color == Color.Yellow)
                             numYellow++;
                         else if (color == Color.Red)
                         {
-                            numRed++;
                             //保存到报警记录集合
-                            Project.Instance.curEngine.D_historyAlarm.Add(DateTime.Now, msg);
-                            if (Project.Instance.curEngine.D_historyAlarm.Count > 1000)
-                                Project.Instance.curEngine.D_historyAlarm.Remove(Project.Instance.curEngine.D_historyAlarm.Keys.ToArray()[Project.Instance.curEngine.D_historyAlarm.Count - 1]);
+                            Dictionary<DateTime, string> historyAlarm = Project.Instance.curEngine.D_historyAlarm;
+                            DateTime alarmTime = messageTime;
+                            while (historyAlarm.ContainsKey(alarmTime))
+                                alarmTime = alarmTime.AddTicks(1);
+
+                            historyAlarm.Add(alarmTime, msg);
+                            if (historyAlarm.Count > MaximumOutputItems)
+                                historyAlarm.Remove(historyAlarm.Keys.Min());
+
+                            //历史报警写入成功后再更新计数，避免键冲突造成计数漂移。
+                            numRed++;
                         }
                         else
                             numGreen++;
 
-                        string time = DateTime.Now.ToString("HH:mm:ss");
+                        string time = messageTime.ToString("HH:mm:ss");
 
                         OutputItem outputItem = new OutputItem();
                         outputItem.msg = msg;
@@ -112,31 +142,33 @@ namespace VMPro
                         outputItem.time = time;
 
                         L_outputItem.Add(outputItem);
-                        // listView1.Columns[1].Width = listView1.Width - listView1.Columns[0].Width - 10;
-                        if (!toolStripButton1.Checked)
+                        bool addItem = IsVisibleInCurrentView(outputItem);
+                        bool removeFirstVisibleItem = false;
+                        if (L_outputItem.Count > MaximumOutputItems)
                         {
-                            ListViewItem item = new ListViewItem();
-                            item.Text = time;
-                            item.SubItems.Add(msg);
-                            item.ForeColor = color;
-                            listView1.Items.Add(item);
-                            listView1.EnsureVisible(listView1.Items.Count - 1);
-                        }
-                        if (L_outputItem.Count > 1000)
-                        {
-                            if (L_outputItem[0].color == Color.Yellow)
+                            OutputItem removedItem = L_outputItem[0];
+                            if (removedItem.color == Color.Yellow)
                                 numYellow--;
-                            else if (L_outputItem[0].color == Color.Red)
+                            else if (removedItem.color == Color.Red)
                                 numRed--;
                             else
                                 numGreen--;
-                            if (!toolStripButton1.Checked)
-                                listView1.Items.RemoveAt(0);
+
+                            removeFirstVisibleItem = IsVisibleInCurrentView(removedItem);
                             L_outputItem.RemoveAt(0);
                         }
-                        UpdateCount();
+
+                        countsDirty = true;
+                        if (addItem || removeFirstVisibleItem)
+                        {
+                            EnqueueUiMutation(new PendingOutputItem
+                            {
+                                AddItem = addItem,
+                                Item = outputItem,
+                                RemoveFirstVisibleItem = removeFirstVisibleItem
+                            });
+                        }
                     }
-                    Application.DoEvents();
                 }
             }
             catch (Exception ex)
@@ -146,36 +178,237 @@ namespace VMPro
         }
 
 
-        private void UpdateCount()
+        private void EnqueueUiMutation(PendingOutputItem pendingItem)
         {
-            tsb_tip.Text = string.Format("提示({0})", numGreen);
-            tsb_warn.Text = string.Format("警告({0})", numYellow);
-            tsb_error.Text = string.Format("错误({0})", numRed);
-            toolStripButton1.Text = string.Format("报警({0})", Project.Instance.curEngine.D_historyAlarm.Count);
+            if (fullRebuildPending)
+                return;
+
+            if (pendingOutputItems.Count >= MaximumOutputItems)
+            {
+                pendingOutputItems.Clear();
+                fullRebuildPending = true;
+                return;
+            }
+
+            pendingOutputItems.Enqueue(pendingItem);
         }
 
+        private bool IsVisibleInCurrentView(OutputItem outputItem)
+        {
+            switch (outputViewMode)
+            {
+                case OutputViewMode.Information:
+                    return outputItem.color == Color.Black;
+                case OutputViewMode.Warning:
+                    return outputItem.color == Color.Yellow;
+                case OutputViewMode.Error:
+                    return outputItem.color == Color.Red;
+                case OutputViewMode.AlarmHistory:
+                    return false;
+                default:
+                    return true;
+            }
+        }
+
+        private void outputFlushTimer_Tick(object sender, EventArgs e)
+        {
+            if (IsDisposed || Disposing || !Visible)
+                return;
+
+            SafeFlushPendingOutputItems();
+        }
+
+        protected override void OnVisibleChanged(EventArgs e)
+        {
+            base.OnVisibleChanged(e);
+
+            if (outputFlushTimer == null || IsDisposed || Disposing)
+                return;
+
+            outputFlushTimer.Enabled = Visible;
+            if (Visible)
+                SafeFlushPendingOutputItems();
+        }
+
+        private void SafeFlushPendingOutputItems()
+        {
+            try
+            {
+                FlushPendingOutputItems();
+            }
+            catch (Exception ex)
+            {
+                Log.SaveError(ex);
+            }
+        }
+
+        private void FlushPendingOutputItems()
+        {
+            bool rebuild;
+            bool updateCounts;
+            List<PendingOutputItem> batch = new List<PendingOutputItem>(MaximumItemsPerFlush);
+
+            lock (obj)
+            {
+                rebuild = fullRebuildPending;
+                if (rebuild)
+                {
+                    fullRebuildPending = false;
+                    pendingOutputItems.Clear();
+                }
+                else
+                {
+                    while (pendingOutputItems.Count > 0 && batch.Count < MaximumItemsPerFlush)
+                        batch.Add(pendingOutputItems.Dequeue());
+                }
+
+                updateCounts = countsDirty;
+                countsDirty = false;
+            }
+
+            if (rebuild)
+            {
+                RebuildVisibleItems();
+                return;
+            }
+
+            if (batch.Count > 0)
+            {
+                bool addedItem = false;
+                listView1.BeginUpdate();
+                try
+                {
+                    foreach (PendingOutputItem pendingItem in batch)
+                    {
+                        if (pendingItem.RemoveFirstVisibleItem && listView1.Items.Count > 0)
+                            listView1.Items.RemoveAt(0);
+
+                        if (pendingItem.AddItem)
+                        {
+                            listView1.Items.Add(CreateListViewItem(pendingItem.Item));
+                            addedItem = true;
+                        }
+                    }
+                }
+                finally
+                {
+                    listView1.EndUpdate();
+                }
+
+                if (addedItem && listView1.Items.Count > 0)
+                    listView1.EnsureVisible(listView1.Items.Count - 1);
+            }
+
+            if (updateCounts)
+                UpdateCount();
+        }
+
+        private void UpdateCount()
+        {
+            int green;
+            int yellow;
+            int red;
+            int historyAlarmCount;
+
+            lock (obj)
+            {
+                green = numGreen;
+                yellow = numYellow;
+                red = numRed;
+                historyAlarmCount = Project.Instance.curEngine.D_historyAlarm.Count;
+            }
+
+            tsb_tip.Text = string.Format("提示({0})", green);
+            tsb_warn.Text = string.Format("警告({0})", yellow);
+            tsb_error.Text = string.Format("错误({0})", red);
+            toolStripButton1.Text = string.Format("报警({0})", historyAlarmCount);
+        }
+
+        private static ListViewItem CreateListViewItem(OutputItem outputItem)
+        {
+            ListViewItem item = new ListViewItem();
+            item.Text = outputItem.time;
+            item.SubItems.Add(outputItem.msg);
+            item.ForeColor = outputItem.color;
+            return item;
+        }
+
+        private void RebuildVisibleItems()
+        {
+            List<OutputItem> items = new List<OutputItem>();
+            lock (obj)
+            {
+                pendingOutputItems.Clear();
+                fullRebuildPending = false;
+
+                if (outputViewMode == OutputViewMode.AlarmHistory)
+                {
+                    foreach (KeyValuePair<DateTime, string> element in Project.Instance.curEngine.D_historyAlarm)
+                    {
+                        items.Add(new OutputItem
+                        {
+                            time = element.Key.ToString("yyyy_MM_dd HH:mm:ss"),
+                            msg = element.Value,
+                            color = Color.Red
+                        });
+                    }
+                }
+                else
+                {
+                    items.AddRange(L_outputItem.Where(IsVisibleInCurrentView));
+                }
+
+                countsDirty = false;
+            }
+
+            listView1.BeginUpdate();
+            try
+            {
+                listView1.Items.Clear();
+                foreach (OutputItem item in items)
+                    listView1.Items.Add(CreateListViewItem(item));
+            }
+            finally
+            {
+                listView1.EndUpdate();
+            }
+
+            if (listView1.Items.Count > 0)
+                listView1.EnsureVisible(listView1.Items.Count - 1);
+
+            UpdateCount();
+        }
 
         private void Frm_Output_FormClosed(object sender, FormClosedEventArgs e)
         {
+            if (outputFlushTimer != null)
+                outputFlushTimer.Stop();
             _instance = null;
         }
         private void 清除ToolStripMenuItem_Click(object sender, EventArgs e)
         {
             try
             {
-                if (toolStripButton1.Checked)
+                lock (obj)
                 {
-                    listView1.Items.Clear();
-                    Project.Instance.curEngine.D_historyAlarm.Clear();
+                    if (outputViewMode == OutputViewMode.AlarmHistory)
+                    {
+                        Project.Instance.curEngine.D_historyAlarm.Clear();
+                    }
+                    else
+                    {
+                        L_outputItem.Clear();
+                        numGreen = 0;
+                        numRed = 0;
+                        numYellow = 0;
+                    }
+
+                    pendingOutputItems.Clear();
+                    fullRebuildPending = false;
+                    countsDirty = false;
                 }
-                else
-                {
-                    L_outputItem.Clear();
-                    listView1.Items.Clear();
-                    numGreen = 0;
-                    numRed = 0;
-                    numYellow = 0;
-                }
+
+                listView1.Items.Clear();
                 UpdateCount();
             }
             catch (Exception ex)
@@ -185,115 +418,15 @@ namespace VMPro
         }
         private void tsb_tip_Click(object sender, EventArgs e)
         {
-            if (tsb_tip.Checked)
-            {
-                tsb_warn.Checked = false;
-                tsb_error.Checked = false;
-                toolStripButton1.Checked = false;
-
-                listView1.Items.Clear();
-                for (int i = 0; i < L_outputItem.Count; i++)
-                {
-                    if (L_outputItem[i].color == Color.Black )
-                    {
-                        ListViewItem item = new ListViewItem();
-                        item.Text = L_outputItem[i].time;
-                        item.SubItems.Add(L_outputItem[i].msg);
-                        item.ForeColor = L_outputItem[i].color;
-                        listView1.Items.Add(item);
-                        listView1.EnsureVisible(listView1.Items.Count - 1);
-                    }
-                }
-            }
-            else
-            {
-                listView1.Items.Clear();
-                for (int i = 0; i < L_outputItem.Count; i++)
-                {
-                    ListViewItem item = new ListViewItem();
-                    item.Text = L_outputItem[i].time;
-                    item.SubItems.Add(L_outputItem[i].msg);
-                    item.ForeColor = L_outputItem[i].color;
-                    listView1.Items.Add(item);
-                    listView1.EnsureVisible(listView1.Items.Count - 1);
-
-                }
-            }
-
+            SetOutputViewMode(tsb_tip.Checked ? OutputViewMode.Information : OutputViewMode.All);
         }
         private void tsb_warn_Click(object sender, EventArgs e)
         {
-            if (tsb_warn.Checked)
-            {
-                tsb_tip.Checked = false;
-                tsb_error.Checked = false;
-                toolStripButton1.Checked = false;
-
-                listView1.Items.Clear();
-                for (int i = 0; i < L_outputItem.Count; i++)
-                {
-                    if (L_outputItem[i].color == Color.Yellow)
-                    {
-                        ListViewItem item = new ListViewItem();
-                        item.Text = L_outputItem[i].time;
-                        item.SubItems.Add(L_outputItem[i].msg);
-                        item.ForeColor = L_outputItem[i].color;
-                        listView1.Items.Add(item);
-                        listView1.EnsureVisible(listView1.Items.Count - 1);
-                    }
-                }
-            }
-            else
-            {
-                listView1.Items.Clear();
-                for (int i = 0; i < L_outputItem.Count; i++)
-                {
-                    ListViewItem item = new ListViewItem();
-                    item.Text = L_outputItem[i].time;
-                    item.SubItems.Add(L_outputItem[i].msg);
-                    item.ForeColor = L_outputItem[i].color;
-                    listView1.Items.Add(item);
-                    listView1.EnsureVisible(listView1.Items.Count - 1);
-
-                }
-            }
+            SetOutputViewMode(tsb_warn.Checked ? OutputViewMode.Warning : OutputViewMode.All);
         }
         private void tsb_error_Click(object sender, EventArgs e)
         {
-            if (tsb_error.Checked)
-            {
-                tsb_tip.Checked = false;
-                tsb_warn.Checked = false;
-                toolStripButton1.Checked = false;
-
-                listView1.Items.Clear();
-                for (int i = 0; i < L_outputItem.Count; i++)
-                {
-                    if (L_outputItem[i].color == Color.Red)
-                    {
-                        ListViewItem item = new ListViewItem();
-                        item.Text = L_outputItem[i].time;
-                        item.SubItems.Add(L_outputItem[i].msg);
-                        item.ForeColor = L_outputItem[i].color;
-                        listView1.Items.Add(item);
-                        listView1.EnsureVisible(listView1.Items.Count - 1);
-                    }
-                }
-            }
-            else
-            {
-                listView1.Items.Clear();
-                for (int i = 0; i < L_outputItem.Count; i++)
-                {
-                    ListViewItem item = new ListViewItem();
-                    item.Text = L_outputItem[i].time;
-                    item.SubItems.Add(L_outputItem[i].msg);
-                    item.ForeColor = L_outputItem[i].color;
-                    listView1.Items.Add(item);
-                    listView1.EnsureVisible(listView1.Items.Count - 1);
-
-                }
-            }
+            SetOutputViewMode(tsb_error.Checked ? OutputViewMode.Error : OutputViewMode.All);
         }
         private void Frm_Output_SizeChanged(object sender, EventArgs e)
         {
@@ -311,44 +444,52 @@ namespace VMPro
         {
             if (toolStripButton1.Checked)
             {
-                tsb_tip.Checked = false;
-                tsb_warn.Checked = false;
-                tsb_error.Checked = false;
-
                 columnHeader1.Width = 140;
-                tsb_tip.Checked = false;
-                tsb_error.Checked = false;
-                listView1.Items.Clear();
-                foreach (KeyValuePair<DateTime, string> element in Project.Instance.curEngine.D_historyAlarm)
-                {
-                    ListViewItem item = new ListViewItem();
-                    item.Text = element.Key.ToString("yyyy_MM_dd HH:mm:ss");
-                    item.SubItems.Add(element.Value);
-                    item.ForeColor = Color.Red;
-                    listView1.Items.Add(item);
-                    listView1.EnsureVisible(listView1.Items.Count - 1);
-                }
+                SetOutputViewMode(OutputViewMode.AlarmHistory);
             }
             else
             {
                 columnHeader1.Width = 60;
-                listView1.Items.Clear();
-                for (int i = 0; i < L_outputItem.Count; i++)
-                {
-                    ListViewItem item = new ListViewItem();
-                    item.Text = L_outputItem[i].time;
-                    item.SubItems.Add(L_outputItem[i].msg);
-                    item.ForeColor = L_outputItem[i].color;
-                    listView1.Items.Add(item);
-                    listView1.EnsureVisible(listView1.Items.Count - 1);
-
-                }
+                SetOutputViewMode(OutputViewMode.All);
             }
+        }
+
+        private void SetOutputViewMode(OutputViewMode viewMode)
+        {
+            lock (obj)
+            {
+                outputViewMode = viewMode;
+                pendingOutputItems.Clear();
+                fullRebuildPending = false;
+            }
+
+            tsb_tip.Checked = viewMode == OutputViewMode.Information;
+            tsb_warn.Checked = viewMode == OutputViewMode.Warning;
+            tsb_error.Checked = viewMode == OutputViewMode.Error;
+            toolStripButton1.Checked = viewMode == OutputViewMode.AlarmHistory;
+            columnHeader1.Width = viewMode == OutputViewMode.AlarmHistory ? 140 : 60;
+            RebuildVisibleItems();
         }
 
         private void 停止刷新ToolStripMenuItem_Click(object sender, EventArgs e)
         {
             Frm_MessageBox.Instance.MessageBoxShow(Project.Instance.configuration.language == Language.English ? "Not yet developed, please wait!" : "\r\n尚未开发，敬请期待！");
+        }
+
+        private enum OutputViewMode
+        {
+            All,
+            Information,
+            Warning,
+            Error,
+            AlarmHistory
+        }
+
+        private struct PendingOutputItem
+        {
+            public bool AddItem;
+            public bool RemoveFirstVisibleItem;
+            public OutputItem Item;
         }
 
     }

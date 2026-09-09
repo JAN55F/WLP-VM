@@ -21,6 +21,7 @@ namespace VMPro
         {
             InitializeComponent();
             this.tvw_tools.ImageList = Job.imageList;
+            InitializeModernToolboxUi();
         }
 
         /// <summary>
@@ -2793,8 +2794,24 @@ namespace VMPro
                     ElseNode.Nodes.Add("", Project.Instance.configuration.language == Language.English ? "Output" : "输出项", 59, 59);
                 }
 
+                ApplyModernToolCategories(
+                    ImageNode,
+                    DetectNode,
+                    CalibNode,
+                    AlignNode,
+                    LogicNode,
+                    FindAndFitNode,
+                    CreateNode,
+                    GeometryNode,
+                    CalculateNode,
+                    LightNode,
+                    CommNode,
+                    D3Node,
+                    ElseNode);
+
                 //默认展开第一个图像相关节点
                 this.tvw_tools.Nodes[0].Expand();
+                FinalizeModernToolboxUi();
             }
             catch (Exception ex)
             {
@@ -2805,6 +2822,15 @@ namespace VMPro
         {
             try
             {
+                if (tvw_tools.SelectedNode != null &&
+                    tvw_tools.SelectedNode.Level == 0 &&
+                    tvw_tools.SelectedNode.Tag is string)
+                {
+                    lbl_toolInfo.Text = (Project.Instance.configuration.language == Language.English ? "Notes: " : "说明：") +
+                                        tvw_tools.SelectedNode.Tag.ToString();
+                    return;
+                }
+
                 switch (tvw_tools.SelectedNode.Text)
                 {
                     case "图像相关":

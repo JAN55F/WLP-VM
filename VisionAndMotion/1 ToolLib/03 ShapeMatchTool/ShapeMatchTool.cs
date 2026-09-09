@@ -2732,19 +2732,10 @@ namespace VMPro
         /// </summary>
         private void SafeInvokeShapeMatchWindow(Action action)
         {
-            try
-            {
-                if (Frm_ShapeMatchTool.Instance == null || Frm_ShapeMatchTool.Instance.IsDisposed)
-                    return;
-                if (Frm_ShapeMatchTool.Instance.InvokeRequired)
-                    Frm_ShapeMatchTool.Instance.BeginInvoke(action);
-                else
-                    action();
-            }
-            catch (Exception ex)
-            {
-                Log.SaveError(ex);
-            }
+            Frm_ShapeMatchTool form = Frm_ShapeMatchTool.CurrentInstance;
+            if (form == null || form.IsDisposed)
+                return;
+            TryPostControlAction(form, action);
         }
 
 

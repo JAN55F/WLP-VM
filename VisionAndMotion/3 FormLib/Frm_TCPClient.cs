@@ -33,10 +33,81 @@ namespace VMPro
         {
             get
             {
-                if (_instance == null)
+                if (_instance == null || _instance.IsDisposed)
                     _instance = new Frm_TCPClient();
                 return _instance;
             }
+        }
+
+        internal static bool TryGetExistingInstance(out Frm_TCPClient form)
+        {
+            form = _instance;
+            if (form == null || form.IsDisposed || form.Disposing)
+            {
+                form = null;
+                return false;
+            }
+            return true;
+        }
+
+        internal static bool TryPost(TCPClient source, Action<Frm_TCPClient> update)
+        {
+            Frm_TCPClient form;
+            if (source == null || update == null || !TryGetExistingInstance(out form) || !form.IsHandleCreated)
+                return false;
+
+            MethodInvoker apply = delegate
+            {
+                try
+                {
+                    Frm_TCPClient current;
+                    if (!TryGetExistingInstance(out current) ||
+                        !ReferenceEquals(current, form) ||
+                        !ReferenceEquals(tcpClient, source))
+                        return;
+
+                    update(current);
+                }
+                catch (Exception ex)
+                {
+                    Log.SaveError(ex);
+                }
+            };
+
+            try
+            {
+                if (form.InvokeRequired)
+                    form.BeginInvoke(apply);
+                else
+                    apply();
+                return true;
+            }
+            catch (ObjectDisposedException)
+            {
+                return false;
+            }
+            catch (InvalidOperationException)
+            {
+                return false;
+            }
+        }
+
+        internal static void TryAppendLog(TCPClient source, string logLine)
+        {
+            TryPost(source, form =>
+            {
+                if (form.Visible && (form.TopLevel || form.Parent != null))
+                    form.tbx_log.AppendText(logLine);
+            });
+        }
+
+        internal static void TryApplyConnectionState(TCPClient source, bool connected)
+        {
+            TryPost(source, form =>
+            {
+                form.btn_connect.Enabled = true;
+                form.btn_connect.TextStr = connected ? "断开" : "连接";
+            });
         }
 
 
@@ -56,10 +127,21 @@ namespace VMPro
                 ckb_autoDisconnectBeforeClose.Checked = tcpClient.AutoDisconnectBeforeClose;
 
                 Socket socket = tcpClient.FindSocketByName();
-                if (socket != null && socket.Connected)
+                if (tcpClient.connecting)
+                {
+                    btn_connect.Enabled = false;
+                    btn_connect.TextStr = "连接中...";
+                }
+                else if (socket != null && socket.Connected)
+                {
+                    btn_connect.Enabled = true;
                     btn_connect.TextStr = "断开";
+                }
                 else
+                {
+                    btn_connect.Enabled = true;
                     btn_connect.TextStr = "连接";
+                }
             }
             catch (Exception ex)
             {
@@ -70,8 +152,12 @@ namespace VMPro
 
         private void tbx_clientName_TextStrChanged(string textStr)
         {
-            if (tcpClient != null)
-                tcpClient.Rename(tbx_clientName.TextStr.Trim());
+            if (tcpClient == null)
+                return;
+
+            string requestedName = tbx_clientName.TextStr.Trim();
+            if (!tcpClient.Rename(requestedName) && tbx_clientName.TextStr != tcpClient.Name)
+                tbx_clientName.TextStr = tcpClient.Name;
         }
         private void tbx_severIP_TextStrChanged(string textStr)
         {
@@ -88,31 +174,45 @@ namespace VMPro
                 if (tcpClient == null)
                     return;
 
-                Socket socket = tcpClient.FindSocketByName();
+                TCPClient target = tcpClient;
+
+                Socket socket = target.FindSocketByName();
                 if (socket != null && socket.Connected)
                 {
-                    tcpClient.Close();
+                    target.Close();
                     btn_connect.TextStr = "连接";
-                    Frm_DeviceManager.Instance.lbl_tip.Text = "TCP客户端已断开";
+                    Frm_DeviceManager.TrySetTipForDevice("TCPClient", target.Name, "TCP客户端已断开", Color.FromArgb(52, 64, 84));
                     return;
                 }
 
                 btn_connect.TextStr = "连接中...";
                 btn_connect.Enabled = false;
-                ThreadPool.QueueUserWorkItem(_ =>
+                target.connecting = true;
+                int generation = target.BeginExplicitConnect();
+                try
                 {
-                    bool connected = tcpClient.Connect(2000, true);
-                    try
+                    ThreadPool.QueueUserWorkItem(_ =>
                     {
-                        BeginInvoke(new Action(() =>
+                        bool connected = false;
+                        try
                         {
-                            btn_connect.Enabled = true;
-                            btn_connect.TextStr = connected ? "断开" : "连接";
-                            Frm_DeviceManager.Instance.lbl_tip.Text = connected ? "TCP客户端连接成功" : "TCP客户端连接失败";
-                        }));
-                    }
-                    catch { }
-                });
+                            connected = target.ConnectPrepared(2000, true, generation);
+                        }
+                        finally
+                        {
+                            target.connecting = false;
+                            TryApplyConnectionState(target, connected);
+                            Frm_DeviceManager.TrySetTipForDevice("TCPClient", target.Name,
+                                connected ? "TCP客户端连接成功" : "TCP客户端连接失败",
+                                connected ? Color.Green : Color.Red);
+                        }
+                    });
+                }
+                catch
+                {
+                    target.connecting = false;
+                    throw;
+                }
             }
             catch (Exception ex)
             {
@@ -125,7 +225,8 @@ namespace VMPro
         {
             try
             {
-                if (!tcpClient.FindSocketByName().Connected)
+                Socket socket = tcpClient == null ? null : tcpClient.FindSocketByName();
+                if (socket == null || !socket.Connected)
                 {
                     Frm_MessageBox.Instance.MessageBoxShow("\r\n未连接到服务端，发送失败");
                     return;

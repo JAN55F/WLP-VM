@@ -27,10 +27,21 @@ namespace VMPro
         {
             get
             {
-                if (_instance == null)
+                if (_instance == null || _instance.IsDisposed)
                     _instance = new Frm_PLCComm();
                 return _instance;
             }
+        }
+
+        internal static bool TryGetExistingInstance(out Frm_PLCComm form)
+        {
+            form = _instance;
+            if (form == null || form.IsDisposed || form.Disposing)
+            {
+                form = null;
+                return false;
+            }
+            return true;
         }
 
         private PLCDevice _device;
@@ -106,6 +117,12 @@ namespace VMPro
                 SetPrompt("未选择PLC设备", Color.Red, false);
                 return;
             }
+            if (_device.connecting)
+            {
+                SetPrompt("连接中...", Color.Gray, false);
+                UpdateConnectionControlState();
+                return;
+            }
             bool connected = _device.IsConnected;
             SetPrompt(connected ? "已连接" : "未连接", connected ? Color.Green : Color.Red, false);
             UpdateConnectionControlState();
@@ -118,12 +135,30 @@ namespace VMPro
         private void UpdateConnectionControlState()
         {
             bool connected = _device != null && _device.IsConnected;
-            comboBox1.Enabled = !connected;
-            cbo_inovanceSeries.Enabled = !connected;
-            textBox4.ReadOnly = connected;
-            textBox5.ReadOnly = connected;
-            btn_connect.Enabled = !connected;
-            btn_disconnect.Enabled = connected;
+            bool connecting = _device != null && _device.connecting;
+            comboBox1.Enabled = !connected && !connecting;
+            cbo_inovanceSeries.Enabled = !connected && !connecting;
+            textBox4.ReadOnly = connected || connecting;
+            textBox5.ReadOnly = connected || connecting;
+            btn_connect.Enabled = !connected && !connecting;
+            btn_disconnect.Enabled = connected && !connecting;
+        }
+
+        private void ApplyConnectionResult(PLCDevice target, bool connected, string errorMessage)
+        {
+            if (!ReferenceEquals(_device, target))
+                return;
+
+            if (connected)
+            {
+                SetPrompt("连接成功：" + target.IpAddress + ":" + target.Port, Color.Green, true);
+                return;
+            }
+
+            if (string.IsNullOrEmpty(errorMessage))
+                errorMessage = "PLC无响应或通讯参数不正确";
+            SetPrompt("连接失败：" + errorMessage, Color.Red, true);
+            Frm_MessageBox.Instance.MessageBoxShow("\r\n连接失败：" + errorMessage);
         }
 
         private void SetPrompt(string msg, Color color, bool writeLog)
@@ -254,6 +289,8 @@ namespace VMPro
                 return;
             }
 
+            PLCDevice target = _device;
+
             int port;
             if (!int.TryParse(textBox5.Text.Trim(), out port) || port <= 0 || port > 65535)
             {
@@ -263,53 +300,49 @@ namespace VMPro
             }
 
             // 更新设备参数
-            _device.IpAddress = textBox4.Text.Trim();
-            _device.Port = port;
-            _device.Brand = GetSelectedBrand();
-            if (_device.Brand == PLCBrand.Inovance)
-                _device.InovanceSeries = cbo_inovanceSeries.Text;
-            if (string.IsNullOrEmpty(_device.IpAddress))
+            target.IpAddress = textBox4.Text.Trim();
+            target.Port = port;
+            target.Brand = GetSelectedBrand();
+            if (target.Brand == PLCBrand.Inovance)
+                target.InovanceSeries = cbo_inovanceSeries.Text;
+            if (string.IsNullOrEmpty(target.IpAddress))
             {
                 SetPrompt("IP地址不能为空", Color.Red, true);
                 Frm_MessageBox.Instance.MessageBoxShow("\r\nIP地址不能为空");
                 return;
             }
 
-            if (_device.IsConnected)
+            if (target.IsConnected)
             {
                 SetPrompt("PLC已连接", Color.Green, true);
                 return;
             }
 
-            btn_connect.Enabled = false;
-            btn_disconnect.Enabled = false;
+            target.connecting = true;
+            UpdateConnectionControlState();
             try
             {
                 SetPrompt("连接中...", Color.Gray, true);
 
                 string err = string.Empty;
-                bool ok = await Task.Run(() => _device.Connect(out err));
-                if (ok)
-                {
-                    SetPrompt("连接成功：" + _device.IpAddress + ":" + _device.Port, Color.Green, true);
-                }
-                else
-                {
-                    if (string.IsNullOrEmpty(err))
-                        err = "PLC无响应或通讯参数不正确";
-                    SetPrompt("连接失败：" + err, Color.Red, true);
-                    Frm_MessageBox.Instance.MessageBoxShow("\r\n连接失败：" + err);
-                }
+                bool ok = await Task.Run(() => target.Connect(out err));
+                target.connecting = false;
+                ApplyConnectionResult(target, ok, err);
             }
             catch (Exception ex)
             {
-                SetPrompt("连接异常：" + ex.Message, Color.Red, true);
-                Frm_MessageBox.Instance.MessageBoxShow("\r\n连接异常：" + ex.Message);
+                if (ReferenceEquals(_device, target))
+                {
+                    SetPrompt("连接异常：" + ex.Message, Color.Red, true);
+                    Frm_MessageBox.Instance.MessageBoxShow("\r\n连接异常：" + ex.Message);
+                }
                 Log.SaveError(ex);
             }
             finally
             {
-                UpdateConnectionControlState();
+                target.connecting = false;
+                if (ReferenceEquals(_device, target))
+                    UpdateConnectionControlState();
             }
         }
 
