@@ -52,6 +52,26 @@ namespace VMPro
         /// Socket集合  因Socket类不能被序列化，所以声明一个静态的集合来存储    键：通讯设备名   值：Socket对象
         /// </summary>
         internal static List<STCPSever> L_STCPSever = new List<STCPSever>();
+
+        /// <summary>
+        /// 线程安全的界面刷新：主窗体句柄已创建时走 BeginInvoke；
+        /// 启动极早期句柄尚未创建时直接在当前线程执行，避免“句柄未创建”异常
+        /// 中断监听线程（否则 Bind 成功后 Accept 循环也不会启动，表现为时而不自动监听）。
+        /// </summary>
+        private static void SafeBeginInvoke(Action action)
+        {
+            try
+            {
+                Frm_Main main = Frm_Main.Instance;
+                if (main != null && main.IsHandleCreated)
+                {
+                    main.BeginInvoke(action);
+                    return;
+                }
+                action();
+            }
+            catch { }
+        }
         /// <summary>
         /// 程序开启后自动监听
         /// </summary>
@@ -164,7 +184,7 @@ namespace VMPro
                                 L_STCPSever[i].SeverObj.Bind(point);
                                 L_STCPSever[i].SeverObj.Listen(10);
                                 listened = true;
-                                Frm_Main.Instance.BeginInvoke(new Action(() =>
+                                SafeBeginInvoke(new Action(() =>
                                 {
                                     Frm_TCPServer.Instance.btn_listen.TextStr = "停止监听";
                                     Frm_DeviceManager.Instance.lbl_tip.Text = "TCP服务端已开始监听";
@@ -176,7 +196,7 @@ namespace VMPro
                                 Log.SaveError(ex);
                                 if (showFailureMessage)
                                 {
-                                    Frm_Main.Instance.BeginInvoke(new Action(() =>
+                                    SafeBeginInvoke(new Action(() =>
                                     {
                                         Frm_MessageBox.Instance.MessageBoxShow("\r\n服务端监听失败：" + ex.Message + "\r\n\r\n请检查IP地址和端口是否被占用");
                                         Frm_TCPServer.Instance.btn_listen.TextStr = "开始监听";
@@ -212,7 +232,7 @@ namespace VMPro
                                 string remoteEndPoint = socket.RemoteEndPoint.ToString();
                                 L_STCPSever[i].L_Client.Add(remoteEndPoint, socket);
                                 Frm_Main.Instance.OutputMsg(string.Format("客户端已连接，信息: {0}", remoteEndPoint), Color.Green);
-                                Frm_Main.Instance.BeginInvoke(new Action(() =>
+                                SafeBeginInvoke(new Action(() =>
                                 {
                                     Frm_TCPServer.Instance.lbx_connectedList.Items.Add(remoteEndPoint);
                                     Frm_TCPServer.Instance.cbx_connectedList.Add(remoteEndPoint);
@@ -221,7 +241,7 @@ namespace VMPro
                                 }));
                             }
                             listened = false;
-                            Frm_Main.Instance.BeginInvoke(new Action(() =>
+                            SafeBeginInvoke(new Action(() =>
                             {
                                 Frm_TCPServer.Instance.btn_listen.TextStr = "开始监听";
                             }));
@@ -374,7 +394,7 @@ namespace VMPro
                     if (length > 0)
                     {
                         string logLine = DateTime.Now.ToString("HH:mm:ss") + "->  : " + result + "\r\n";
-                        Frm_Main.Instance.BeginInvoke(new Action(() =>
+                        SafeBeginInvoke(new Action(() =>
                         {
                             if (Frm_TCPServer.Instance.Visible)
                                 Frm_TCPServer.Instance.tbx_log.AppendText(logLine);
@@ -414,7 +434,7 @@ namespace VMPro
                         }
 
                         string localName = Name;
-                        Frm_Main.Instance.BeginInvoke(new Action(() =>
+                        SafeBeginInvoke(new Action(() =>
                         {
                             //同步移除界面上残留的已断开客户端，避免发送按钮选中已死连接后静默不发
                             if (Frm_TCPServer.Instance.lbx_connectedList.Items.Contains(deadClient))
@@ -473,7 +493,7 @@ namespace VMPro
                     stcpSever.L_Client = new Dictionary<string, Socket>();
                     L_STCPSever[i] = stcpSever;
                     listened = false;
-                    Frm_Main.Instance.BeginInvoke(new Action(() =>
+                    SafeBeginInvoke(new Action(() =>
                     {
                         if (Frm_TCPServer.Instance.Visible)
                         {

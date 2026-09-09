@@ -51,6 +51,10 @@ namespace VMPro
         /// </summary>
         public bool saveWhenExit = true;
         /// <summary>
+        /// 用户已主动删除默认服务端（服务端1）：为 true 时设备管理器不再自动重建它
+        /// </summary>
+        public bool defaultTcpServerDeleted = false;
+        /// <summary>
         /// 程序开启后隐藏菜单栏
         /// </summary>
         public bool hideMenuAfterStart = false;

@@ -61,6 +61,13 @@ namespace Controls
                 {
                     //设置索引失败不影响主流程，避免异常冒泡导致未处理崩溃
                 }
+                finally
+                {
+                    //无论程序设置还是用户选择，都让缓存与内部下拉框的真实显示保持一致；
+                    //否则程序化选中后 TextStr 仍是旧值，调用方（如发送目标）会拿到过期内容
+                    _selectedIndex = cbx_item.SelectedIndex;
+                    _text = cbx_item.Text;
+                }
             }
         }
         /// <summary>
@@ -146,6 +153,9 @@ namespace Controls
                     cbx_item.Items.Clear();
                     cbx_item.Items.AddRange(value);
                     UpdateDropDownWidth();
+                    //重建项后内部选中会被重置，同步缓存，保证 TextStr 与显示一致
+                    _selectedIndex = cbx_item.SelectedIndex;
+                    _text = cbx_item.Text;
                 }
                 catch
                 {
