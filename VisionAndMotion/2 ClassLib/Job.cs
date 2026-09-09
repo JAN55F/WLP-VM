@@ -8388,7 +8388,7 @@ namespace VMPro
 
                             #region EthernetReceive
                             case ToolType.EthernetReceive:
-                                Frm_EthernetReceiveTool.Instance.lbl_title.Text = (Project.Instance.configuration.language == Language.English ? "SDK_PointGray" : string.Format("采集图像    [ {0} . {1} ]", this.jobName, L_toolList[i].toolName));
+                                Frm_EthernetReceiveTool.Instance.lbl_title.Text = (Project.Instance.configuration.language == Language.English ? "SDK_PointGray" : string.Format("以太网接收    [ {0} . {1} ]", this.jobName, L_toolList[i].toolName));
                                 ////// Frm_AcqImageTool.Instance.StartPosition = FormStartPosition.Manual;
                                 ////// Frm_AcqImageTool.Instance.Location = new System.Drawing.Point(System.Windows.Forms.SystemInformation.VirtualScreen.Width -  Frm_AcqImageTool.Instance.Width - 20, 200);        //让其显示在右上方，防止挡住图像窗口
                                 // Frm_AcqImageTool.Instance.TopMost = true;
@@ -8434,7 +8434,7 @@ namespace VMPro
 
                             #region EthernetSend
                             case ToolType.EthernetSend:
-                                Frm_EthernetSendTool.Instance.lbl_title.Text = (Project.Instance.configuration.language == Language.English ? "SDK_PointGray" : string.Format("采集图像    [ {0} . {1} ]", this.jobName, L_toolList[i].toolName));
+                                Frm_EthernetSendTool.Instance.lbl_title.Text = (Project.Instance.configuration.language == Language.English ? "SDK_PointGray" : string.Format("以太网发送    [ {0} . {1} ]", this.jobName, L_toolList[i].toolName));
                                 ////// Frm_AcqImageTool.Instance.StartPosition = FormStartPosition.Manual;
                                 ////// Frm_AcqImageTool.Instance.Location = new System.Drawing.Point(System.Windows.Forms.SystemInformation.VirtualScreen.Width -  Frm_AcqImageTool.Instance.Width - 20, 200);        //让其显示在右上方，防止挡住图像窗口
                                 // Frm_AcqImageTool.Instance.TopMost = true;
