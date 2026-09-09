@@ -62,10 +62,13 @@ namespace VMPro
                         return;
                     }
 
+                    //先按TCP客户端设备匹配（原逻辑）
+                    bool matched = false;
                     for (int i = 0; i < Project.Instance.L_TCPClient.Count; i++)
                     {
                         if (Project.Instance.L_TCPClient[i].Name == EthernetName)
                         {
+                            matched = true;
                             if (!Project.Instance.L_TCPClient[i].FindSocketByName().Connected)
                             {
                                 toolRunStatu = ToolRunStatu.未建立通讯连接;
@@ -75,6 +78,35 @@ namespace VMPro
                             Frm_Main.Instance.OutputMsg(string.Format("[{0}] 已发送远程命令：{1}", EthernetName, toolPar.InputPar.消息), Color.Black);
                             break;
                         }
+                    }
+
+                    //再按TCP服务端设备匹配：向服务端当前第一个已连接的客户端发送
+                    if (!matched)
+                    {
+                        for (int i = 0; i < Project.Instance.L_TCPSever.Count; i++)
+                        {
+                            if (Project.Instance.L_TCPSever[i].Name == EthernetName)
+                            {
+                                matched = true;
+                                if (!Project.Instance.L_TCPSever[i].SendToFirstClient(toolPar.InputPar.消息 + endChar))
+                                {
+                                    //服务端没有监听或没有客户端接入
+                                    toolRunStatu = ToolRunStatu.未建立通讯连接;
+                                    Frm_Main.Instance.OutputMsg(string.Format("TCP服务端 [{0}] 当前没有已连接的客户端，发送失败", EthernetName), Color.Red);
+                                    return;
+                                }
+                                Frm_Main.Instance.OutputMsg(string.Format("[{0}] 已发送远程命令：{1}", EthernetName, toolPar.InputPar.消息), Color.Black);
+                                break;
+                            }
+                        }
+                    }
+
+                    //两边都匹配不到：报错而不是静默假成功
+                    if (!matched)
+                    {
+                        toolRunStatu = ToolRunStatu.未指定以太网通讯端;
+                        Frm_Main.Instance.OutputMsg(string.Format("工具 [{0}] 未找到通讯端 [{1}]，发送失败", toolName, EthernetName), Color.Red);
+                        return;
                     }
                     toolRunStatu = (Project.Instance.configuration.language == Language.English ? ToolRunStatu.Succeed : ToolRunStatu.成功);
                 }

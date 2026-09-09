@@ -268,6 +268,42 @@ namespace VMPro
             }
         }
         /// <summary>
+        /// 向当前第一个已连接的客户端发送消息（供流程工具使用）。返回是否发送成功。
+        /// </summary>
+        /// <param name="msg">消息内容</param>
+        internal bool SendToFirstClient(string msg)
+        {
+            try
+            {
+                if (Frm_TCPServer.Instance.Visible)
+                {
+                    string curTime = DateTime.Now.ToString("HH:mm:ss");
+                    Frm_TCPServer.Instance.tbx_log.AppendText(curTime + "<-  : " + msg + "\r\n");
+                }
+                for (int i = 0; i < L_STCPSever.Count; i++)
+                {
+                    if (L_STCPSever[i].severName != Name)
+                        continue;
+                    foreach (KeyValuePair<string, Socket> item in L_STCPSever[i].L_Client)
+                    {
+                        if (item.Value != null && item.Value.Connected)
+                        {
+                            byte[] buffer = Encoding.Default.GetBytes(msg);
+                            item.Value.Send(buffer);
+                            return true;
+                        }
+                    }
+                    return false;       //没有已连接的客户端
+                }
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Log.SaveError(ex);
+                return false;
+            }
+        }
+        /// <summary>
         /// 接收一次消息
         /// </summary>
         internal string RecieveOnce(object obj)
