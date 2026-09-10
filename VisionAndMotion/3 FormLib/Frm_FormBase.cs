@@ -48,6 +48,11 @@ namespace VMPro
         // 双保险：无论 owner 是谁，弹窗在打开期间都在任务栏上拥有属于自己的按钮（侧体），
         // 最小化后随时可以点击它还原。
         private bool forceTaskbarButton = false;
+        /// <summary>
+        /// 模态弹窗弹出前记录的活动窗口（通常是主窗体）；
+        /// 弹窗最小化后把它重新带回前台，避免主窗体被压到其他程序后面。
+        /// </summary>
+        private Form modalReturnFocus;
 
         protected override CreateParams CreateParams
         {
@@ -124,6 +129,7 @@ namespace VMPro
             // 主窗体不会自动回到前台，看起来就像“所有窗口一起消失/程序卡死”，
             // 因此模态结束后必须手动把焦点还给原来的窗口。
             Form returnFocus = Form.ActiveForm;
+            modalReturnFocus = returnFocus;
 
             // 有明确 owner 时保持 Windows 原有的窗口层级；不设置 TopMost，也不强制激活。
             // 这适用于流程的新建、克隆、删除等普通编辑操作，避免窗口跳动和闪烁。
@@ -461,6 +467,11 @@ namespace VMPro
             // 所以这里可以安全地最小化——不会再出现“弹窗消失无入口、主窗体又被模态锁死”的假死态。
             // 注意：最小化不会结束模态循环，弹窗被真正关闭（×）之前主窗体始终不可点击。
             this.WindowState = FormWindowState.Minimized;
+
+            // 最小化后 Windows 会把焦点交给（不可见的）dummy owner，主窗体被压到其他程序后面；
+            // 这里把弹出弹窗之前的活动窗口（通常是主窗体）重新带回前台，
+            // 保持“小窗收起、主窗仍在眼前”的体验（主窗体仍受模态锁保护，不可点击）。
+            RestoreFocusAfterModal(modalReturnFocus);
         }
 
         private void button2_Click(object sender, EventArgs e)

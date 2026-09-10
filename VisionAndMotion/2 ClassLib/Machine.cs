@@ -471,11 +471,9 @@ namespace VMPro
                     Frm_Welcome welcome = Frm_Welcome.Instance;
 
                     mainForm.tss_permissionInfo.Text = "当前用户：未登录";
-                    if (!Project.Instance.configuration.allowResizeForm)
-                    {
-                        mainForm.MinimumSize = mainForm.Size;
-                        mainForm.MaximumSize = mainForm.Size;
-                    }
+                    // 注：不再在启动时按 allowResizeForm=false 锁死主窗体尺寸（MinimumSize=MaximumSize=当前尺寸）。
+                    // 旧逻辑会把窗口钳死，导致最大化按钮即使能点也被 MaximumSize 拦住，表现为“最大化按钮无效”；
+                    // 需要锁定窗口尺寸时，在 系统设置→启动设置 里取消勾选“允许改变窗体大小”即可（实时生效）。
 
                     if (!Project.Instance.configuration.EnableMainForm)
                         mainForm.toolStripButton9.Visible = false;
