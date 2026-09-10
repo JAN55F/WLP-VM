@@ -236,7 +236,7 @@ namespace VMPro
         /// </summary>
         internal const string DefaultCompanyName = "威乐普电子科技有限公司";
         internal const string ProductName = "WLP VM";
-        internal const string ProductVersion = "1.5.0";
+        internal const string ProductVersion = "1.5.1";
         internal const string ProductUpdateTime = "2026-09-10";
         internal const string ProductDisplayName = ProductName + " v" + ProductVersion;
         internal const string DefaultProgramTitle = ProductName;
