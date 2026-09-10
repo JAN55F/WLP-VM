@@ -1,6 +1,6 @@
 # WLP VM Project Guide
 
-> 最后更新时间：2026-09-09（Asia/Shanghai）
+> 最后更新时间：2026-09-10（Asia/Shanghai）
 >
 > 后续定位代码时先读本文件。它是快速导览，不替代源码；如果导览和源码不一致，以源码为准，并同步更新本文件。
 
@@ -33,6 +33,16 @@
 - 不要把全局 `/p:OutDir=...` 直接传给 `VMPro.csproj` 的整棵项目引用执行 `/t:Rebuild`：该属性会传播到 `HWindow_Tool`，改变历史 HALCON 程序集的解析位置。本机无硬件复核中由此产生 127 个引用错误。需要隔离壳层验证时，先在正常配置下验证项目引用，再用 `Start.csproj /p:BuildProjectReferences=false /p:OutDir=...` 生成隔离启动目录，并核对复制进去的 `CVMPro.dll`、`HWindow_Tool.dll` 时间戳或哈希。
 - 当前项目依赖 .NET Framework 3.5/4.0/4.5/4.5.2、Halcon、相机 SDK、运动控制 SDK、HslCommunication 等 Windows/VS 环境组件。
 - 本目录现在是 Git 仓库根目录，可直接使用 `git status`、`git diff --check` 检查改动；不要把 `bin/`、`obj/` 的历史产物当成源码证据。
+- 2026-09-10 核对的 GitHub 上游为 `github-new/master`（`https://github.com/JAN55F/WLP-VM.git`），当前本地分支为 `master`；`origin` 指向历史仓库 `supermoonper/VMPro`，推送前应核对远程地址，不能仅凭 `origin` 名称选择目标。
+
+### 1.1 HALCON 原生库加载与路径排查（2026-09-10）
+
+- 当前修改对象是 `/Volumes/LiJian/WellPull/JAN-正在开发/VM Pro -NEW` 根目录的 `VM Pro.sln`；仓库中还有嵌套的 `VM Pro -NEW/` 副本，本轮未同步修改该副本。
+- `Start/Program.cs` 先调用 `Start/HalconRuntime.cs` 的 `EnsureLoaded()`，成功后才进入禁止内联的 `RunApplication()`，读取项目配置并创建主界面。按实际 EXE 目录、`HALCONROOT/bin/<进程架构>`、含 `halcon.dll` 的 `PATH` 项依次探测；架构根据 `Environment.Is64BitProcess` 选择 `x64-win64` 或 `x86sse2-win32`，不能仅凭解决方案配置名判断。
+- 每个候选 DLL 先校验 PE 位数及与 `halcondotnet.dll` 相同的主/次版本系列，再使用绝对路径 `LoadLibraryExW(..., LOAD_WITH_ALTERED_SEARCH_PATH)` 加载；保留模块句柄，并只将成功目录加入本进程 PATH，不修改系统环境变量、当前工作目录或相机适配器的 `SetDllDirectory`。失败时显示实际程序目录、进程位数、托管版本、HALCONROOT 和逐个候选的失败原因/Win32 错误码。
+- 本地快照的 `Lib/halcondotnet.dll` 与 `Start/bin/Debug/halcondotnet.dll` 哈希一致，版本均为 `17.12.0.0`；`Start/bin/Debug/halcon.dll` 为 x64，`VisionAndMotion/bin/Debug/halcon.dll` 为 x86，原生文件版本均为 `17.12.0.1`。这些是当前磁盘上的历史产物，不等于目标 Windows 部署内容；两份原生 DLL 不可混用。项目引用只负责托管 DLL，原生运行环境需随部署提供或安装并配置 HALCONROOT/PATH。
+- `HWindow_Final.ClearWindow()` 报 `DllNotFoundException / 0x8007007E` 时，先确认目标 Windows 上实际 EXE 的完整路径与加载检查结果。`halcondotnet.dll` 是托管封装，不能替代原生 `halcon.dll`；126 也可能是后者的依赖缺失，仅凭截图不能确定是路径还是依赖。不要以吞掉清屏异常作为修复。修改系统环境变量后重新启动 Visual Studio，使新进程继承环境。加载规则参考 [Microsoft DLL 搜索顺序](https://learn.microsoft.com/en-us/windows/win32/dlls/dynamic-link-library-search-order) 与 [LoadLibraryExW](https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-loadlibraryexw)。
+- `Tests/HalconRuntimeSmoke.cs` 与 `Start/HalconRuntime.cs` 一起编译，入口参数为仓库根目录；测试会读取上述两份历史原生 DLL 作为位数/版本样本。macOS 已通过 10 项路径/拒绝错误 DLL 检查，覆盖移动目录、中文/空格/引号路径、重复与非法 PATH、未设置 HALCONROOT、工作目录隔离、缺失/损坏/错误位数 DLL。原生 Windows PE 版本资源的 3 项检查因 Unix `FileVersionInfo` 限制跳过；原生加载、授权、窗口绘制和相机行为仍须 Windows 验收。启动源码通过 C# 5 + .NET Framework 4.8 参考程序集的隔离编译，不代表原项目 4.5.2 的 Windows 完整构建已通过。
 
 ## 2. 顶层源码结构
 
@@ -55,7 +65,7 @@
 
 | 功能 | 入口文件 | 核心函数/位置 |
 | --- | --- | --- |
-| 程序启动 | `Start/Program.cs` | `Main()`：从 `Config\Config.ini` 预读语言，处理单实例提示，再进入主程序初始化。 |
+| 程序启动 | `Start/Program.cs`、`Start/HalconRuntime.cs` | `Main()`：先加载匹配的 HALCON 原生库；`RunApplication()` 从 `Config\Config.ini` 预读语言，处理单实例提示，再进入主程序初始化。 |
 | 主程序初始化 | `VisionAndMotion/2 ClassLib/VM.cs` | `Init()`：先执行 `Configuration.Read(false)`，再显示欢迎页并实例化主窗体；后台启动 `Machine.InitAll()`，等待 `Machine.loading == false` 后先隐藏欢迎页，再显示主窗体。 |
 | 设备初始化 | `VisionAndMotion/2 ClassLib/Machine.cs` | `InitAll()`：启动时初始化硬件、自动连接设备。 |
 | 项目单例和序列化 | `VisionAndMotion/2 ClassLib/Project.cs` | `Project.Instance`、`LoadProject()`、`InportProject()`、`ExportProject()`、`EnsureCommunicationRuntime()`。 |
@@ -155,7 +165,7 @@
 - “项目”菜单覆盖常用方案与项目生命周期：新建/打开/最近/克隆方案、导出方案、保存项目、导入/导出项目及退出。不要恢复顶层“删除当前方案”代理：历史 `toolStripButton18` 路径只直接修改模型集合，缺少完整 UI 刷新和持久化保障；删除方案统一走“系统 → 选项 → 方案管理”（`Frm_EngineManager`）的受控确认、刷新和保存路径。
 - 工厂默认布局是 `Start/Config/Resources/Layout/经典布局1.config`：右侧 30% 由流程和工具箱共用标签 Pane，并以全高度贯穿工作区；中央列上方承载图像文档，输出和监控共用的底部 22% 标签 Pane 只延伸到右侧编辑列左边，不再占用流程编辑器下方空间。视觉快捷栏只直显单次运行、连续运行、保存项目、读取图像 4 个动作，另保留单一“批量运行”下拉；上一张本地图像、暂停目录图自动切换保留在“视觉 → 图像”，极速模式保留在“视觉 → 辅助工具”。全局变量保留在“视觉”，并通过原 `toolStripButton34` 代理执行以保留刷新行为。方案、流程、图像管理、布局、设备及重复/空实现入口不再与主菜单平级占用顶栏。经典模板只读；用户调整需要保存时自动转存 `dockPanel.config`，避免升级覆盖工厂模板。只有可明确识别的仓库旧演示快照会在内存中迁移到新版专注布局，任意其他自定义布局不改写；手动入口为“视觉 → 布局 → 专注布局（标准）”，重启后生效。旧项目的多图像窗口与复杂自定义 Dock 布局仍需真实项目回归。
 - `CreateProxyMenuItem()` 为迁移到六类菜单的原按钮统一生成文字入口，`Tag` 保存源 `ToolStripItem`，点击继续调用源项 `PerformClick()`；代理菜单不复制旧低分辨率 `Image`，避免高 DPI 模糊，也不能改成直接调用业务函数而绕过原权限、确认或刷新路径。主菜单展开时递归同步源项的 `Enabled`、`Available` 和 `CheckOnClick/Checked` 状态；设计器原有 F5/F6 仍落到“单次运行当前流程/连续运行当前流程”，并分别绑定 `toolStripButton11/12` 的可用状态，不能让快捷键从禁用菜单绕过机器运行门槛。
-- 当前产品版本由 `Configuration.ProductVersion` 固定为 `1.0.0`，`Start` 与 `CVMPro` 的程序集/FileVersion 为 `1.0.0.0`、ProductVersion 为 `1.0.0`；主客户端标题使用 `WLP VM v1.0.0` 后缀。`Frm_Welcome.cs` 使用独立的暖白启动画面、浅蓝矢量视觉图、柔和进度条，显示“版本 1.0.0”，不再读取日期式 `AssemblyConfiguration`；内部 WLP 品牌标记由 `WelcomeBrandMark` 抗锯齿绘制，退出按钮使用透明过渡圆角底图，加载进度仍由原 `bar_step/lbl_step` 驱动，视觉刷新计时器仅在窗口可见时运行。欢迎页作为无边框顶层 `Form` 仍保留 `Region` 外形裁切，这个边界不能用内部控件的抗锯齿结果替代。
+- 当前显示版本由 `Configuration.ProductVersion` 定义（2026-09-10 源码为 `1.5.2`），更新日期由 `ProductUpdateTime` 定义；标题格式由 `BuildApplicationTitle()` 统一生成。`Start/Properties/AssemblyInfo.cs` 为 `1.5.2.0`/`1.5.2`，而 `VisionAndMotion/Properties/AssemblyInfo.cs` 仍为 `1.0.0.0`/`1.0.0`，发布时需独立核对，不能把标题版本当作两个程序集版本已统一的证据。`Frm_Welcome.cs` 使用独立的暖白启动画面、浅蓝矢量视觉图、柔和进度条，显示配置中的产品版本，不再读取日期式 `AssemblyConfiguration`；内部 WLP 品牌标记由 `WelcomeBrandMark` 抗锯齿绘制，退出按钮使用透明过渡圆角底图，加载进度仍由原 `bar_step/lbl_step` 驱动，视觉刷新计时器仅在窗口可见时运行。欢迎页作为无边框顶层 `Form` 仍保留 `Region` 外形裁切，这个边界不能用内部控件的抗锯齿结果替代。
 - `ControlLib/Controls/ModernInputControl.cs` 是输入底板基类；`CTextBox`、`CComboBox`、`CNumeric`、`CNumericUpDown` 四类共享输入控件统一继承它。底板用 GDI+ `AntiAlias`、半像素内缩和暖白/浅蓝调色绘制，不再给 24–26 px 小输入控件使用二值 `Region` 裁切；下拉箭头、密码可见性、数值加减等符号用代码绘制。`CTextBox.TextStr` 程序赋值时同时更新内部值、编辑器文本和占位状态，一次实际变化最多发出一次 `TextStrChanged`；`CNumeric` 把空文本、单独负号/小数点等视为编辑中间态，只有完整数字才提交 `ValueChanged`，失焦时回到最后有效值，避免 `Convert.ToDouble` 异常和重复通知。`CNumericUpDown` 小宽度布局分档：50 px 只显示可编辑数值（键盘/滚轮仍可步进），70 px 采用纵向加减按钮，90 px 及以上再使用横向按钮，负数和两位小数不得被遮挡。
 - `ModernUiTheme.StyleRoundedButton()` 与卡片主题使用带透明过渡像素的 PArgb 背景图绘制圆角，并主动清除普通按钮/卡片旧 `Region`；已有超大功能位图会以高质量插值缩小并按前景色着色，不能把业务图标当成按钮皮肤覆盖。无边框顶层 `Form`（包括欢迎页外轮廓）仍有 WinForms `Region` 路径，这一层的边缘平滑度必须在目标系统和 DPI 下另验，不能由内部控件预览代替。
 - `ModernVectorIconFactory.cs` 为主命令栏、视觉快捷栏生成代码矢量图形的精确像素位图，按控件当前 `DpiX` 选择尺寸并缓存；笔画使用圆角线帽/连接及抗锯齿，ToolStrip 关闭二次图像缩放。`Start/WLPVM.ico` 提供 16/20/24/32/40/48/64/128/256 共 9 个尺寸，`Start.csproj` 同时用作 `ApplicationIcon` 和内容资源；`Start/app.manifest` 与 `Start/Properties/app.manifest` 的程序集标识统一为 `WLPVM.app`，欢迎页/主窗体从当前宿主可执行文件提取同一图标。启动清单目前未声明全局或 Per-Monitor DPI 感知，Windows 对整个旧式 WinForms 进程的虚拟化仍可能再次缩放，启用清单前必须回归全部历史绝对布局。
@@ -512,7 +522,7 @@ PLC 当前重点：
 | 修改公共标题栏按钮 | `Frm_FormBase.cs` 的 `AlignTitleButtons()`，不要逐窗体改 `button100.Location`。 |
 | 修改语言/程序配置 | `Configuration.cs` 和设置页。 |
 
-公司名称固定为“威乐普电子科技有限公司”，软件产品名固定为 `WLP VM`。`Configuration.Read()` 忽略旧 `Configuration.ini` 中的公司示例名；空标题、`未命名`、历史 `VM Pro`/通用视觉产品名和已知旧演示标题都归一化为 `WLP VM`。其他用户自定义项目名保持不变，主标题格式为“威乐普电子科技有限公司 - WLP VM · 项目名”，因此加载自定义项目不会覆盖软件品牌。最近项目菜单只替换已知旧品牌/演示文件的显示名，实际路径和项目文件不重命名。
+公司名称固定为“威乐普电子科技有限公司”，软件产品名固定为 `WLP VM`。`Configuration.Read()` 忽略旧 `Configuration.ini` 中的公司示例名；空标题、`未命名`、历史 `VM Pro`/通用视觉产品名和已知旧演示标题都归一化为 `WLP VM`。其他用户自定义项目名保持不变，主标题格式为“威乐普电子科技有限公司 - WLP VM v<版本> [Debug: <更新日期>] · 项目名”，因此加载自定义项目不会覆盖软件品牌。最近项目菜单只替换已知旧品牌/演示文件的显示名，实际路径和项目文件不重命名。
 
 `Start.csproj` 的可执行程序输出名已改为 `WLP VM.exe`，应用图标为包含 9 个尺寸的 `Start/WLPVM.ico`，manifest 标识为 `WLPVM.app`。`VM Pro.sln`、`VMPro` 命名空间、`CVMPro.dll` 和第三方 `HintPath` 是源码/部署兼容名，本轮不重命名。新安装/新建配置的 `Configuration.dataPath` 默认为 `D:\WLP VM`；已有 `Configuration.ini` 或项目中序列化的 `D:\VM Pro` 不自动迁移、不移动数据，`Frm_SaveImageTool` 保留旧 `D:\VM Pro` 保存路径的切换兼容分支。新建“存储图像”工具仍使用桌面 `WLP VM 图像` 专用目录。
 
@@ -548,6 +558,7 @@ rg -n "LoadVariable|ReindexCustomVariables|GlobelVariable|Variable" "VisionAndMo
 - `Job.Run()` 设计为后台线程执行。任何“运行流程/运行一次”入口都必须放后台线程，不能在按钮事件里同步调用，否则相机采图等阻塞 IO 会卡死 UI；公共状态和图像显示入口负责异步派发，但各具体工具仍需检查是否绕过公共入口直接访问 WinForms/HALCON。仍以 UI 线程同步调用 `Run()` 的历史入口要逐个迁移，不能用 `Application.DoEvents()` 掩盖阻塞。
 ## Recent Notes
 
+- 2026-09-10: 修正 `Configuration.BuildApplicationTitle()` 两处字符串边界的中文弯引号为 ASCII 双引号；Roslyn 对实际文件的语法诊断由 29 项降为 0，保留字符串中的中点及原标题内容。另补启动阶段 HALCON 绝对路径探测、位数/版本过滤和失败诊断，验证范围见 1.1；尚未复现或验证用户 Windows 上的原生加载异常。标题中的 `[Debug: 日期]` 当前没有条件编译，在 Release 中同样显示，本轮未改变这一显示约定。
 - 2026-09-09: 查找边（直线）和圆查找完整重制为当前暖白/浅蓝界面：左侧 HALCON 交互图、右侧基本/运行/结果分页、底部预览/运行工具/运行流程，参数层级参考海康 VisionMaster 的 ROI + 卡尺边缘测量工作流。两工具收口真实对象绑定、输入解析、ROI 跟随/回写、150ms 防抖预览、参数归一化、多位姿测量、结果显示和 HALCON 资源释放；圆查找的预览/正式运行统一到 `MeasureCircle()`，查找线预览也与正式运行共用同一参数和离群点规则。无图、无 ROI、单位姿测量失败和无结果改为状态返回并记录日志，不向窗体抛异常。macOS 使用 .NET Framework 4.8 参考包完成 `VMPro.csproj` 编译，产出 `CVMPro.dll` 且 0 编译错误；本结论不代表 Windows 实际界面、HALCON 授权、相机图像或现场节拍已通过。
 - 2026-09-09: 修复斑点分析连续运行的 `NullReferenceException`：原路径在工作线程直接调用 `GetImageWindowControl().hwc_imageWindow.HobjectToHimage(...)`，图像窗口未就绪或切页时可返回 null。斑点背景、搜索区、结果、外接圆和十字改为快照后单次 UI 批量投递，无可用窗口时只跳过显示，工具计算与输出不中断；结果表也不再从后台隐式创建编辑窗口。输入同步增加 object ID 0 检查。当前实际工程目录为 `VM Pro -1.0.4`；macOS 只做源码编译，Windows 连续运行和 HALCON 显示由目标环境验收。
 - 2026-09-09: 修正流程连线的混合展开状态：输入端和输出端各自判断所属模块是否展开，已展开的一端始终落到具体步骤端口，另一端折叠时只收口该端。仅在两端都折叠时按模块对归并；`FlowEditorSmoke` 增加两个方向的混合端点回归。Windows 界面效果由目标环境验收。

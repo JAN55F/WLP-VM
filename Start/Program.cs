@@ -16,11 +16,27 @@ namespace Start
         [STAThread]
         static void Main()
         {
+            Application.EnableVisualStyles();
+            Application.SetCompatibleTextRenderingDefault(false);
             try
             {
-                Application.EnableVisualStyles();
-                Application.SetCompatibleTextRenderingDefault(false);
+                HalconRuntime.EnsureLoaded();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "WLP VM - HALCON 启动检查", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
 
+            RunApplication();
+        }
+
+        // 在原生运行库就绪后才进入引用 VMPro/图像窗体的启动方法。
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private static void RunApplication()
+        {
+            try
+            {
                 //此处首先读取一次配置，因为程序启动时就需要知道当前语言选择，用于下面的提示信息的语言类型
                 Ini ini = new Ini(Application.StartupPath + @"\Config\Config.ini");
                 string language = ini.IniReadConfig("Language");
