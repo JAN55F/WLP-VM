@@ -13,8 +13,8 @@ internal static class HalconRuntimeSmoke
     {
         string repository = Path.GetFullPath(args[0]);
         Version version = AssemblyName.GetAssemblyName(Path.Combine(repository, "Lib", "halcondotnet.dll")).Version;
-        string x64 = Path.Combine(repository, "Start", "bin", "Debug", "halcon.dll");
-        string x86 = Path.Combine(repository, "VisionAndMotion", "bin", "Debug", "halcon.dll");
+        string x64 = Path.Combine(repository, "Lib", "Halcon", "x64-win64", "halcon.dll");
+        string x86 = Path.Combine(repository, "Lib", "Halcon", "x86sse2-win32", "halcon.dll");
         if (Environment.OSVersion.Platform == PlatformID.Win32NT)
         {
             HalconRuntime.ValidateNativeLibrary(x64, version, true);
@@ -47,17 +47,22 @@ internal static class HalconRuntimeSmoke
 
             var directories = HalconRuntime.GetCandidateDirectories(app, "\"" + root + "\"",
                 "\"" + native + "\";" + fallback + ";" + fallback + Path.DirectorySeparatorChar + ";.;\0;", true);
-            Check(directories.Count == 3, "Ignore duplicates, relative paths and invalid PATH entries");
-            Check(directories[0] == app && directories[1] == native && directories[2] == fallback,
-                "Use EXE directory, matching HALCONROOT architecture, then PATH after relocation");
+            Check(directories.Count == 4, "Ignore duplicates, relative paths and invalid PATH entries");
+            Check(directories[0] == Path.Combine(app, "Halcon", "x64-win64") &&
+                directories[1] == app && directories[2] == native && directories[3] == fallback,
+                "Use bundled runtime, EXE directory, matching HALCONROOT architecture, then PATH after relocation");
             Check(!directories.Contains(unrelated), "Current directory does not replace EXE directory");
 
             var withoutRoot = HalconRuntime.GetCandidateDirectories(app, null, fallback, true);
-            Check(withoutRoot.Count == 2 && withoutRoot[1] == fallback, "Discover PATH runtime when HALCONROOT is unset");
+            Check(withoutRoot.Count == 3 && withoutRoot[2] == fallback, "Discover PATH runtime when HALCONROOT is unset");
+            var noEnvironment = HalconRuntime.GetCandidateDirectories(app, null, string.Empty, true);
+            Check(noEnvironment.Count == 2 && noEnvironment[0] == Path.Combine(app, "Halcon", "x64-win64"),
+                "Bundled runtime is discoverable without HALCONROOT, PATH or a root halcon.dll");
             var forX86 = HalconRuntime.GetCandidateDirectories(app, root, string.Empty, false);
-            Check(forX86[1] == Path.Combine(root, "bin", "x86sse2-win32"), "Select directory from process bitness");
+            Check(forX86[0] == Path.Combine(app, "Halcon", "x86sse2-win32") &&
+                forX86[2] == Path.Combine(root, "bin", "x86sse2-win32"), "Select bundled and installed directories from process bitness");
             var driveRoot = HalconRuntime.GetCandidateDirectories(Path.GetPathRoot(app), null, string.Empty, true);
-            Check(driveRoot[0] == Path.GetPathRoot(app), "Preserve rooted drive paths");
+            Check(driveRoot[1] == Path.GetPathRoot(app), "Preserve rooted drive paths");
             Reject<FileNotFoundException>(() => HalconRuntime.ValidateNativeLibrary(Path.Combine(app, "halcon.dll"), version, true), "Report missing native library");
             Reject<BadImageFormatException>(() => HalconRuntime.ValidateNativeLibrary(Path.Combine(native, "halcon.dll"), version, true), "Reject corrupt native library");
         }

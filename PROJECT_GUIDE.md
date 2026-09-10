@@ -38,11 +38,12 @@
 ### 1.1 HALCON 原生库加载与路径排查（2026-09-10）
 
 - 当前修改对象是 `/Volumes/LiJian/WellPull/JAN-正在开发/VM Pro -NEW` 根目录的 `VM Pro.sln`；仓库中还有嵌套的 `VM Pro -NEW/` 副本，本轮未同步修改该副本。
-- `Start/Program.cs` 先调用 `Start/HalconRuntime.cs` 的 `EnsureLoaded()`，成功后才进入禁止内联的 `RunApplication()`，读取项目配置并创建主界面。按实际 EXE 目录、`HALCONROOT/bin/<进程架构>`、含 `halcon.dll` 的 `PATH` 项依次探测；架构根据 `Environment.Is64BitProcess` 选择 `x64-win64` 或 `x86sse2-win32`，不能仅凭解决方案配置名判断。
+- `Start/Program.cs` 先调用 `Start/HalconRuntime.cs` 的 `EnsureLoaded()`，成功后才进入禁止内联的 `RunApplication()`，读取项目配置并创建主界面。按 `EXE目录/Halcon/<进程架构>`、实际 EXE 目录、`HALCONROOT/bin/<进程架构>`、含 `halcon.dll` 的 `PATH` 项依次探测；架构根据 `Environment.Is64BitProcess` 选择 `x64-win64` 或 `x86sse2-win32`，不能仅凭解决方案配置名判断。
 - 每个候选 DLL 先校验 PE 位数及与 `halcondotnet.dll` 相同的主/次版本系列，再使用绝对路径 `LoadLibraryExW(..., LOAD_WITH_ALTERED_SEARCH_PATH)` 加载；保留模块句柄，并只将成功目录加入本进程 PATH，不修改系统环境变量、当前工作目录或相机适配器的 `SetDllDirectory`。失败时显示实际程序目录、进程位数、托管版本、HALCONROOT 和逐个候选的失败原因/Win32 错误码。
-- 本地快照的 `Lib/halcondotnet.dll` 与 `Start/bin/Debug/halcondotnet.dll` 哈希一致，版本均为 `17.12.0.0`；`Start/bin/Debug/halcon.dll` 为 x64，`VisionAndMotion/bin/Debug/halcon.dll` 为 x86，原生文件版本均为 `17.12.0.1`。这些是当前磁盘上的历史产物，不等于目标 Windows 部署内容；两份原生 DLL 不可混用。项目引用只负责托管 DLL，原生运行环境需随部署提供或安装并配置 HALCONROOT/PATH。
+- 用户后续 Windows 截图确认：64 位进程使用 `halcondotnet 17.12.0.0`，EXE 目录中的 `halcon.dll` 不存在，`HALCONROOT` 未设置，PATH 也未发现候选。此前 Git 只跟踪了托管封装 `Lib/halcondotnet.dll`，原生库仅位于被 `.gitignore` 排除的 `bin/` 中，因此拉取上一轮启动检查代码仍不能补齐缺文件。
+- 本轮将当前工程已有的 x64、x86 `halcon.dll` 原样保存到受版本管理的 `Lib/Halcon/x64-win64/`、`Lib/Halcon/x86sse2-win32/`，原生版本均为 `17.12.0.1`，托管封装为 `17.12.0.0`；来源副本分别为 `Start/bin/Debug` 和 `VisionAndMotion/bin/Debug`。`Lib/Halcon/README.md` 记录两份 SHA-256。`Start.csproj` 使用显式 Content + Link + PreserveNewest，构建时复制到 `输出目录/Halcon/<架构>/halcon.dll`；同时保留两种架构，运行时选择，不依赖构建机位数。复制程序时必须带上整个 Halcon 子目录；不要合并两种架构或只复制 EXE。
 - `HWindow_Final.ClearWindow()` 报 `DllNotFoundException / 0x8007007E` 时，先确认目标 Windows 上实际 EXE 的完整路径与加载检查结果。`halcondotnet.dll` 是托管封装，不能替代原生 `halcon.dll`；126 也可能是后者的依赖缺失，仅凭截图不能确定是路径还是依赖。不要以吞掉清屏异常作为修复。修改系统环境变量后重新启动 Visual Studio，使新进程继承环境。加载规则参考 [Microsoft DLL 搜索顺序](https://learn.microsoft.com/en-us/windows/win32/dlls/dynamic-link-library-search-order) 与 [LoadLibraryExW](https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-loadlibraryexw)。
-- `Tests/HalconRuntimeSmoke.cs` 与 `Start/HalconRuntime.cs` 一起编译，入口参数为仓库根目录；测试会读取上述两份历史原生 DLL 作为位数/版本样本。macOS 已通过 10 项路径/拒绝错误 DLL 检查，覆盖移动目录、中文/空格/引号路径、重复与非法 PATH、未设置 HALCONROOT、工作目录隔离、缺失/损坏/错误位数 DLL。原生 Windows PE 版本资源的 3 项检查因 Unix `FileVersionInfo` 限制跳过；原生加载、授权、窗口绘制和相机行为仍须 Windows 验收。启动源码通过 C# 5 + .NET Framework 4.8 参考程序集的隔离编译，不代表原项目 4.5.2 的 Windows 完整构建已通过。
+- `Tests/HalconRuntimeSmoke.cs` 与 `Start/HalconRuntime.cs` 一起编译，入口参数为仓库根目录；位数/版本样本改读受版本管理的 `Lib/Halcon`，不再依赖被忽略的 bin 文件。macOS 已通过 11 项路径/拒绝错误 DLL 检查，新增覆盖 HALCONROOT/PATH 均为空且根目录缺 DLL 时仍能发现随程序复制的核心库；原有移动目录、中文/空格/引号路径、重复/非法 PATH、工作目录隔离和错误 DLL 检查仍通过。实际执行 `Start.csproj` 的 AssignTargetPaths 并将两个 Content 项复制到临时目录，确认目标路径和 SHA-256 一致；这仅验证 MSBuild 内容复制。原生 Windows PE 版本资源的 3 项检查因 Unix `FileVersionInfo` 限制跳过；原生加载、授权、窗口绘制和相机行为仍须 Windows 验收。启动源码通过 C# 5 + .NET Framework 4.8 参考程序集的隔离编译，不代表原项目 4.5.2 的 Windows 完整构建已通过。
 
 ## 2. 顶层源码结构
 
@@ -558,6 +559,7 @@ rg -n "LoadVariable|ReindexCustomVariables|GlobelVariable|Variable" "VisionAndMo
 - `Job.Run()` 设计为后台线程执行。任何“运行流程/运行一次”入口都必须放后台线程，不能在按钮事件里同步调用，否则相机采图等阻塞 IO 会卡死 UI；公共状态和图像显示入口负责异步派发，但各具体工具仍需检查是否绕过公共入口直接访问 WinForms/HALCON。仍以 UI 线程同步调用 `Run()` 的历史入口要逐个迁移，不能用 `Application.DoEvents()` 掩盖阻塞。
 ## Recent Notes
 
+- 2026-09-10: 根据 Windows 启动检查截图补齐原生 HALCON 漏发：此前原生 DLL 只在被 Git 忽略的 bin 中，Git 拉取后仍缺文件。现将现有 `17.12.0.1` x64/x86 核心库纳入 `Lib/Halcon`，构建复制到 EXE 旁按架构分开的 Halcon 子目录，启动优先从该目录加载；不再要求用户手动从旧输出目录复制 DLL。11 项路径检查、启动源码隔离编译和两份内容复制/哈希检查通过，Windows 原生运行仍待验收。
 - 2026-09-10: 修正 `Configuration.BuildApplicationTitle()` 两处字符串边界的中文弯引号为 ASCII 双引号；Roslyn 对实际文件的语法诊断由 29 项降为 0，保留字符串中的中点及原标题内容。另补启动阶段 HALCON 绝对路径探测、位数/版本过滤和失败诊断，验证范围见 1.1；尚未复现或验证用户 Windows 上的原生加载异常。标题中的 `[Debug: 日期]` 当前没有条件编译，在 Release 中同样显示，本轮未改变这一显示约定。
 - 2026-09-09: 查找边（直线）和圆查找完整重制为当前暖白/浅蓝界面：左侧 HALCON 交互图、右侧基本/运行/结果分页、底部预览/运行工具/运行流程，参数层级参考海康 VisionMaster 的 ROI + 卡尺边缘测量工作流。两工具收口真实对象绑定、输入解析、ROI 跟随/回写、150ms 防抖预览、参数归一化、多位姿测量、结果显示和 HALCON 资源释放；圆查找的预览/正式运行统一到 `MeasureCircle()`，查找线预览也与正式运行共用同一参数和离群点规则。无图、无 ROI、单位姿测量失败和无结果改为状态返回并记录日志，不向窗体抛异常。macOS 使用 .NET Framework 4.8 参考包完成 `VMPro.csproj` 编译，产出 `CVMPro.dll` 且 0 编译错误；本结论不代表 Windows 实际界面、HALCON 授权、相机图像或现场节拍已通过。
 - 2026-09-09: 修复斑点分析连续运行的 `NullReferenceException`：原路径在工作线程直接调用 `GetImageWindowControl().hwc_imageWindow.HobjectToHimage(...)`，图像窗口未就绪或切页时可返回 null。斑点背景、搜索区、结果、外接圆和十字改为快照后单次 UI 批量投递，无可用窗口时只跳过显示，工具计算与输出不中断；结果表也不再从后台隐式创建编辑窗口。输入同步增加 object ID 0 检查。当前实际工程目录为 `VM Pro -1.0.4`；macOS 只做源码编译，Windows 连续运行和 HALCON 显示由目标环境验收。

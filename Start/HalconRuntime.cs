@@ -75,11 +75,14 @@ namespace Start
         internal static List<string> GetCandidateDirectories(string appDirectory, string halconRoot, string path, bool is64Bit)
         {
             List<string> directories = new List<string>();
+            string architecture = is64Bit ? "x64-win64" : "x86sse2-win32";
+            // 构建随程序复制的原生库优先，避免依赖开发机残留的 bin 文件或环境变量。
+            AddDirectory(directories, Path.Combine(appDirectory, "Halcon", architecture));
             AddDirectory(directories, appDirectory);
             string root = NormalizeDirectory(halconRoot);
             if (root != null)
             {
-                AddDirectory(directories, Path.Combine(root, "bin", is64Bit ? "x64-win64" : "x86sse2-win32"));
+                AddDirectory(directories, Path.Combine(root, "bin", architecture));
             }
 
             foreach (string entry in (path ?? string.Empty).Split(';'))
