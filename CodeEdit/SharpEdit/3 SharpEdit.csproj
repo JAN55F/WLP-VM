@@ -42,7 +42,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="Basler.Pylon">
-      <HintPath>..\..\VisionAndMotion\bin\Debug\Basler.Pylon.dll</HintPath>
+      <HintPath>..\..\Lib\Basler.Pylon.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />

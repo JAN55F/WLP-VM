@@ -26,6 +26,10 @@ x86/
 [Ww][Ii][Nn]32/
 [Aa][Rr][Mm]/
 [Aa][Rr][Mm]64/
+# 恢复 DockPanelSuite 源码里的 Win32 目录（上面的通配规则会误杀它们）
+!DockForm/WinFormsUI/Docking/Win32/
+# 本地备份目录，永不提交
+A_Old/
 bld/
 [Bb]in/
 [Oo]bj/
