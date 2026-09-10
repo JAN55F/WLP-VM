@@ -1374,6 +1374,8 @@ namespace VMPro
                         Frm_Main.Instance.dockPanel.LoadFromXml(selectedLayoutPath, Frm_Main.Instance.deserializeDockContent);
                     else
                         Frm_Main.Instance.dockPanel.LoadFromXml(ResolveDockLayoutPath("Config\\Resources\\Layout\\经典布局1.config"), Frm_Main.Instance.deserializeDockContent);
+                    // 旧保存布局可能把流程和工具箱叠成标签；加载后分成右侧两个并排区域。
+                    EnsureVisionEditorColumns();
                 }
                 catch { }
 
@@ -1914,8 +1916,8 @@ namespace VMPro
         }
         private void buttonItem20_Click(object sender, EventArgs e)
         {
-            if (Frm_Job.Instance.DockState == DockState.Hidden || Frm_Job.Instance.DockState == DockState.Unknown)
-                Frm_Job.Instance.Show(Frm_Main.Instance.dockPanel, DockState.DockRight);
+            EnsureVisionEditorColumns();
+            Frm_Job.Instance.Activate();
         }
         private void buttonItem21_Click(object sender, EventArgs e)
         {
@@ -3256,8 +3258,8 @@ namespace VMPro
 
         private void 流程编辑ToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if (Frm_Job.Instance.DockState == DockState.Hidden || Frm_Job.Instance.DockState == DockState.Unknown)
-                Frm_Job.Instance.Show(Frm_Main.Instance.dockPanel, DockState.DockRight);
+            EnsureVisionEditorColumns();
+            Frm_Job.Instance.Activate();
         }
 
         private void 图像窗口ToolStripMenuItem_Click(object sender, EventArgs e)
@@ -4101,7 +4103,7 @@ namespace VMPro
                 leftCenterRightLayout.Name = "切换到左中右布局ToolStripMenuItem";
                 leftCenterRightLayout.Padding = new System.Windows.Forms.Padding(0, 0, 0, 1);
                 leftCenterRightLayout.Size = new System.Drawing.Size(200, 27);
-                leftCenterRightLayout.Text = "左中右布局（图像-工具箱-流程）";
+                leftCenterRightLayout.Text = "三列布局（图像-流程-工具箱）";
                 leftCenterRightLayout.Click += 切换到左中右布局_Click;
 
                 // 在"切换到经典布局2"后面插入
@@ -4127,6 +4129,7 @@ namespace VMPro
                     切换到经典布局1ToolStripMenuItem.Checked = false;
                     切换到经典布局2ToolStripMenuItem.Checked = false;
                     Project.Instance.configuration.layoutFilePath = "Config\\Resources\\Layout\\" + "左中右布局.config";
+                    EnsureVisionEditorColumns();
                 }
                 else
                 {

@@ -31,7 +31,7 @@ namespace VMPro
             this.btn_preview = CreateFooterButton("预览", false);
             this.lbl_toolTip = new System.Windows.Forms.Label();
             this.lbl_time = new System.Windows.Forms.Label();
-            this.cbx_polarity = CreateCombo(new string[] { "从暗到明", "从明到暗", "任意极性" });
+            this.cbx_polarity = CreateCombo(new string[] { "由白到黑", "由黑到白", "任意极性" });
             this.cbx_edgeSelect = CreateCombo(new string[] { "第一条边", "最后一条边", "全部边" });
             this.tbx_threshold = CreateNumeric(1, 255, 1, 0);
             this.tbx_caliperNum = CreateNumeric(2, 720, 1, 0);
@@ -55,8 +55,8 @@ namespace VMPro
 
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).BeginInit();
             this.SuspendLayout();
-            this.lbl_title.Text = "查找边（直线）";
-            this.Text = "查找边（直线）";
+            this.lbl_title.Text = "直线查找";
+            this.Text = "直线查找";
             this.ClientSize = new System.Drawing.Size(1060, 700);
             this.MinimumSize = new System.Drawing.Size(920, 620);
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
@@ -73,12 +73,12 @@ namespace VMPro
             headerTitle.Font = new System.Drawing.Font("Microsoft YaHei UI", 10.5F, System.Drawing.FontStyle.Bold);
             headerTitle.ForeColor = System.Drawing.Color.FromArgb(39, 56, 72);
             headerTitle.Location = new System.Drawing.Point(14, 8);
-            headerTitle.Text = "直线边缘定位";
+            headerTitle.Text = "直线查找";
             System.Windows.Forms.Label headerHint = new System.Windows.Forms.Label();
             headerHint.AutoSize = true;
             headerHint.ForeColor = System.Drawing.Color.FromArgb(99, 116, 130);
             headerHint.Location = new System.Drawing.Point(14, 29);
-            headerHint.Text = "拖动内部移动 ROI，拖动两端手柄调整方向和长度";
+            headerHint.Text = "拖动内部移动 ROI，两端调整方向和长度；极性沿 ROI 箭头判断";
             header.Controls.Add(headerTitle);
             header.Controls.Add(headerHint);
 

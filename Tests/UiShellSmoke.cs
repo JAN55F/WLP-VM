@@ -353,7 +353,7 @@ internal static class UiShellSmoke
 
             Assert(dockPanel.Contents.Count == 5, "Standard layout must restore five Dock contents.");
             Assert(Math.Abs(dockPanel.DockLeftPortion - 0.24D) < 0.001D, "Unexpected left Dock portion.");
-            Assert(Math.Abs(dockPanel.DockRightPortion - 0.30D) < 0.001D, "Unexpected right Dock portion.");
+            Assert(Math.Abs(dockPanel.DockRightPortion - 0.50D) < 0.001D, "Unexpected right Dock portion.");
             Assert(Math.Abs(dockPanel.DockBottomPortion - 0.22D) < 0.001D, "Unexpected bottom Dock portion.");
 
             LayoutStub job = FindLayoutStub(dockPanel, "VMPro.Frm_Job");
@@ -361,8 +361,7 @@ internal static class UiShellSmoke
             LayoutStub output = FindLayoutStub(dockPanel, "VMPro.Frm_Output");
             LayoutStub monitor = FindLayoutStub(dockPanel, "VMPro.Frm_Monitor");
             LayoutStub image = FindLayoutStub(dockPanel, "VMPro.Frm_ImageWindow");
-            Assert(ReferenceEquals(job.Pane, toolBox.Pane) && job.DockState == DockState.DockRight,
-                "Workflow editor and toolbox must share one right-side tab pane.");
+            AssertEditorColumns(dockPanel, image, job, toolBox);
             Assert(ReferenceEquals(output.Pane, monitor.Pane) && output.DockState == DockState.DockBottom,
                 "Output and monitor must share one bottom tab pane.");
             Assert(image.DockState == DockState.Document && image.Pane != null,
@@ -378,9 +377,27 @@ internal static class UiShellSmoke
             Assert(outputBounds.Right <= jobBounds.Left + 2,
                 "The output/monitor pane must stop before the workflow/toolbox column. output=" +
                 outputBounds + ", editor=" + jobBounds);
-            Assert(dockPanel.Panes.Count == 3,
-                "The focused layout must use exactly three panes: document, side tabs, and bottom tabs.");
+            Assert(dockPanel.Panes.Count == 4,
+                "The layout needs document, workflow, toolbox, and bottom-tab panes.");
         }
+    }
+
+    private static void AssertEditorColumns(DockPanel dock, DockContent image,
+        DockContent job, DockContent toolbox)
+    {
+        Assert(job.DockState == DockState.DockRight && toolbox.DockState == DockState.DockRight &&
+               job.Pane != null && toolbox.Pane != null && job.Pane != toolbox.Pane,
+            "Workflow and toolbox must have separate visible right-side panes.");
+        dock.PerformLayout();
+        Rectangle jobBounds = dock.RectangleToClient(job.Pane.RectangleToScreen(job.Pane.ClientRectangle));
+        Rectangle toolboxBounds = dock.RectangleToClient(toolbox.Pane.RectangleToScreen(toolbox.Pane.ClientRectangle));
+        Rectangle imageBounds = dock.RectangleToClient(image.Pane.RectangleToScreen(image.Pane.ClientRectangle));
+        Assert(imageBounds.Right <= jobBounds.Left + 2 && jobBounds.Right <= toolboxBounds.Left + 2,
+            "Columns must be ordered image, workflow, toolbox from left to right.");
+        Assert(Math.Abs(jobBounds.Top - toolboxBounds.Top) <= 2 &&
+               Math.Abs(jobBounds.Bottom - toolboxBounds.Bottom) <= 2 &&
+               jobBounds.Width > 100 && toolboxBounds.Width > 100,
+            "Both editors must remain visible side by side at full height.");
     }
 
     private static void VerifyAndRenderShell(string assemblyPath, string layoutPath, string previewPath)
@@ -509,8 +526,22 @@ internal static class UiShellSmoke
             DockContent outputContent = FindDockContent(dock, "VMPro.Frm_Output");
             DockContent monitorContent = FindDockContent(dock, "VMPro.Frm_Monitor");
             DockContent imageContent = FindDockContent(dock, "VMPro.Frm_ImageWindow");
-            Assert(ReferenceEquals(jobContent.Pane, toolBoxContent.Pane) && jobContent.DockState == DockState.DockRight,
-                "Live workflow editor and toolbox must restore into one right-side tab pane.");
+            AssertEditorColumns(dock, imageContent, jobContent, toolBoxContent);
+            MethodInfo ensureColumns = mainType.GetMethod("EnsureVisionEditorColumns",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert(ensureColumns != null, "Missing legacy-layout migration.");
+            // 模拟旧项目把两个编辑器放在同一页签，再验证拆列及重复调用保留用户列宽。
+            toolBoxContent.Show(jobContent.Pane, null);
+            ensureColumns.Invoke(form, null);
+            form.PerformLayout();
+            AssertEditorColumns(dock, imageContent, jobContent, toolBoxContent);
+            DockPane toolboxPane = toolBoxContent.Pane;
+            dock.DockRightPortion = 0.55D;
+            ensureColumns.Invoke(form, null);
+            Assert(ReferenceEquals(toolboxPane, toolBoxContent.Pane) &&
+                   Math.Abs(dock.DockRightPortion - 0.55D) < 0.001D,
+                "Reopening the toolbox must preserve panes and resized column widths.");
+            dock.DockRightPortion = 0.50D;
             Assert(ReferenceEquals(outputContent.Pane, monitorContent.Pane) && outputContent.DockState == DockState.DockBottom,
                 "Live output and monitor must restore into one bottom tab pane.");
             Assert(imageContent.DockState == DockState.Document,

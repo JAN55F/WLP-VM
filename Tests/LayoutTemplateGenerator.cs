@@ -41,13 +41,13 @@ internal static class LayoutTemplateGenerator
                 form.IsMdiContainer = true;
                 dockPanel.Dock = DockStyle.Fill;
                 dockPanel.DockLeftPortion = 0.24D;
-                dockPanel.DockRightPortion = 0.30D;
+                dockPanel.DockRightPortion = 0.50D;
                 dockPanel.DockBottomPortion = 0.22D;
                 form.Controls.Add(dockPanel);
                 form.CreateControl();
 
                 job.Show(dockPanel, DockState.DockRight);
-                toolBox.Show(job.Pane, null);
+                toolBox.Show(job.Pane, DockAlignment.Right, 0.38D);
                 output.Show(dockPanel, DockState.DockBottom);
                 monitor.Show(output.Pane, null);
                 image.Show(dockPanel, DockState.Document);
@@ -56,8 +56,7 @@ internal static class LayoutTemplateGenerator
                 // 只占中央图像列，不能横向延伸到右侧编辑列下面。
                 dockPanel.UpdateDockWindowZOrder(DockStyle.Right, true);
 
-                // 工具箱/流程以及输出/监控分别共用一个标签式面板；默认显示
-                // 流程和输出，中央图像与日志上下分区，右侧完整留给编辑。
+                // 图像、流程和工具箱从左到右同时显示；输出/监控在图像下方共用标签。
                 job.Activate();
                 output.Activate();
                 image.Activate();

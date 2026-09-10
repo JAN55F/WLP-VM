@@ -6014,7 +6014,7 @@ namespace VMPro
                             toolStripItem1 = ((ToolStripMenuItem)rightClickMenu.Items[3]).DropDownItems.Add(Project.Instance.configuration.language == Language.English ? "FindAndFit" : "查找拟合");
                             toolStripItem1.BackColor = Color.White;
                             {
-                                toolStripItem1 = ((ToolStripMenuItem)((ToolStripMenuItem)rightClickMenu.Items[3]).DropDownItems[5]).DropDownItems.Add("查找边");
+                                toolStripItem1 = ((ToolStripMenuItem)((ToolStripMenuItem)rightClickMenu.Items[3]).DropDownItems[5]).DropDownItems.Add("直线查找");
                                 toolStripItem1.BackColor = Color.White;
                                 toolStripItem1.Image = Resources.FindLineTool;
                                 toolStripItem1.Click += InsertTool;
@@ -7411,7 +7411,7 @@ namespace VMPro
                                 Frm_FindLineTool.findLineTool = findLineEditorTool;
                                 lineEditor.jobName = this.jobName;
                                 lineEditor.toolName = L_toolList[i].toolName;
-                                lineEditor.lbl_title.Text = string.Format("查找边（直线）    [ {0} . {1} ]", this.jobName, L_toolList[i].toolName);
+                                lineEditor.lbl_title.Text = string.Format("直线查找    [ {0} . {1} ]", this.jobName, L_toolList[i].toolName);
                                 lineEditor.Show();
                                 lineEditor.WindowState = FormWindowState.Normal;
                                 lineEditor.BindTool(findLineEditorTool, L_toolList[i].enable);

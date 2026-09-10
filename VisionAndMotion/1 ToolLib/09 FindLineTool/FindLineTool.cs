@@ -327,7 +327,7 @@ namespace VMPro
                         Frm_FindLineTool.Instance.hWindow_Final1.viewWindow._hWndControl.clearHObjectList();
                     }
 
-                    bool foundLine = MeasureAndDisplayLines(width, height);
+                    bool foundLine = MeasureAndDisplayLines(width, height, true, false);
                     Frm_FindLineTool.Instance.hWindow_Final1.viewWindow._hWndControl.repaint();
                     UpdateWindowStatus(foundLine ? "预览完成：已找到直线" : "预览完成：未找到直线", foundLine);
                 }
@@ -339,7 +339,45 @@ namespace VMPro
             }
         }
 
-        private bool MeasureAndDisplayLines(HTuple width, HTuple height)
+        private HTuple CreateLineMetrologyModel(int lineIndex, HTuple width, HTuple height)
+        {
+            HTuple handleID;
+            HOperatorSet.CreateMetrologyModel(out handleID);
+            try
+            {
+                HOperatorSet.SetMetrologyModelImageSize(handleID, width[0], height[0]);
+                HTuple index;
+                HOperatorSet.AddMetrologyObjectLineMeasure(handleID,
+                    newExpectLineStartRow[lineIndex], newExpectLineStartCol[lineIndex],
+                    newExpectLineEndRow[lineIndex], newExpectLineEndCol[lineIndex],
+                    Length, caliperWidth, 1, 30, new HTuple(), new HTuple(), out index);
+                ApplyMetrologyParams(handleID);
+                return handleID;
+            }
+            catch
+            {
+                HOperatorSet.ClearMetrologyModel(handleID);
+                throw;
+            }
+        }
+
+        private void DisplayCaliperContours(HTuple handleID, bool runTool)
+        {
+            if (!displayCaliper) return;
+
+            HObject contours = null;
+            try
+            {
+                // HALCON 可在 ApplyMetrologyModel 前返回测量矩形，显示不依赖边缘结果。
+                HTuple rows, cols;
+                HOperatorSet.GetMetrologyObjectMeasures(out contours, handleID,
+                    "all", "all", out rows, out cols);
+                DisplayObject(contours, "#4c94d2", runTool);
+            }
+            finally { if (contours != null) contours.Dispose(); }
+        }
+
+        private bool MeasureAndDisplayLines(HTuple width, HTuple height, bool runTool, bool publishResult)
         {
             bool foundLine = false;
 
@@ -350,44 +388,43 @@ namespace VMPro
 
                 try
                 {
-                    HOperatorSet.CreateMetrologyModel(out handleID);
-                    HOperatorSet.SetMetrologyModelImageSize(handleID, width[0], height[0]);
-
-                    HTuple index;
-                    HOperatorSet.AddMetrologyObjectLineMeasure(handleID,
-                        newExpectLineStartRow[i], newExpectLineStartCol[i],
-                        newExpectLineEndRow[i], newExpectLineEndCol[i],
-                        new HTuple(Length), new HTuple(caliperWidth), new HTuple(1), new HTuple(30),
-                        new HTuple(), new HTuple(), out index);
-
-                    ApplyMetrologyParams(handleID);
+                    handleID = CreateLineMetrologyModel(i, width, height);
+                    DisplayCaliperContours(handleID, runTool);
                     HOperatorSet.ApplyMetrologyModel(toolPar.InputPar.图像, handleID);
 
                     HTuple rows, cols;
                     HOperatorSet.GetMetrologyObjectMeasures(out measureContours, handleID,
-                        new HTuple("all"), new HTuple("all"), out rows, out cols);
+                        "all", "all", out rows, out cols);
 
                     if (rows == null || rows.TupleLength() < 2) continue;
 
-                    if (displayCaliper)
-                        DisplayObject(measureContours, "#4c94d2", true);
-
-                    HOperatorSet.GetMetrologyObjectResultContour(out lineContour, handleID,
-                        new HTuple("all"), new HTuple("all"), new HTuple(1.5));
-
-                    Line resultLine;
+                    Line measuredLine;
+                    if (!TryGetLineResult(handleID, out measuredLine)) continue;
                     if (ignoreNum > 0 && rows.TupleLength() > ignoreNum + 1)
-                        resultLine = FitLineAfterRejectOutliers(lineContour, rows, cols, ignoreNum, true);
-                    else
                     {
-                        if (!TryGetLineResult(handleID, out resultLine)) continue;
-                        if (displayFeature)
-                            DisplayFeaturePoints(rows, cols, true, false);
+                        HOperatorSet.GetMetrologyObjectResultContour(out lineContour, handleID,
+                            "all", "all", 1.5);
+                        measuredLine = FitLineAfterRejectOutliers(lineContour, rows, cols, ignoreNum, runTool);
                     }
+                    else if (displayFeature)
+                        DisplayFeaturePoints(rows, cols, runTool, false);
 
+                    // 预览只绘制；正式运行将第一个有效实例写入现有单直线输出。
+                    if (!foundLine && publishResult)
+                    {
+                        ResultLineStartRow = measuredLine.起点.X;
+                        ResultLineStartCol = measuredLine.起点.Y;
+                        ResultLineEndRow = measuredLine.终点.X;
+                        ResultLineEndCol = measuredLine.终点.Y;
+                        HTuple angle;
+                        HOperatorSet.AngleLx(measuredLine.起点.X, measuredLine.起点.Y,
+                            measuredLine.终点.X, measuredLine.终点.Y, out angle);
+                        Angle = angle;
+                    }
                     foundLine = true;
                     if (displayLine)
-                        DisplayLineObject(resultLine.起点.X, resultLine.起点.Y, resultLine.终点.X, resultLine.终点.Y, "green", true);
+                        DisplayLineObject(measuredLine.起点.X, measuredLine.起点.Y,
+                            measuredLine.终点.X, measuredLine.终点.Y, "green", runTool);
                 }
                 catch (Exception ex)
                 {
@@ -430,35 +467,46 @@ namespace VMPro
 
         internal void ShowDraggingPreview()
         {
-            try
+            lock (syncLock)
             {
-                if (toolPar.InputPar.图像 == null || L_regions?.Count == 0) return;
-
-                EnableLineRoiEditing();
-                BuildExpectedLines(true);
-
-                var window = Frm_FindLineTool.Instance.hWindow_Final1;
-                window.viewWindow._hWndControl.clearHObjectList();
-
-                if (displayLine)
+                try
                 {
+                    HTuple width, height;
+                    if (!TryGetHalconImageSize(toolPar.InputPar.图像, out width, out height) ||
+                        L_regions?.Count == 0) return;
+
+                    NormalizeParameters();
+                    EnableLineRoiEditing();
+                    BuildExpectedLines(true);
+
+                    var window = Frm_FindLineTool.Instance.hWindow_Final1;
+                    window.viewWindow._hWndControl.clearHObjectList();
+
                     for (int i = 0; i < newExpectLineStartRow.Count; i++)
                     {
-                        HObject expectedLine = null;
+                        HTuple handleID = null;
                         try
                         {
-                            HTuple rows = newExpectLineStartRow[i].TupleConcat(newExpectLineEndRow[i]);
-                            HTuple cols = newExpectLineStartCol[i].TupleConcat(newExpectLineEndCol[i]);
-                            HOperatorSet.GenContourPolygonXld(out expectedLine, rows, cols);
-                            window.DispObj(expectedLine, "green");
+                            if (displayCaliper)
+                            {
+                                // 拖动只生成同一组测量矩形，不执行图像测量和拟合。
+                                handleID = CreateLineMetrologyModel(i, width, height);
+                                DisplayCaliperContours(handleID, true);
+                            }
+                            if (displayLine)
+                                DisplayLineObject(newExpectLineStartRow[i], newExpectLineStartCol[i],
+                                    newExpectLineEndRow[i], newExpectLineEndCol[i], "green", true);
                         }
-                        finally { if (expectedLine != null) expectedLine.Dispose(); }
+                        finally
+                        {
+                            if (handleID != null && handleID.TupleLength() > 0)
+                                HOperatorSet.ClearMetrologyModel(handleID);
+                        }
                     }
+                    window.viewWindow._hWndControl.repaint();
                 }
-
-                window.viewWindow._hWndControl.repaint();
+                catch (Exception ex) { Log.SaveError(ex); }
             }
-            catch (Exception ex) { Log.SaveError(ex); }
         }
 
         internal void EditCaliper()
@@ -481,6 +529,7 @@ namespace VMPro
                     followedPose = toolPar.InputPar.跟随[0];
                     CaptureTemplatePoseFromCurrentInput();
                 }
+                ShowDraggingPreview();
             }
             catch (Exception ex)
             {
@@ -731,7 +780,7 @@ namespace VMPro
                     UpdateBackgroundImage(updateImage, runTool);
                     BuildExpectedLines(true);
 
-                    bool foundLine = MeasureAndDisplayLines(inputWidth, inputHeight);
+                    bool foundLine = MeasureAndDisplayLines(inputWidth, inputHeight, runTool, true);
 
                     if (!foundLine)
                     {
@@ -790,6 +839,7 @@ namespace VMPro
             toolRunStatu = ToolRunStatu.未知原因;
             toolPar.ResultPar.圆心.Clear();
             toolPar.ResultPar.线 = new Line();
+            ResultLineStartRow = ResultLineStartCol = ResultLineEndRow = ResultLineEndCol = Angle = 0;
         }
 
         private void UpdateBackgroundImage(bool updateImage, bool runTool)

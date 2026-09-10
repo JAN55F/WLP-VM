@@ -1275,9 +1275,10 @@ namespace VMPro
                     #endregion
 
                     #region 查找边
+                    case "直线查找":
                     case "查找边":
                     case "FindLine":
-                        toolName = Job.FindJobByName(jobName).GetNewToolName("查找边");
+                        toolName = Job.FindJobByName(jobName).GetNewToolName("直线查找");
                         if (toolName == "TooMuch")       //此工具添加个数已达到上限100各，不让继续添加
                             return;
 
@@ -2728,7 +2729,7 @@ namespace VMPro
                 //查找拟合
                 TreeNode FindAndFitNode = tvw_tools.Nodes.Add("", Project.Instance.configuration.language == Language.English ? "FindAndFit" : "查找拟合", 0, 0);
                 {
-                    FindAndFitNode.Nodes.Add("", Project.Instance.configuration.language == Language.English ? "FindLine" : "查找边", 6, 6);
+                    FindAndFitNode.Nodes.Add("", Project.Instance.configuration.language == Language.English ? "FindLine" : "直线查找", 6, 6);
                     FindAndFitNode.Nodes.Add("", Project.Instance.configuration.language == Language.English ? "FindCircle" : "查找圆", 7, 7);
                     FindAndFitNode.Nodes.Add("", Project.Instance.configuration.language == Language.English ? "FitLine" : "拟合线", 8, 8);
                     FindAndFitNode.Nodes.Add("", Project.Instance.configuration.language == Language.English ? "FitCircle" : "拟合圆", 9, 9);
@@ -2993,9 +2994,10 @@ namespace VMPro
                         lbl_toolInfo.Text = (Project.Instance.configuration.language == Language.English ? "Notes：This type of tool is used for finding and fitting" : "说明：此类工具用于查找和拟合");
                         break;
 
+                    case "直线查找":
                     case "查找边":
                     case "FindLineTool":
-                        lbl_toolInfo.Text = (Project.Instance.configuration.language == Language.English ? "Notes：This tool is used to find straight lines" : "说明：此工具用于查找边");
+                        lbl_toolInfo.Text = (Project.Instance.configuration.language == Language.English ? "Notes：This tool is used to find straight lines" : "说明：此工具用于查找直线边缘");
                         break;
 
                     case "查找圆":

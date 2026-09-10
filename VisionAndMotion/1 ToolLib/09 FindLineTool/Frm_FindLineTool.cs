@@ -7,7 +7,7 @@ using ViewWindow.Model;
 
 namespace VMPro
 {
-    /// <summary>查找边（直线）编辑器：只负责参数、ROI 和结果呈现。</summary>
+    /// <summary>直线查找编辑器：只负责参数、ROI 和结果呈现。</summary>
     internal partial class Frm_FindLineTool : Frm_FormBase
     {
         private static Frm_FindLineTool _instance;
@@ -65,6 +65,7 @@ namespace VMPro
             bindingUi = true;
             try
             {
+                // 本工具 ROI 箭头与 HALCON 线的测量法向相反；保留历史 positive/negative 参数。
                 cbx_polarity.SelectedIndex = tool.polarity == "negative" ? 1 : tool.polarity == "all" ? 2 : 0;
                 cbx_edgeSelect.SelectedIndex = tool.edgeSelect == "first" ? 0 : tool.edgeSelect == "last" ? 1 : 2;
                 tbx_threshold.Value = tool.threshold;

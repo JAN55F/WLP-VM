@@ -437,7 +437,7 @@ namespace VMPro
                 CreateProxyMenuItem(english ? "About WLP VM" : "关于 WLP VM", 关于ToolStripMenuItem2)
             });
 
-            切换到经典布局1ToolStripMenuItem.Text = english ? "Focus layout (standard)" : "专注布局（标准）";
+            切换到经典布局1ToolStripMenuItem.Text = english ? "Three-column layout (standard)" : "三列布局（标准）";
             切换到经典布局1ToolStripMenuItem.ToolTipText = english ? "Applied after restart" : "重启软件后生效";
             切换到经典布局2ToolStripMenuItem.Text = english ? "Legacy layout 2" : "兼容布局 2";
             切换到经典布局2ToolStripMenuItem.Visible = File.Exists(ResolveDockLayoutPath("Config\\Resources\\Layout\\经典布局2.config"));
@@ -795,22 +795,37 @@ namespace VMPro
             dockPanel.Skin = skin;
 
             dockPanel.DockLeftPortion = 0.24D;
-            dockPanel.DockRightPortion = 0.30D;
+            dockPanel.DockRightPortion = 0.50D;
             dockPanel.DockBottomPortion = 0.22D;
             dockPanel.DefaultFloatWindowSize = new Size(320, 520);
         }
 
         internal void ShowToolboxInVisionSidebar()
         {
-            Frm_ToolBox toolbox = Frm_ToolBox.Instance;
-            if (toolbox.DockState != DockState.Hidden && toolbox.DockState != DockState.Unknown)
-            {
-                toolbox.Activate();
-                return;
-            }
+            EnsureVisionEditorColumns();
+            Frm_ToolBox.Instance.Activate();
+        }
 
-            toolbox.Show(dockPanel, DockState.Document);
-            toolbox.Activate();
+        internal void EnsureVisionEditorColumns()
+        {
+            Frm_Job job = Frm_Job.Instance;
+            Frm_ToolBox toolbox = Frm_ToolBox.Instance;
+            // 已经并排时保留用户拖动后的列宽，反复打开工具箱不重复创建 Pane。
+            if (job.DockState == DockState.DockRight && toolbox.DockState == DockState.DockRight &&
+                job.Pane != null && toolbox.Pane != null && job.Pane != toolbox.Pane &&
+                toolbox.Pane.NestedDockingStatus.PreviousPane == job.Pane &&
+                toolbox.Pane.NestedDockingStatus.Alignment == DockAlignment.Right)
+                return;
+
+            dockPanel.SuspendLayout();
+            try
+            {
+                job.Show(dockPanel, DockState.DockRight);
+                toolbox.Show(job.Pane, DockAlignment.Right, 0.38D);
+                dockPanel.DockRightPortion = 0.50D;
+                dockPanel.UpdateDockWindowZOrder(DockStyle.Right, true);
+            }
+            finally { dockPanel.ResumeLayout(true); }
         }
 
         internal void ShowOutputInVisionBottomPanel()
@@ -987,7 +1002,8 @@ namespace VMPro
         {
             string name = Path.GetFileNameWithoutExtension(layoutPath ?? string.Empty);
             return string.Equals(name, "经典布局1", StringComparison.OrdinalIgnoreCase) ||
-                   string.Equals(name, "经典布局2", StringComparison.OrdinalIgnoreCase);
+                   string.Equals(name, "经典布局2", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(name, "左中右布局", StringComparison.OrdinalIgnoreCase);
         }
 
         internal static string ResolveDockLayoutPath(string layoutPath)
