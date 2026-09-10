@@ -694,7 +694,7 @@
             this.lbl_title.Name = "lbl_title";
             this.lbl_title.Size = new System.Drawing.Size(856, 27);
             this.lbl_title.TabIndex = 11;
-            this.lbl_title.Text = "VM Pro学习版";
+            this.lbl_title.Text = "威乐普电子科技有限公司 - WLP VM";
             this.lbl_title.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.lbl_title.DragDrop += new System.Windows.Forms.DragEventHandler(this.lbl_title_DragDrop);
             this.lbl_title.DragOver += new System.Windows.Forms.DragEventHandler(this.lbl_title_DragOver);
@@ -1758,7 +1758,7 @@
             this.MinimumSize = new System.Drawing.Size(1000, 600);
             this.Name = "Main";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-            this.Text = "Main";
+            this.Text = "WLP VM";
             this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.Main_FormClosed);
             this.ResumeLayout(false);
 

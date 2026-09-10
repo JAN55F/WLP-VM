@@ -5,7 +5,6 @@ using System.Text;
 using System.Threading.Tasks;
 using System.IO.Ports;
 using System.Threading;
-using System.Windows.Forms;
 
 namespace VMPro
 {
@@ -114,7 +113,9 @@ namespace VMPro
                     }
                     catch
                     {
-                        Frm_MessageBox.Instance.MessageBoxShow(string.Format("\r\n[{0}] 打开端口失败，可能原因：端口不存在或已被占用", Name), TipType.Error);
+                        Machine.ShowMessageOnMainUiThread(
+                            string.Format("\r\n[{0}] 打开端口失败，可能原因：端口不存在或已被占用", Name),
+                            TipType.Error);
                     }
                 }
             }
@@ -134,14 +135,15 @@ namespace VMPro
             {
                 if (!FindSerialPortByName().IsOpen)
                 {
-                    Frm_MessageBox.Instance.MessageBoxShow("\r\n串口未打开，请打开后重试");
+                    Machine.ShowMessageOnMainUiThread("\r\n串口未打开，请打开后重试");
                     return;
                 }
                 string receiveStr = FindSerialPortByName().ReadExisting();
                 if (receiveStr != "" && receiveStr.EndsWith(endChar))
                 {
                     receiveStr.TrimEnd(endChar.ToCharArray());
-                    Frm_Scaner.Instance.tbx_output.Text += DateTime.Now.ToString("HH:mm:ss") + "<-  :" + receiveStr + Environment.NewLine;
+                    Frm_Scaner.TryAppendOutput(this,
+                        DateTime.Now.ToString("HH:mm:ss") + "<-  :" + receiveStr + Environment.NewLine);
                 }
             }
             catch (Exception ex)
@@ -159,15 +161,12 @@ namespace VMPro
             {
                 if (!FindSerialPortByName().IsOpen)
                 {
-                    Frm_MessageBox.Instance.MessageBoxShow("\r\n发送失败，端口未打开", TipType.Error);
+                    Machine.ShowMessageOnMainUiThread("\r\n发送失败，端口未打开", TipType.Error);
                     return string.Empty;
                 }
 
-                if (Frm_TCPClient.Instance.Visible)
-                {
-                    string curTime = DateTime.Now.ToString("HH:mm:ss");
-                    Frm_TCPClient.Instance.tbx_log.AppendText(curTime + "<-  : " + TrigCmd + "\r\n");
-                }
+                string triggerTime = DateTime.Now.ToString("HH:mm:ss");
+                Frm_Scaner.TryAppendOutput(this, triggerTime + "<-  :" + TrigCmd + "\r\n");
 
                 FindSerialPortByName().ReadExisting();
                 for (int i = 0; i < failNum ; i++)
@@ -175,16 +174,13 @@ namespace VMPro
                     FindSerialPortByName().WriteLine(TrigCmd);
                     Thread.Sleep(100);
                     ResultStr = FindSerialPortByName().ReadExisting();
-                    if (Frm_Scaner.Instance.Visible)
-                    {
-                        Frm_Scaner.Instance.tbx_output.Text += DateTime.Now.ToString("HH:mm:ss") + "<-  :" + ResultStr + Environment.NewLine;
-                        Application.DoEvents();
-                    }
+                    Frm_Scaner.TryAppendOutput(this,
+                        DateTime.Now.ToString("HH:mm:ss") + "<-  :" + ResultStr + Environment.NewLine);
                     if (ResultStr != "NG" && ResultStr != string.Empty)
                         return ResultStr;
                     Thread.Sleep(100);
                 }
-                Frm_MessageBox.Instance.MessageBoxShow("\r\n扫描条码失败");
+                Machine.ShowMessageOnMainUiThread("\r\n扫描条码失败");
                 return string.Empty;
             }
             catch (Exception ex)
@@ -203,14 +199,11 @@ namespace VMPro
             {
                 if (!FindSerialPortByName().IsOpen)
                 {
-                    Frm_MessageBox.Instance.MessageBoxShow("\r\n发送失败，端口未打开");
+                    Machine.ShowMessageOnMainUiThread("\r\n发送失败，端口未打开");
                     return;
                 }
-                if (Frm_Scaner.Instance.Visible)
-                {
-                    string curTime = DateTime.Now.ToString("HH:mm:ss");
-                    Frm_Scaner.Instance.tbx_output.AppendText(curTime + "<-  :" + msg + "\r\n");
-                }
+                string curTime = DateTime.Now.ToString("HH:mm:ss");
+                Frm_Scaner.TryAppendOutput(this, curTime + "<-  :" + msg + "\r\n");
                 FindSerialPortByName().ReadExisting();
                 FindSerialPortByName().WriteLine(msg + endChar);
             }

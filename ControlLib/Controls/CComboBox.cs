@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Data;
 using System.Linq;
 using System.Text;
@@ -12,13 +13,157 @@ using Controls.Properties;
 namespace Controls
 {
     public delegate void DSelectedIndexChanged();
-    public partial class CComboBox : UserControl
+    public partial class CComboBox : ModernInputControl
     {
+        private readonly ContextMenuStrip modernDropDown = new ContextMenuStrip();
+        private TextBox editTextBox;
+
         public CComboBox()
         {
             InitializeComponent();
+            ConfigureModernInput();
             cbx_item.Items.AddRange(Items);
             UpdateDropDownWidth();
+        }
+
+        private void ConfigureModernInput()
+        {
+            BackColor = Color.Transparent;
+            lbl_line.Visible = false;
+            modernDropDown.Font = Font;
+            // 原生 ComboBox 的方形边框无法与 24~30px 的圆角底板平滑融合。
+            // 保留它作为稳定的数据模型，显示和下拉菜单由外层控件统一绘制。
+            cbx_item.Visible = false;
+            btn_showItem.Image = null;
+            btn_showItem.BackColor = Color.Transparent;
+            btn_showItem.UseVisualStyleBackColor = false;
+            btn_showItem.FlatStyle = FlatStyle.Flat;
+            btn_showItem.FlatAppearance.BorderSize = 0;
+            btn_showItem.Paint += btn_showItem_Paint;
+            modernDropDown.ShowImageMargin = false;
+            modernDropDown.ShowCheckMargin = false;
+            modernDropDown.BackColor = InputSurfaceColor;
+            modernDropDown.ForeColor = InputTextColor;
+            modernDropDown.Font = Font;
+            Disposed += delegate { modernDropDown.Dispose(); };
+            TabStop = true;
+            LayoutInputChildren();
+        }
+
+        protected override void OnModernPaletteChanged()
+        {
+            if (cbx_item == null)
+                return;
+            btn_showItem.BackColor = Color.Transparent;
+            modernDropDown.BackColor = InputSurfaceColor;
+            modernDropDown.ForeColor = InputTextColor;
+            if (editTextBox != null)
+            {
+                editTextBox.BackColor = InputSurfaceColor;
+                editTextBox.ForeColor = InputTextColor;
+            }
+            Invalidate(true);
+        }
+
+        protected override void LayoutInputChildren()
+        {
+            if (cbx_item == null || btn_showItem == null || lbl_line == null)
+                return;
+
+            lbl_line.Visible = false;
+            int buttonWidth = Math.Max(20, Math.Min(24, Height - 2));
+            btn_showItem.SetBounds(Math.Max(3, Width - buttonWidth - 4), 3,
+                buttonWidth, Math.Max(1, Height - 6));
+            btn_showItem.BringToFront();
+            if (editTextBox != null)
+            {
+                editTextBox.Font = Font;
+                int editHeight = Math.Min(editTextBox.PreferredHeight, Math.Max(1, Height - 6));
+                editTextBox.SetBounds(8, Math.Max(2, (Height - editHeight) / 2),
+                    Math.Max(1, btn_showItem.Left - 12), editHeight);
+            }
+            UpdateDropDownWidth();
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            base.OnPaint(e);
+            if (CanEdit || Width <= 16 || Height <= 4)
+                return;
+
+            Rectangle textBounds = new Rectangle(8, 2,
+                Math.Max(1, btn_showItem.Left - 12), Math.Max(1, Height - 4));
+            string displayText = cbx_item.Text;
+            if (string.IsNullOrEmpty(displayText))
+                displayText = TextStr;
+            TextRenderer.DrawText(e.Graphics, displayText ?? string.Empty, Font, textBounds,
+                Enabled ? InputTextColor : SystemColors.GrayText,
+                TextFormatFlags.Left | TextFormatFlags.VerticalCenter |
+                TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
+        }
+
+        protected override void OnMouseDown(MouseEventArgs e)
+        {
+            base.OnMouseDown(e);
+            if (e.Button == MouseButtons.Left && !CanEdit)
+            {
+                Focus();
+                ShowModernDropDown();
+            }
+        }
+
+        protected override bool IsInputKey(Keys keyData)
+        {
+            Keys key = keyData & Keys.KeyCode;
+            if (key == Keys.Up || key == Keys.Down || key == Keys.Enter || key == Keys.Space)
+                return true;
+            return base.IsInputKey(keyData);
+        }
+
+        protected override void OnKeyDown(KeyEventArgs e)
+        {
+            base.OnKeyDown(e);
+            if (!Enabled)
+                return;
+
+            if (e.KeyCode == Keys.Down && e.Alt)
+            {
+                ShowModernDropDown();
+                e.Handled = true;
+            }
+            else if (e.KeyCode == Keys.Space || e.KeyCode == Keys.Enter)
+            {
+                ShowModernDropDown();
+                e.Handled = true;
+            }
+            else if (e.KeyCode == Keys.Down && Items != null && SelectedIndex < Items.Length - 1)
+            {
+                SelectUserItem(SelectedIndex + 1);
+                e.Handled = true;
+            }
+            else if (e.KeyCode == Keys.Up && Items != null && SelectedIndex > 0)
+            {
+                SelectUserItem(SelectedIndex - 1);
+                e.Handled = true;
+            }
+        }
+
+        private void btn_showItem_Paint(object sender, PaintEventArgs e)
+        {
+            ConfigureQuality(e.Graphics);
+            float centerX = btn_showItem.ClientRectangle.Width / 2F;
+            float centerY = btn_showItem.ClientRectangle.Height / 2F + 0.5F;
+            using (Pen pen = new Pen(Enabled ? InputTextColor : SystemColors.GrayText, 1.6F))
+            {
+                pen.StartCap = LineCap.Round;
+                pen.EndCap = LineCap.Round;
+                e.Graphics.DrawLines(pen, new[]
+                {
+                    new PointF(centerX - 3.5F, centerY - 2F),
+                    new PointF(centerX, centerY + 1.5F),
+                    new PointF(centerX + 3.5F, centerY - 2F)
+                });
+            }
         }
 
         /// <summary>
@@ -39,34 +184,39 @@ namespace Controls
             get { return _selectedIndex; }
             set
             {
-                _selectedIndex = value;
                 if (_syncing)
+                {
+                    _selectedIndex = value;
                     return;
+                }
+
+                _syncing = true;
                 try
                 {
                     if (cbx_item.SelectedIndex != value)
-                    {
-                        _syncing = true;
-                        try
-                        {
-                            cbx_item.SelectedIndex = value;
-                        }
-                        finally
-                        {
-                            _syncing = false;
-                        }
-                    }
+                        cbx_item.SelectedIndex = value;
+
+                    // 程序设置索引不会触发用户事件，但属性、隐藏模型和可见文字
+                    // 必须立即保持一致，避免 SelectedIndex 正确而 TextStr 仍是旧值。
+                    _selectedIndex = cbx_item.SelectedIndex;
+                    _text = cbx_item.Text ?? string.Empty;
                 }
                 catch
                 {
                     //设置索引失败不影响主流程，避免异常冒泡导致未处理崩溃
+                    _selectedIndex = cbx_item.SelectedIndex;
+                    _text = cbx_item.Text ?? string.Empty;
                 }
                 finally
                 {
+                    _syncing = false;
                     //无论程序设置还是用户选择，都让缓存与内部下拉框的真实显示保持一致；
                     //否则程序化选中后 TextStr 仍是旧值，调用方（如发送目标）会拿到过期内容
                     _selectedIndex = cbx_item.SelectedIndex;
-                    _text = cbx_item.Text;
+                    _text = cbx_item.Text ?? string.Empty;
+                    if (editTextBox != null && editTextBox.Text != (_text ?? string.Empty))
+                        editTextBox.Text = _text ?? string.Empty;
+                    Invalidate();
                 }
             }
         }
@@ -79,27 +229,32 @@ namespace Controls
             get { return _text; }
             set
             {
-                _text = value;
+                string requestedText = value ?? string.Empty;
+                _text = requestedText;
                 if (_syncing)
                     return;
                 _syncing = true;
                 try
                 {
-                    if (string.IsNullOrEmpty(value))
+                    if (requestedText.Length == 0)
                     {
                         if (cbx_item.SelectedIndex != -1)
                             cbx_item.SelectedIndex = -1;
                         cbx_item.Text = string.Empty;
+                        _selectedIndex = -1;
+                        _text = string.Empty;
                         return;
                     }
 
                     bool matched = false;
                     for (int i = 0; i < cbx_item.Items.Count; i++)
                     {
-                        if (string.Equals(cbx_item.Items[i].ToString(), value, StringComparison.Ordinal))
+                        if (string.Equals(cbx_item.Items[i].ToString(), requestedText, StringComparison.Ordinal))
                         {
                             if (cbx_item.SelectedIndex != i)
                                 cbx_item.SelectedIndex = i;
+                            _selectedIndex = i;
+                            _text = cbx_item.Text ?? requestedText;
                             matched = true;
                             break;
                         }
@@ -109,7 +264,11 @@ namespace Controls
                     {
                         if (cbx_item.SelectedIndex != -1)
                             cbx_item.SelectedIndex = -1;
-                        cbx_item.Text = value;
+                        cbx_item.Text = requestedText;
+                        _selectedIndex = -1;
+                        // DropDownList 会拒绝不在列表中的 Text；外层仍应显示调用方
+                        // 设置的文字，因此由 _text 保留该值。
+                        _text = requestedText;
                     }
                 }
                 catch
@@ -119,6 +278,9 @@ namespace Controls
                 finally
                 {
                     _syncing = false;
+                    if (editTextBox != null && editTextBox.Text != (_text ?? string.Empty))
+                        editTextBox.Text = _text ?? string.Empty;
+                    Invalidate();
                 }
             }
         }
@@ -132,10 +294,18 @@ namespace Controls
             set
             {
                 _canEdit = value;
+                // 隐藏的原生控件仍承担数据模型职责；可编辑模式必须允许任意文本，
+                // 否则 IP 等非列表值会被 DropDownList 静默丢弃。
+                cbx_item.DropDownStyle = value ? ComboBoxStyle.DropDown : ComboBoxStyle.DropDownList;
                 if (value)
-                    cbx_item.DropDownStyle = ComboBoxStyle.DropDown;
-                else
-                    cbx_item.DropDownStyle = ComboBoxStyle.DropDownList;
+                    EnsureEditTextBox();
+                if (editTextBox != null)
+                {
+                    editTextBox.Visible = value;
+                    editTextBox.TabStop = value;
+                }
+                LayoutInputChildren();
+                Invalidate();
             }
         }
         /// <summary>
@@ -246,17 +416,14 @@ namespace Controls
 
         private void UpdateDropDownWidth()
         {
-            int width = cbx_item.Width;
-            using (Graphics graphics = cbx_item.CreateGraphics())
+            int width = Math.Max(Width, 80);
+            foreach (object item in cbx_item.Items)
             {
-                foreach (object item in cbx_item.Items)
-                {
-                    int itemWidth = TextRenderer.MeasureText(graphics, item.ToString(), cbx_item.Font).Width + 28;
-                    if (itemWidth > width)
-                        width = itemWidth;
-                }
+                int itemWidth = TextRenderer.MeasureText(item.ToString(), Font).Width + 28;
+                if (itemWidth > width)
+                    width = itemWidth;
             }
-            cbx_item.DropDownWidth = Math.Max(width, cbx_item.Width);
+            cbx_item.DropDownWidth = width;
         }
 
 
@@ -267,24 +434,96 @@ namespace Controls
                 return;
             _selectedIndex = cbx_item.SelectedIndex;
             _text = cbx_item.Text;
+            Invalidate();
             if (SelectedIndexChanged != null)
                 SelectedIndexChanged();
         }
         private void ComboBox_Enter(object sender, EventArgs e)
         {
-            lbl_line.Height = 2;
-            lbl_line.BackColor = Color.FromArgb(18, 150, 219);
-            btn_showItem.Image = Resources.BlueImage;
+            Invalidate();
+            btn_showItem.Invalidate();
         }
         private void ComboBox_Leave(object sender, EventArgs e)
         {
-            lbl_line.Height = 1;
-            lbl_line.BackColor = Color.Gray;
-            btn_showItem.Image = Resources.GrayImage;
+            Invalidate();
+            btn_showItem.Invalidate();
         }
         private void btn_showItem_Click(object sender, EventArgs e)
         {
-            cbx_item.DroppedDown = true;
+            Focus();
+            ShowModernDropDown();
+        }
+
+        private void EnsureEditTextBox()
+        {
+            if (editTextBox != null)
+                return;
+
+            editTextBox = new TextBox();
+            editTextBox.Name = "modernEditTextBox";
+            editTextBox.BorderStyle = BorderStyle.None;
+            editTextBox.BackColor = InputSurfaceColor;
+            editTextBox.ForeColor = InputTextColor;
+            editTextBox.Font = Font;
+            editTextBox.Text = _text ?? string.Empty;
+            editTextBox.Visible = false;
+            editTextBox.TextChanged += delegate
+            {
+                if (_syncing)
+                    return;
+                _text = editTextBox.Text;
+                cbx_item.Text = _text;
+            };
+            Controls.Add(editTextBox);
+            editTextBox.BringToFront();
+        }
+
+        private void ShowModernDropDown()
+        {
+            if (!Enabled || Items == null || Items.Length == 0)
+                return;
+
+            while (modernDropDown.Items.Count > 0)
+            {
+                ToolStripItem oldItem = modernDropDown.Items[0];
+                modernDropDown.Items.RemoveAt(0);
+                oldItem.Dispose();
+            }
+            for (int index = 0; index < Items.Length; index++)
+            {
+                int itemIndex = index;
+                ToolStripMenuItem menuItem = new ToolStripMenuItem(Items[index] ?? string.Empty);
+                menuItem.AutoSize = false;
+                menuItem.Width = Math.Max(Width, cbx_item.DropDownWidth);
+                menuItem.Height = Math.Max(25, Font.Height + 8);
+                menuItem.Checked = index == SelectedIndex;
+                menuItem.Click += delegate { SelectUserItem(itemIndex); };
+                modernDropDown.Items.Add(menuItem);
+            }
+            modernDropDown.Show(this, new Point(0, Height));
+        }
+
+        private void SelectUserItem(int index)
+        {
+            if (Items == null || index < 0 || index >= Items.Length)
+                return;
+
+            _syncing = true;
+            try
+            {
+                _selectedIndex = index;
+                _text = Items[index] ?? string.Empty;
+                cbx_item.SelectedIndex = index;
+                if (editTextBox != null)
+                    editTextBox.Text = _text;
+            }
+            finally
+            {
+                _syncing = false;
+            }
+            Invalidate();
+            if (SelectedIndexChanged != null)
+                SelectedIndexChanged();
         }
 
         private void cbx_item_DrawItem(object sender, DrawItemEventArgs e)
@@ -294,15 +533,14 @@ namespace Controls
 
             e.DrawBackground();
             bool selected = (e.State & DrawItemState.Selected) == DrawItemState.Selected;
-            Color backColor = selected ? Color.FromArgb(18, 150, 219) : Color.White;
-            Color foreColor = selected ? Color.White : Color.FromArgb(50, 50, 50);
+            Color backColor = selected ? Color.FromArgb(226, 240, 252) : InputSurfaceColor;
+            Color foreColor = InputTextColor;
 
             using (SolidBrush backBrush = new SolidBrush(backColor))
                 e.Graphics.FillRectangle(backBrush, e.Bounds);
 
             Rectangle textRect = new Rectangle(e.Bounds.Left + 8, e.Bounds.Top + 3, e.Bounds.Width - 12, e.Bounds.Height - 6);
             TextRenderer.DrawText(e.Graphics, cbx_item.Items[e.Index].ToString(), cbx_item.Font, textRect, foreColor, TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
-            e.DrawFocusRectangle();
         }
 
     }

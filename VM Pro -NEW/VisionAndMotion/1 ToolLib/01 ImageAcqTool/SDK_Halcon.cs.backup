@@ -1,0 +1,417 @@
+﻿using HalconDotNet;
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using System.Runtime.InteropServices;
+using System.Text;
+using System.Text.RegularExpressions;
+
+namespace VMPro
+{
+    /// <summary>
+    /// Halcon相机接口
+    /// </summary>
+     [Serializable]
+    internal class SDK_Halcon : SDK_Base
+    {
+        internal SDK_Halcon(string cameraInfoStr)
+        {
+            this.CameraInfoStr = cameraInfoStr;
+        }
+        /// <summary>
+        /// 锁
+        /// </summary>
+        private object obj = new object();
+        /// <summary>
+        /// 相机集合   键：信息字符串  值：相机对象
+        /// </summary>
+        private static Dictionary<string, HTuple> D_cameras = new Dictionary<string, HTuple>();
+        private static readonly object pathLock = new object();
+        private static bool pathInitialized = false;
+        private static List<string> mvisionAcqDirs = new List<string>();
+        private static string activeMvisionAcqDir = string.Empty;
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        private static extern bool SetDllDirectory(string lpPathName);
+
+        [DllImport("kernel32.dll")]
+        private static extern uint SetErrorMode(uint uMode);
+
+        private const uint SEM_FAILCRITICALERRORS = 0x0001;
+        private const uint SEM_NOOPENFILEERRORBOX = 0x8000;
+
+
+        /// <summary>
+        /// 通过Halcon图像采集接口枚举网络中所有的相机
+        /// </summary>
+        internal static void EnumCamera()
+        {
+            try
+            {
+                EnsureAcquisitionInterfacePath();
+                string[] interfaceTypeArray = new string[] { "MVision", "DirectShow", "GigEVision2", "USB3Vision" };
+                HashSet<string> addedCameraInfos = new HashSet<string>();
+                //遍历所有接口
+                for (int i = 0; i < interfaceTypeArray.Length; i++)
+                {
+                    bool openedFromCurrentInterface = false;
+                    foreach (string acqDir in GetProbeDirectories(interfaceTypeArray[i]))
+                    {
+                        List<string> L_deviceStr = new List<string>();
+                        HTuple info, infoValue = new HTuple();
+                        ApplyAcquisitionDirectory(acqDir);
+                        try
+                        {
+                            HOperatorSet.InfoFramegrabber(new HTuple(interfaceTypeArray[i]), new HTuple("device"), out info, out infoValue);
+                        }
+                        catch
+                        {
+                            continue;
+                        }
+                        //////if (infoValue.ToString() == "\"device:default\"")       //表示没有搜索到采集设备
+                        //////    continue;
+                        for (int j = 0; j < infoValue.Length; j++)
+                        {
+
+                            string temp = GetDeviceName(infoValue, j);
+                            if (string.IsNullOrWhiteSpace(temp))
+                                continue;
+
+                            string cameraInfoStr = interfaceTypeArray[i] + " | " + temp;
+                            if (addedCameraInfos.Contains(cameraInfoStr) || D_cameras.ContainsKey(cameraInfoStr))
+                                continue;
+
+
+                            //初始化相机
+                            HTuple handle;
+                            try
+                            {
+                                bool isMVision = string.Equals(interfaceTypeArray[i], "MVision", StringComparison.OrdinalIgnoreCase);
+                                HOperatorSet.OpenFramegrabber(new HTuple(interfaceTypeArray[i]),
+                                                              new HTuple(isMVision ? 1 : 0),
+                                                              new HTuple(isMVision ? 1 : 0),
+                                                              new HTuple(0),
+                                                              new HTuple(0),
+                                                              new HTuple(0),
+                                                              new HTuple(0),
+                                                              new HTuple("progressive"),
+                                                              new HTuple(isMVision ? 8 : -1),
+                                                              new HTuple(isMVision ? "rgb" : "default"),
+                                                              new HTuple(-1),
+                                                              new HTuple("false"),
+                                                              new HTuple(isMVision ? "auto" : "default"),
+                                                              new HTuple(temp),
+                                                              new HTuple(0),
+                                                              new HTuple(-1),
+                                                              out handle
+                                                              );
+                            }
+                            catch
+                            {
+                                continue;
+                            }
+                            //获取曝光范围
+                            HTuple range;
+                            // HOperatorSet.GetFramegrabberParam(handle, new HTuple("exposure_range"), out range);
+                            // string range1 = range.ToString().TrimStart('[').TrimEnd(']');
+                            //////string min = Regex.Split(range1, ",")[0];
+                            //////string max = Regex.Split(range1, ",")[1];
+                            string min = "10";
+                            string max = "10000";
+                            HTuple exposure = 100;
+                            // HOperatorSet.GetFramegrabberParam(handle, new HTuple("exposure"), out exposure);
+                            SDK_Halcon sdk_Halcon = new SDK_Halcon(cameraInfoStr);
+
+                           
+                            D_cameras.Add(cameraInfoStr, handle);
+                            addedCameraInfos.Add(cameraInfoStr);
+                            openedFromCurrentInterface = true;
+                            AcqImageTool.L_devices.Add(sdk_Halcon);
+                            Frm_FromDevice.Instance.cbx_deviceList.Add(cameraInfoStr);
+                            Frm_FromDevice1.Instance.cbx_deviceList.Add(cameraInfoStr);
+
+                            //////HTuple element;
+                            //////HOperatorSet.TupleSelect(infoValue, new HTuple(j), out element);
+                            //////string temp = element.ToString();
+                            //////int startIndex = temp.IndexOf(":");
+                            //////int endIndex = temp.IndexOf("|");
+                            //////string deviceStr = temp.Substring(startIndex + 1, (endIndex - startIndex) - 2);
+                            //////L_deviceStr.Add(deviceStr);
+                        }
+
+                        if (openedFromCurrentInterface && string.Equals(interfaceTypeArray[i], "MVision", StringComparison.OrdinalIgnoreCase))
+                            break;
+                    }
+
+
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.SaveError(ex);
+            }
+        }
+        private static void EnsureAcquisitionInterfacePath()
+        {
+            lock (pathLock)
+            {
+                if (pathInitialized)
+                    return;
+
+                SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOOPENFILEERRORBOX);
+
+                string arch = Environment.Is64BitProcess ? "win64" : "win32";
+                string appArch = Environment.Is64BitProcess ? "Win64" : "Win32";
+                int halconMajor = GetHalconMajorVersion();
+                List<string> candidateDirs = new List<string>();
+                List<string> supportDirs = new List<string>();
+                List<string> mvsRoots = GetMvsRoots();
+                string appDir = AppDomain.CurrentDomain.BaseDirectory;
+
+                AddIfDirectoryExists(candidateDirs, Environment.GetEnvironmentVariable("MVS_HALCON_ADAPTER_DIR"));
+                AddIfDirectoryExists(candidateDirs, appDir);
+                AddIfDirectoryExists(supportDirs, appDir);
+
+                foreach (string mvsRoot in mvsRoots)
+                {
+                    if (halconMajor > 0)
+                    {
+                        AddIfDirectoryExists(candidateDirs, Path.Combine(mvsRoot, "Development", "ThirdPartyPlatformAdapter", "HalconHDevelop", "Halcon" + halconMajor, arch));
+                    }
+
+                    string adapterRoot = Path.Combine(mvsRoot, "Development", "ThirdPartyPlatformAdapter", "HalconHDevelop");
+                    if (Directory.Exists(adapterRoot))
+                    {
+                        foreach (string halconDir in Directory.GetDirectories(adapterRoot).OrderByDescending(p => p))
+                        {
+                            AddIfDirectoryExists(candidateDirs, Path.Combine(halconDir, arch));
+                        }
+                    }
+
+                    AddIfDirectoryExists(supportDirs, Path.Combine(mvsRoot, "Applications", appArch));
+                    AddIfDirectoryExists(supportDirs, Path.Combine(mvsRoot, "Development", "Bin", arch));
+                    AddIfDirectoryExists(supportDirs, Path.Combine(mvsRoot, "Development", "Bin", "Anycpu"));
+                }
+
+                mvisionAcqDirs = candidateDirs
+                    .Where(dir => Directory.Exists(dir) && File.Exists(Path.Combine(dir, "hAcqMVision.dll")))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                string oldPath = Environment.GetEnvironmentVariable("PATH") ?? string.Empty;
+                List<string> prependDirs = candidateDirs.Concat(supportDirs)
+                    .Where(Directory.Exists)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .Where(dir => !oldPath.Split(';').Any(p => string.Equals(p.Trim(), dir, StringComparison.OrdinalIgnoreCase)))
+                    .ToList();
+
+                if (prependDirs.Count > 0)
+                {
+                    string pathPrefix = string.Join(";", prependDirs.ToArray());
+                    Environment.SetEnvironmentVariable("PATH", pathPrefix + ";" + oldPath);
+                }
+
+                if (mvisionAcqDirs.Count > 0)
+                    ApplyAcquisitionDirectory(mvisionAcqDirs[0]);
+
+                pathInitialized = true;
+            }
+        }
+
+        private static IEnumerable<string> GetProbeDirectories(string interfaceType)
+        {
+            if (!string.Equals(interfaceType, "MVision", StringComparison.OrdinalIgnoreCase))
+                return new string[] { activeMvisionAcqDir };
+
+            if (mvisionAcqDirs.Count == 0)
+                return new string[] { activeMvisionAcqDir };
+
+            return mvisionAcqDirs;
+        }
+
+        private static void ApplyAcquisitionDirectory(string acqDir)
+        {
+            if (string.IsNullOrEmpty(acqDir) || string.Equals(activeMvisionAcqDir, acqDir, StringComparison.OrdinalIgnoreCase))
+                return;
+
+            SetDllDirectory(acqDir);
+            activeMvisionAcqDir = acqDir;
+        }
+
+        private static List<string> GetMvsRoots()
+        {
+            List<string> roots = new List<string>();
+            AddIfDirectoryExists(roots, Environment.GetEnvironmentVariable("MVS_HOME"));
+            AddIfDirectoryExists(roots, Environment.GetEnvironmentVariable("MVS_ROOT"));
+            AddIfDirectoryExists(roots, Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "MVS"));
+            AddIfDirectoryExists(roots, Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "MVS"));
+            return roots.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        }
+
+        private static void AddIfDirectoryExists(List<string> dirs, string dir)
+        {
+            if (!string.IsNullOrEmpty(dir) && Directory.Exists(dir))
+                dirs.Add(dir);
+        }
+
+        private static int GetHalconMajorVersion()
+        {
+            try
+            {
+                FileVersionInfo versionInfo = FileVersionInfo.GetVersionInfo(typeof(HOperatorSet).Assembly.Location);
+                return versionInfo.FileMajorPart;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        private static string GetDeviceName(HTuple infoValue, int index)
+        {
+            try
+            {
+                string temp = infoValue.TupleSelect(index).ToString().Trim();
+                if (string.IsNullOrEmpty(temp))
+                    return string.Empty;
+
+                Match match = Regex.Match(temp, "device:(.*?)\\s+unique_name", RegexOptions.IgnoreCase);
+                if (match.Success)
+                    return match.Groups[1].Value.Trim().Trim('"');
+
+                if (temp.StartsWith("device:", StringComparison.OrdinalIgnoreCase))
+                    temp = temp.Substring("device:".Length);
+
+                return temp.Trim().Trim('"');
+            }
+            catch
+            {
+                return string.Empty;
+            }
+        }
+        internal override bool CheckCamExist()
+        {
+            foreach (KeyValuePair<string, HTuple > item in D_cameras)
+            {
+                if (item.Key == CameraInfoStr)
+                    return true;
+            }
+            return false;
+        }
+        /// <summary>
+        /// 采图
+        /// </summary>
+        /// <returns>采集到的图像</returns>
+        internal override HObject GrabOneImage()
+        {
+            try
+            {
+                lock (obj)
+                {
+                    HObject image = null;
+                    foreach (KeyValuePair<string, HTuple> item in D_cameras)
+                    {
+                        if (item.Key == CameraInfoStr)
+                        {
+                            TrySetFramegrabberParam(item.Value, "grab_timeout", 5000.0);
+                            HOperatorSet.GrabImage(out image, item.Value);
+                        }
+                    }
+                    return image;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.SaveError(ex);
+                return null;
+            }
+        }
+        /// <summary>
+        /// 设置相机曝光时间，exposure 单位为 ms。
+        /// </summary>
+        internal override void SetExposure(double exposure)
+        {
+            try
+            {
+                foreach (KeyValuePair<string, HTuple> item in D_cameras)
+                {
+                    if (item.Key != CameraInfoStr)
+                        continue;
+
+                    double exposureUs = exposure * 1000.0;
+                    TrySetFramegrabberParam(item.Value, "ExposureAuto", "Off");
+                    TrySetFramegrabberParam(item.Value, "exposure_auto", "off");
+                    TrySetFramegrabberParam(item.Value, "auto_exposure", "off");
+                    if (TrySetFramegrabberParam(item.Value, "ExposureTime", exposureUs))
+                        return;
+                    if (TrySetFramegrabberParam(item.Value, "exposure_time", exposureUs))
+                        return;
+                    if (TrySetFramegrabberParam(item.Value, "Exposure", exposureUs))
+                        return;
+                    if (TrySetFramegrabberParam(item.Value, "exposure", exposure))
+                        return;
+                    if (TrySetFramegrabberParam(item.Value, "shutter", exposure))
+                        return;
+
+                    Frm_Output.Instance.OutputMsg("相机曝光亮度下发失败，当前 Halcon 采集接口不支持常见曝光参数：" + CameraInfoStr, System.Drawing.Color.Red);
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.SaveError(ex);
+            }
+        }
+
+        private static bool TrySetFramegrabberParam(HTuple handle, string paramName, double value)
+        {
+            try
+            {
+                HOperatorSet.SetFramegrabberParam(handle, new HTuple(paramName), new HTuple(value));
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static bool TrySetFramegrabberParam(HTuple handle, string paramName, string value)
+        {
+            try
+            {
+                HOperatorSet.SetFramegrabberParam(handle, new HTuple(paramName), new HTuple(value));
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+
+
+
+        /// <summary>
+        /// 关闭所有相机
+        /// </summary>
+        internal static void CloseAllCamera()
+        {
+            try
+            {
+                foreach (KeyValuePair<string, HTuple> item in D_cameras)
+                {
+                    HOperatorSet.CloseFramegrabber(item.Value);
+                }
+                D_cameras.Clear();
+            }
+            catch (Exception ex)
+            {
+                Log.SaveError(ex);
+            }
+        }
+
+    }
+}

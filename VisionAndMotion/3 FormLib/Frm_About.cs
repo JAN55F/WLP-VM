@@ -4,7 +4,6 @@ using System.ComponentModel;
 using System.Data;
 using System.Drawing;
 using System.Linq;
-using System.Reflection;
 using System.Text;
 using System.Windows.Forms;
 
@@ -15,6 +14,25 @@ namespace VMPro
         internal Frm_About()
         {
             InitializeComponent();
+            Text = "关于 WLP VM";
+            lbl_title.Text = "关于 WLP VM";
+            lbl_legalStatement.Text = "WLP VM 是威乐普电子科技有限公司的工业视觉软件，用于视觉流程编排、检测识别、标定定位与设备协同。";
+            label3.Text = Configuration.DefaultCompanyName;
+            label3.AutoSize = false;
+            label3.Location = new Point(20, 150);
+            label3.Size = new Size(250, 20);
+            lbl_version.Location = new Point(20, 172);
+            label5.Text = "Copyright © " + Configuration.DefaultCompanyName;
+            pictureBox2.Visible = false;
+            System.Windows.Forms.Label productName = new System.Windows.Forms.Label();
+            productName.Name = "aboutProductName";
+            productName.Location = new Point(270, 42);
+            productName.Size = new Size(124, 48);
+            productName.Font = new Font("Segoe UI", 16F, FontStyle.Bold, GraphicsUnit.Point);
+            productName.ForeColor = ModernUiTheme.Accent;
+            productName.TextAlign = ContentAlignment.MiddleCenter;
+            productName.Text = Configuration.ProductDisplayName;
+            panel2.Controls.Add(productName);
             Init_Language();
         }
 
@@ -42,7 +60,8 @@ namespace VMPro
             {
                 if (Project .Instance .configuration .language == Language.English)
                 {
-                    this.Text = "About";
+                    this.Text = "About WLP VM";
+                    lbl_title.Text = "About WLP VM";
                 }
             }
             catch (Exception ex)
@@ -50,25 +69,11 @@ namespace VMPro
                Log.SaveError(ex);
             }
         }
-        /// <summary>
-        /// 配置
-        /// </summary>
-        public string AssemblyConfiguration
-        {
-            get
-            {
-                object[] attributes = Assembly.GetExecutingAssembly().GetCustomAttributes(typeof(AssemblyConfigurationAttribute), false);
-                if (attributes.Length == 0)
-                {
-                    return "";
-                }
-                return ((AssemblyConfigurationAttribute)attributes[0]).Configuration;
-            }
-        }
-
         private void Frm_Version_Load(object sender, EventArgs e)
         {
-            lbl_version.Text = this.AssemblyConfiguration+" 开发版";
+            lbl_version.Text = Project.Instance.configuration.language == Language.English
+                ? "Version " + Configuration.ProductVersion
+                : "版本 " + Configuration.ProductVersion;
         }
 
     }

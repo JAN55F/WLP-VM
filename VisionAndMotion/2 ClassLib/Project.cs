@@ -108,6 +108,9 @@ namespace VMPro
                 Project.Instance = loadedProject;
                 // 项目文件中可能序列化了历史公司名，加载后统一覆盖为当前品牌。
                 Project.Instance.configuration.CompanyName = Configuration.DefaultCompanyName;
+                // 仅迁移空标题和已知的旧演示标题；客户自行命名的项目标题保持不变。
+                Project.Instance.configuration.ProgramTitle = Configuration.NormalizeProgramTitle(
+                    Project.Instance.configuration.ProgramTitle);
                 EnsureCommunicationRuntime();
 
                 RememberProjectPath(path);
@@ -117,7 +120,8 @@ namespace VMPro
                 {
 
                     //Project.Instance.curEngine = Project.Instance.L_engineList[0];
-                    Frm_Main.Instance.lbl_title.Text = string.Format("{0} - {1}", Project.Instance.configuration.CompanyName, Project.Instance.configuration.ProgramTitle);
+                    Frm_Main.Instance.lbl_title.Text = Configuration.BuildApplicationTitle(
+                        Project.Instance.configuration.ProgramTitle);
                     Frm_Main.Instance.lbl_curEngine.Text = string.Format("当前方案：{0}", Project.Instance.curEngine.schemeName);
 
                     for (int i = 0; i < Project.Instance.curEngine.L_jobList.Count; i++)
@@ -212,6 +216,34 @@ namespace VMPro
             }
             if (!currentSchemeFound && project.L_engineList.Count > 0)
                 project.curEngine = project.L_engineList[0];
+
+            // 所有旧方案中的流程都先恢复为干净的运行时状态，而不仅是当前显示的方案。
+            // 后续切换方案时，InportJob 会再按同一规则重建编辑树和连线。
+            HashSet<Job> preparedJobs = new HashSet<Job>();
+            for (int i = 0; i < project.L_engineList.Count; i++)
+            {
+                Scheme scheme = project.L_engineList[i];
+                if (scheme == null)
+                    continue;
+                if (scheme.L_jobList == null)
+                    scheme.L_jobList = new List<Job>();
+                scheme.L_jobList.RemoveAll(item => item == null);
+                for (int j = 0; j < scheme.L_jobList.Count; j++)
+                {
+                    if (preparedJobs.Add(scheme.L_jobList[j]))
+                        scheme.L_jobList[j].PrepareLoadedWorkflowData();
+                }
+            }
+
+            if (project.curEngine != null && project.curEngine.L_jobList != null)
+            {
+                project.curEngine.L_jobList.RemoveAll(item => item == null);
+                for (int i = 0; i < project.curEngine.L_jobList.Count; i++)
+                {
+                    if (preparedJobs.Add(project.curEngine.L_jobList[i]))
+                        project.curEngine.L_jobList[i].PrepareLoadedWorkflowData();
+                }
+            }
         }
 
         internal static string FindStartupProjectPath()
@@ -294,6 +326,7 @@ namespace VMPro
                 if (Project.Instance.L_PLCDevice == null)
                     Project.Instance.L_PLCDevice = new List<PLCDevice>();
 
+                TCPClient.ResetRuntimeStore();
                 PLCDevice.ResetRuntimeStore();
 
                 for (int i = 0; i < Project.Instance.L_TCPSever.Count; i++)

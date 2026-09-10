@@ -52,6 +52,9 @@ namespace VMPro
         /// 窗体对象实例
         /// </summary>
         private static Frm_ImageWindow _instance;
+        private static readonly object runtimeDisplayDispatcherSync = new object();
+        private static Frm_ImageWindow runtimeDisplayDispatcher;
+        private HObject runtimeOwnedImage;
         public static Frm_ImageWindow Instance
         {
             get
@@ -61,6 +64,137 @@ namespace VMPro
                 return _instance;
             }
         }
+
+        protected override void OnHandleCreated(EventArgs e)
+        {
+            base.OnHandleCreated(e);
+            lock (runtimeDisplayDispatcherSync)
+                runtimeDisplayDispatcher = this;
+        }
+
+        protected override void OnHandleDestroyed(EventArgs e)
+        {
+            lock (runtimeDisplayDispatcherSync)
+            {
+                if (ReferenceEquals(runtimeDisplayDispatcher, this))
+                {
+                    runtimeDisplayDispatcher = D_imageWindow.Values.FirstOrDefault(
+                        imageWindow => imageWindow != null &&
+                                       !ReferenceEquals(imageWindow, this) &&
+                                       !imageWindow.IsDisposed &&
+                                       imageWindow.IsHandleCreated);
+                }
+            }
+            base.OnHandleDestroyed(e);
+        }
+
+        /// <summary>
+        /// 将运行期图像窗口操作异步投递到已存在的图像窗体 UI 线程。
+        /// 不在后台线程枚举窗体集合，也不会为了投递而创建新窗体。
+        /// </summary>
+        internal static bool TryPostRuntimeDisplay(Action uiAction, Action canceledAction = null)
+        {
+            if (uiAction == null)
+                return false;
+
+            Frm_ImageWindow dispatcher;
+            lock (runtimeDisplayDispatcherSync)
+                dispatcher = runtimeDisplayDispatcher;
+
+            if (dispatcher == null)
+                return false;
+
+            int completionState = 0;
+            EventHandler disposedHandler = null;
+            Action cancelPending = delegate
+            {
+                if (Interlocked.CompareExchange(ref completionState, 2, 0) != 0)
+                    return;
+
+                if (disposedHandler != null)
+                    dispatcher.Disposed -= disposedHandler;
+                if (canceledAction != null)
+                {
+                    try
+                    {
+                        canceledAction();
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.SaveError(ex);
+                    }
+                }
+            };
+            disposedHandler = delegate { cancelPending(); };
+
+            MethodInvoker safeAction = delegate
+            {
+                if (Interlocked.CompareExchange(ref completionState, 1, 0) != 0)
+                    return;
+
+                dispatcher.Disposed -= disposedHandler;
+                try
+                {
+                    uiAction();
+                }
+                catch (Exception ex)
+                {
+                    Log.SaveError(ex);
+                }
+            };
+
+            try
+            {
+                dispatcher.Disposed += disposedHandler;
+                if (dispatcher.IsDisposed)
+                {
+                    cancelPending();
+                    return false;
+                }
+
+                if (dispatcher.InvokeRequired)
+                    dispatcher.BeginInvoke(safeAction);
+                else
+                    safeAction();
+                return true;
+            }
+            catch (ObjectDisposedException)
+            {
+                cancelPending();
+                return false;
+            }
+            catch (InvalidOperationException)
+            {
+                cancelPending();
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 接管运行线程为异步显示创建的图像快照，并只保留最近一张。
+        /// </summary>
+        internal void DisplayRuntimeImage(HObject ownedImage)
+        {
+            if (ownedImage == null)
+                return;
+
+            HObject previousImage = runtimeOwnedImage;
+            runtimeOwnedImage = ownedImage;
+            Display_Image(ownedImage);
+
+            if (previousImage != null && !ReferenceEquals(previousImage, ownedImage))
+            {
+                try
+                {
+                    previousImage.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    Log.SaveError(ex);
+                }
+            }
+        }
+
         public HTuple ImageWindowHandle
         {
             get
@@ -778,6 +912,19 @@ namespace VMPro
         }
         private void Frm_ImageWindow_FormClosed(object sender, FormClosedEventArgs e)
         {
+            if (runtimeOwnedImage != null)
+            {
+                try
+                {
+                    runtimeOwnedImage.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    Log.SaveError(ex);
+                }
+                runtimeOwnedImage = null;
+            }
+
             Project.Instance.configuration.imageWindowName.Remove(this.Text);
             Frm_ImageWindow.D_imageWindow.Remove(this.Text);
             _instance = null;

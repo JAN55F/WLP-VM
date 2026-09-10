@@ -272,7 +272,7 @@ namespace VMPro
         private void btn_confirm_Click(object sender, EventArgs e)
         {
             this.TopMost = true;
-            button100.Image = Resources.钉;
+            RefreshTitleButtonVisuals();
             Job.RunAndWaitToCurrentTool(jobName, toolName);
         }
 
@@ -758,6 +758,7 @@ namespace VMPro
         private void button4_Click_3(object sender, EventArgs e)
         {
             Frm_IOConfig.result1 = shapeMatchTool.toolPar;
+            Frm_IOConfig.Instance.toolInfoForEdit = null;
             Frm_IOConfig.Instance.jobName = this.jobName;
             Frm_IOConfig.Instance.ShowDialog();
         }

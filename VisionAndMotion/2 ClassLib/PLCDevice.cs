@@ -26,6 +26,9 @@ namespace VMPro
         internal bool   AutoDisconnectBeforeClose = true;
 
         [NonSerialized]
+        internal volatile bool connecting;
+
+        [NonSerialized]
         private object _syncRoot = new object();
 
         internal object SyncRoot

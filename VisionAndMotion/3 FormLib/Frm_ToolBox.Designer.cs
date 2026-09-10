@@ -31,7 +31,7 @@
             this.components = new System.ComponentModel.Container();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Frm_ToolBox));
             this.lbl_toolInfo = new System.Windows.Forms.Label();
-            this.tvw_tools = new System.Windows.Forms.TreeView();
+            this.tvw_tools = new VMPro.ModernToolboxTreeView();
             this.contextMenuStrip1 = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.折叠所有ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.展开所有ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -131,7 +131,7 @@
         #endregion
 
         private System.Windows.Forms.Label lbl_toolInfo;
-        private System.Windows.Forms.TreeView tvw_tools;
+        private VMPro.ModernToolboxTreeView tvw_tools;
         private System.Windows.Forms.ContextMenuStrip contextMenuStrip2;
         private System.Windows.Forms.ContextMenuStrip contextMenuStrip1;
         private System.Windows.Forms.ToolStripMenuItem 折叠所有ToolStripMenuItem;

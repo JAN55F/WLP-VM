@@ -97,8 +97,6 @@ namespace VMPro
                     string result = Encoding.Default.GetString(buffer, 0, length);
                     if (length > 0)
                     {
-                        if (Frm_TCPClient.Instance.Visible)
-                        { }
                         //////  ShowMsg("<- ：" + result);
                         //////Help11 help11 = new Help11();
                         //////help11.str1 = result;

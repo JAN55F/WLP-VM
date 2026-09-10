@@ -17,14 +17,13 @@ namespace VMPro
     {
         public Frm_MotionControl()
         {
-
-
             InitializeComponent();
-
             Init_Language();
-            Thread th = new Thread(ShowAxisInfo);
-            th.IsBackground = true;
-            th.Start();
+            Disposed += delegate
+            {
+                axisRefreshStop = true;
+                axisRefreshActive = false;
+            };
         }
 
 
@@ -37,11 +36,35 @@ namespace VMPro
         {
             get
             {
-                if (_instance == null)
+                if (_instance == null || _instance.IsDisposed)
                     _instance = new Frm_MotionControl();
                 return _instance;
             }
         }
+
+        private sealed class AxisRefreshRequest
+        {
+            internal int RowIndex;
+            internal string AxisName;
+            internal double UnitScale;
+        }
+
+        private sealed class AxisRefreshResult
+        {
+            internal int RowIndex;
+            internal double CommandPosition;
+            internal double CommandPositionInUnit;
+            internal double EncoderPosition;
+            internal double EncoderPositionInUnit;
+        }
+
+        private readonly object axisRefreshThreadSync = new object();
+        private Thread axisRefreshThread;
+        private volatile bool axisRefreshActive;
+        private volatile bool axisRefreshStop;
+        private int axisUiUpdatePending;
+        private DateTime lastAxisRefreshError = DateTime.MinValue;
+        private readonly List<int> smartPositionTableModelIndexes = new List<int>();
 
 
         /// <summary>
@@ -103,110 +126,279 @@ namespace VMPro
         /// <summary>
         /// 显示各轴信息
         /// </summary>
-        private void ShowAxisInfo()
+        internal void SetRefreshActive(bool active)
+        {
+            axisRefreshActive = active;
+            if (active)
+                EnsureAxisRefreshThread();
+        }
+
+        internal bool IsRefreshSurfaceVisible
+        {
+            get
+            {
+                return !IsDisposed && Visible && WindowState != FormWindowState.Minimized;
+            }
+        }
+
+        /// <summary>
+        /// 在运动工作区实际进入时同步智能点表，避免启动阶段为隐藏页面创建窗体。
+        /// </summary>
+        internal void RefreshSmartPositionTables()
         {
             try
             {
-                while (true)
+                SmartPosTable smartPositionTable = Project.Instance.curEngine.smartPosTable;
+                string selectedTableName = comboBox1.TextStr;
+
+                comboBox1.Clear();
+                smartPositionTableModelIndexes.Clear();
+                List<string> selectableTableNames = new List<string>();
+                HashSet<string> addedTableNames = new HashSet<string>(StringComparer.Ordinal);
+                for (int modelIndex = 0; modelIndex < smartPositionTable.L_Table.Count; modelIndex++)
                 {
-                    Thread.Sleep(100);
+                    string tableName = smartPositionTable.L_Table[modelIndex].tableName;
+                    if (string.IsNullOrWhiteSpace(tableName) || !addedTableNames.Add(tableName))
+                        continue;
 
-                    //获取各轴信息
-                    for (int i = 0; i < dgv_axisInfo.Rows.Count; i++)
+                    comboBox1.Add(tableName);
+                    selectableTableNames.Add(tableName);
+                    smartPositionTableModelIndexes.Add(modelIndex);
+                }
+
+                int selectedIndex = -1;
+                if (!string.IsNullOrEmpty(selectedTableName))
+                {
+                    for (int i = 0; i < selectableTableNames.Count; i++)
                     {
-                        switch (Project.Instance.configuration.cardType)
+                        if (string.Equals(selectableTableNames[i], selectedTableName, StringComparison.Ordinal))
                         {
-                            case CardType.固高_GTS:
-                                break;
-                            case CardType.雷塞_DMC2210:
-                                ushort axisIndex = (ushort)Card_LeadShineDMC2210.FindAxisByName(dgv_axisInfo.Rows[i].Cells[1].Value).actNo;
-
-                                double value = Card_LeadShineDMC2210.GetCurPosition(dgv_axisInfo.Rows[i].Cells[1].Value);
-                                dgv_axisInfo.Rows[i].Cells[2].Value = value;
-                                dgv_axisInfo.Rows[i].Cells[3].Value = value * Axis_Config.Instance.MMPixelRoute[axisIndex];
-
-                                value = Card_LeadShineDMC2210.GetCurEncoder(dgv_axisInfo.Rows[i].Cells[1].Value);
-                                dgv_axisInfo.Rows[i].Cells[4].Value = value;
-                                dgv_axisInfo.Rows[i].Cells[5].Value = value * Axis_Config.Instance.MMPixelRoute[axisIndex];
-
-                                ////////获取当前轴专用信号状态
-                                //////ushort axisIndex1 = (ushort)Card_LeadShineDMC2210.GetAxisIndexByName(cbx_axisName);
-                                //////bool b = Card_LeadShineDMC2210.GetMotorStatu(axisIndex1);
-                                //////if (b)
-                                //////    pic_motorOnOrOff.Image = Resources.On;
-                                //////else
-                                //////    pic_motorOnOrOff.Image = Resources.Off;
-
-                                //////b = Card_LeadShineDMC2210.InNEL(axisIndex1);
-                                //////if (b)
-                                //////    pic_NELStatu.Image = Resources.On;
-                                //////else
-                                //////    pic_NELStatu.Image = Resources.Off;
-
-                                //////b = Card_LeadShineDMC2210.InHome(axisIndex1);
-                                //////if (b)
-                                //////    pic_ORGStatu.Image = Resources.On;
-                                //////else
-                                //////    pic_ORGStatu.Image = Resources.Off;
-
-                                //////b = Card_LeadShineDMC2210.InPEL(axisIndex1);
-                                //////if (b)
-                                //////    pic_PELStatu.Image = Resources.On;
-                                //////else
-                                //////    pic_PELStatu.Image = Resources.Off;
-
-                                break;
-                            case CardType.雷塞_DMC2410:
-                                axisIndex = (ushort)Card_LeadShine_DMC2410.FindAxisByName(dgv_axisInfo.Rows[i].Cells[1].Value).actNo;
-
-                                value = Card_LeadShine_DMC2410.GetCurPosition(dgv_axisInfo.Rows[i].Cells[1].Value);
-                                dgv_axisInfo.Rows[i].Cells[2].Value = value;
-                                dgv_axisInfo.Rows[i].Cells[3].Value = value * 1.0;
-
-                                value = Card_LeadShine_DMC2410.GetCurEncoder(dgv_axisInfo.Rows[i].Cells[1].Value);
-                                dgv_axisInfo.Rows[i].Cells[4].Value = value;
-                                dgv_axisInfo.Rows[i].Cells[5].Value = value * 1.0;
-
-                                ////////获取当前轴专用信号状态
-                                //////axisIndex1 = (ushort)Card_LeadShine_DMC2410.GetAxisIndexByName(cbx_axisName);
-                                //////b = Card_LeadShine_DMC2410.GetMotorStatu(axisIndex1);
-                                //////if (b)
-                                //////    pic_motorOnOrOff.Image = Resources.On;
-                                //////else
-                                //////    pic_motorOnOrOff.Image = Resources.Off;
-
-                                //////b = Card_LeadShine_DMC2410.InNEL(axisIndex1);
-                                //////if (b)
-                                //////    pic_NELStatu.Image = Resources.On;
-                                //////else
-                                //////    pic_NELStatu.Image = Resources.Off;
-
-                                //////b = Card_LeadShine_DMC2410.InHome(axisIndex1);
-                                //////if (b)
-                                //////    pic_ORGStatu.Image = Resources.On;
-                                //////else
-                                //////    pic_ORGStatu.Image = Resources.Off;
-
-                                //////b = Card_LeadShine_DMC2410.InPEL(axisIndex1);
-                                //////if (b)
-                                //////    pic_PELStatu.Image = Resources.On;
-                                //////else
-                                //////    pic_PELStatu.Image = Resources.Off;
-
-                                //////b = Card_LeadShine_DMC2410.GetAlarmStatu(axisIndex1);
-                                //////if (b)
-                                //////    pic_ALMStatu.Image = Resources.On;
-                                //////else
-                                //////    pic_ALMStatu.Image = Resources.Off;
-                                break;
-
+                            selectedIndex = i;
+                            break;
                         }
                     }
                 }
+
+                if (selectedIndex < 0 && selectableTableNames.Count > 0)
+                    selectedIndex = 0;
+
+                if (selectedIndex >= 0)
+                {
+                    selectedTableName = selectableTableNames[selectedIndex];
+                    // CComboBox 的程序化设置不会触发 SelectedIndexChanged，需同步索引、文本并显式加载。
+                    comboBox1.SelectedIndex = selectedIndex;
+                    comboBox1.TextStr = selectedTableName;
+                }
+                else
+                {
+                    selectedTableName = string.Empty;
+                    comboBox1.SelectedIndex = -1;
+                    comboBox1.TextStr = string.Empty;
+                }
+
+                smartPositionTable.LoadData(dgv_pointList, selectedTableName);
+                comboBox2.TextStr = smartPositionTable.velPer * 100 + "%";
+                SetPointTableActionsEnabled(selectedIndex >= 0);
             }
             catch (Exception ex)
             {
                 Log.SaveError(ex);
+            }
+        }
+
+        private int GetSelectedSmartPositionTableModelIndex()
+        {
+            int selectorIndex = comboBox1.SelectedIndex;
+            if (selectorIndex >= 0 && selectorIndex < smartPositionTableModelIndexes.Count)
+            {
+                int modelIndex = smartPositionTableModelIndexes[selectorIndex];
+                if (modelIndex >= 0 && modelIndex < Project.Instance.curEngine.smartPosTable.L_Table.Count &&
+                    string.Equals(Project.Instance.curEngine.smartPosTable.L_Table[modelIndex].tableName, comboBox1.TextStr, StringComparison.Ordinal))
+                    return modelIndex;
+            }
+
+            for (int modelIndex = 0; modelIndex < Project.Instance.curEngine.smartPosTable.L_Table.Count; modelIndex++)
+            {
+                if (string.Equals(Project.Instance.curEngine.smartPosTable.L_Table[modelIndex].tableName, comboBox1.TextStr, StringComparison.Ordinal))
+                    return modelIndex;
+            }
+
+            return -1;
+        }
+
+        private void SetPointTableActionsEnabled(bool enabled)
+        {
+            dgv_pointList.Enabled = enabled;
+            button5.Enabled = enabled;
+            button6.Enabled = enabled;
+            button10.Enabled = enabled;
+            button13.Enabled = enabled;
+            button14.Enabled = enabled;
+        }
+
+        private void EnsureAxisRefreshThread()
+        {
+            lock (axisRefreshThreadSync)
+            {
+                if (axisRefreshThread != null && axisRefreshThread.IsAlive)
+                    return;
+
+                axisRefreshStop = false;
+                axisRefreshThread = new Thread(ShowAxisInfo);
+                axisRefreshThread.IsBackground = true;
+                axisRefreshThread.Name = "VMPro.MotionStatus";
+                axisRefreshThread.Start();
+            }
+        }
+
+        private void ShowAxisInfo()
+        {
+            while (!axisRefreshStop && !Machine.willExit)
+            {
+                if (!axisRefreshActive)
+                {
+                    Thread.Sleep(500);
+                    continue;
+                }
+
+                try
+                {
+                    List<AxisRefreshRequest> requests = CaptureAxisRefreshRequests();
+                    if (requests.Count > 0)
+                    {
+                        List<AxisRefreshResult> results;
+                        lock (Machine.lock_resources)
+                            results = ReadAxisRefreshResults(requests);
+                        QueueAxisRefreshResults(results);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    if ((DateTime.Now - lastAxisRefreshError).TotalSeconds >= 5)
+                    {
+                        lastAxisRefreshError = DateTime.Now;
+                        Log.SaveError(ex);
+                    }
+                }
+
+                Thread.Sleep(250);
+            }
+        }
+
+        private List<AxisRefreshRequest> CaptureAxisRefreshRequests()
+        {
+            if (IsDisposed || !IsHandleCreated)
+                return new List<AxisRefreshRequest>();
+
+            if (InvokeRequired)
+                return (List<AxisRefreshRequest>)Invoke(new Func<List<AxisRefreshRequest>>(CaptureAxisRefreshRequests));
+
+            List<AxisRefreshRequest> requests = new List<AxisRefreshRequest>();
+            CardType cardType = Project.Instance.configuration.cardType;
+            if (cardType != CardType.雷塞_DMC2210 && cardType != CardType.雷塞_DMC2410)
+                return requests;
+
+            for (int rowIndex = 0; rowIndex < dgv_axisInfo.Rows.Count; rowIndex++)
+            {
+                object value = dgv_axisInfo.Rows[rowIndex].Cells[1].Value;
+                if (value == null || string.IsNullOrWhiteSpace(value.ToString()))
+                    continue;
+
+                string axisName = value.ToString();
+                double scale = 1.0D;
+                if (cardType == CardType.雷塞_DMC2210)
+                {
+                    ushort axisIndex = (ushort)Card_LeadShineDMC2210.FindAxisByName(axisName).actNo;
+                    scale = Axis_Config.Instance.MMPixelRoute[axisIndex];
+                }
+
+                requests.Add(new AxisRefreshRequest
+                {
+                    RowIndex = rowIndex,
+                    AxisName = axisName,
+                    UnitScale = scale
+                });
+            }
+
+            return requests;
+        }
+
+        private static List<AxisRefreshResult> ReadAxisRefreshResults(List<AxisRefreshRequest> requests)
+        {
+            List<AxisRefreshResult> results = new List<AxisRefreshResult>(requests.Count);
+            CardType cardType = Project.Instance.configuration.cardType;
+
+            foreach (AxisRefreshRequest request in requests)
+            {
+                double commandPosition;
+                double encoderPosition;
+                if (cardType == CardType.雷塞_DMC2210)
+                {
+                    commandPosition = Card_LeadShineDMC2210.GetCurPosition(request.AxisName);
+                    encoderPosition = Card_LeadShineDMC2210.GetCurEncoder(request.AxisName);
+                }
+                else if (cardType == CardType.雷塞_DMC2410)
+                {
+                    commandPosition = Card_LeadShine_DMC2410.GetCurPosition(request.AxisName);
+                    encoderPosition = Card_LeadShine_DMC2410.GetCurEncoder(request.AxisName);
+                }
+                else
+                {
+                    continue;
+                }
+
+                results.Add(new AxisRefreshResult
+                {
+                    RowIndex = request.RowIndex,
+                    CommandPosition = commandPosition,
+                    CommandPositionInUnit = commandPosition * request.UnitScale,
+                    EncoderPosition = encoderPosition,
+                    EncoderPositionInUnit = encoderPosition * request.UnitScale
+                });
+            }
+
+            return results;
+        }
+
+        private void QueueAxisRefreshResults(List<AxisRefreshResult> results)
+        {
+            if (results == null || results.Count == 0 || !axisRefreshActive || IsDisposed || !IsHandleCreated)
+                return;
+            if (Interlocked.CompareExchange(ref axisUiUpdatePending, 1, 0) != 0)
+                return;
+
+            try
+            {
+                BeginInvoke(new Action<List<AxisRefreshResult>>(ApplyAxisRefreshResults), results);
+            }
+            catch
+            {
+                Interlocked.Exchange(ref axisUiUpdatePending, 0);
+            }
+        }
+
+        private void ApplyAxisRefreshResults(List<AxisRefreshResult> results)
+        {
+            try
+            {
+                if (!axisRefreshActive || IsDisposed)
+                    return;
+
+                foreach (AxisRefreshResult result in results)
+                {
+                    if (result.RowIndex < 0 || result.RowIndex >= dgv_axisInfo.Rows.Count)
+                        continue;
+
+                    DataGridViewRow row = dgv_axisInfo.Rows[result.RowIndex];
+                    row.Cells[2].Value = result.CommandPosition;
+                    row.Cells[3].Value = result.CommandPositionInUnit;
+                    row.Cells[4].Value = result.EncoderPosition;
+                    row.Cells[5].Value = result.EncoderPositionInUnit;
+                }
+            }
+            finally
+            {
+                Interlocked.Exchange(ref axisUiUpdatePending, 0);
             }
         }
         internal void OutputMsg(string msg, Color color)
@@ -236,6 +428,7 @@ namespace VMPro
 
         private void Frm_Axis_FormClosing(object sender, FormClosingEventArgs e)
         {
+            SetRefreshActive(false);
             this.Hide();
             e.Cancel = true;
         }
@@ -1246,7 +1439,13 @@ namespace VMPro
                     OutputMsg("请先选中点表中的具体行后删除", Color.Red);
                     return;
                 }
-                SmartPosTable.GoPos(comboBox1.SelectedIndex, dgv_pointList.SelectedRows[0].Index);
+                int tableIndex = GetSelectedSmartPositionTableModelIndex();
+                if (tableIndex < 0)
+                {
+                    OutputMsg("当前没有可用点表", Color.Red);
+                    return;
+                }
+                SmartPosTable.GoPos(tableIndex, dgv_pointList.SelectedRows[0].Index);
             }
             catch (Exception ex)
             {
@@ -1421,6 +1620,7 @@ namespace VMPro
                     //this.panel2.Width = this.panel2.Width  - 5;
                     this.Size = new Size(this.Size.Width, this.Size.Height + 23);
                     this.Show();
+                    SetRefreshActive(true);
                 }
                 else
                 {
@@ -1434,6 +1634,7 @@ namespace VMPro
                     Frm_MotionControl.Instance.Parent = Frm_Main.Instance.panel4;
                     Frm_MotionControl.Instance.Dock = DockStyle.Fill;
                     Frm_MotionControl.Instance.Show();
+                    Frm_Main.Instance.UpdateMotionRefreshActivity();
                 }
             }
             catch (Exception ex)
@@ -1998,9 +2199,13 @@ namespace VMPro
                 if (index == 0)
                     return;
 
-                Pos temp = Project.Instance.curEngine.smartPosTable.L_Table[comboBox1.SelectedIndex].L_pos[index - 1];
-                Project.Instance.curEngine.smartPosTable.L_Table[comboBox1.SelectedIndex].L_pos[index - 1] = Project.Instance.curEngine.smartPosTable.L_Table[comboBox1.SelectedIndex].L_pos[index];
-                Project.Instance.curEngine.smartPosTable.L_Table[comboBox1.SelectedIndex].L_pos[index] = temp;
+                int tableIndex = GetSelectedSmartPositionTableModelIndex();
+                if (tableIndex < 0)
+                    return;
+
+                Pos temp = Project.Instance.curEngine.smartPosTable.L_Table[tableIndex].L_pos[index - 1];
+                Project.Instance.curEngine.smartPosTable.L_Table[tableIndex].L_pos[index - 1] = Project.Instance.curEngine.smartPosTable.L_Table[tableIndex].L_pos[index];
+                Project.Instance.curEngine.smartPosTable.L_Table[tableIndex].L_pos[index] = temp;
 
                 for (int i = 0; i < dgv_pointList.Columns.Count; i++)
                 {
@@ -2022,12 +2227,16 @@ namespace VMPro
             try
             {
                 int index = dgv_pointList.SelectedRows[0].Index;
-                if (index == Project.Instance.curEngine.smartPosTable.L_Table[comboBox1.SelectedIndex].L_pos.Count - 1)
+                int tableIndex = GetSelectedSmartPositionTableModelIndex();
+                if (tableIndex < 0)
                     return;
 
-                Pos temp = Project.Instance.curEngine.smartPosTable.L_Table[comboBox1.SelectedIndex].L_pos[index + 1];
-                Project.Instance.curEngine.smartPosTable.L_Table[comboBox1.SelectedIndex].L_pos[index + 1] = Project.Instance.curEngine.smartPosTable.L_Table[comboBox1.SelectedIndex].L_pos[index];
-                Project.Instance.curEngine.smartPosTable.L_Table[comboBox1.SelectedIndex].L_pos[index] = temp;
+                if (index == Project.Instance.curEngine.smartPosTable.L_Table[tableIndex].L_pos.Count - 1)
+                    return;
+
+                Pos temp = Project.Instance.curEngine.smartPosTable.L_Table[tableIndex].L_pos[index + 1];
+                Project.Instance.curEngine.smartPosTable.L_Table[tableIndex].L_pos[index + 1] = Project.Instance.curEngine.smartPosTable.L_Table[tableIndex].L_pos[index];
+                Project.Instance.curEngine.smartPosTable.L_Table[tableIndex].L_pos[index] = temp;
 
                 for (int i = 0; i < dgv_pointList.Columns.Count; i++)
                 {

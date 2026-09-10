@@ -46,7 +46,7 @@
             this.label2.Name = "label2";
             this.label2.Size = new System.Drawing.Size(212, 21);
             this.label2.TabIndex = 8;
-            this.label2.Text = "VM Pro远程客户端上线提示";
+            this.label2.Text = "WLP VM 远程客户端上线提示";
             // 
             // label1
             // 

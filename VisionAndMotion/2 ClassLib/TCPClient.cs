@@ -17,7 +17,7 @@ namespace VMPro
         internal TCPClient(string name)
         {
             this.Name = name;
-            EnsureRuntimeSocket(name);
+            EnsureRuntimeSocket();
         }
 
         /// <summary>
@@ -39,7 +39,9 @@ namespace VMPro
         /// <summary>  
         /// Socket集合  因Socket类不能被序列化，所以声明一个静态的集合来存储    键：通讯设备名   值：Socket对象
         /// </summary>
-        internal static Dictionary<string, Socket> L_socket = new Dictionary<string, Socket>();
+        private static readonly object SocketMapSyncRoot = new object();
+        private static readonly Dictionary<string, Socket> L_socket = new Dictionary<string, Socket>();
+        private static readonly Dictionary<string, TCPClient> RuntimeNameOwners = new Dictionary<string, TCPClient>();
         /// <summary>
         /// 程序开启后自动连接服务器
         /// </summary>
@@ -53,41 +55,287 @@ namespace VMPro
         /// </summary>
         public bool AutoConnect = true;
 
+        [NonSerialized]
+        internal volatile bool connecting;
+
+        [NonSerialized]
+        private volatile bool manualDisconnect;
+
+        [NonSerialized]
+        private int connectionGeneration;
+
         internal void EnsureRuntime()
         {
-            EnsureRuntimeSocket(Name);
+            EnsureRuntimeSocket();
         }
 
-        private static void EnsureRuntimeSocket(string name)
+        private static Socket CreateRuntimeSocket()
         {
-            if (string.IsNullOrEmpty(name))
+            return new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+        }
+
+        private static void CloseRuntimeSocket(Socket socket)
+        {
+            if (socket == null)
                 return;
 
-            if (!L_socket.ContainsKey(name))
-                L_socket.Add(name, new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp));
+            try
+            {
+                if (socket.Connected)
+                    socket.Disconnect(false);
+            }
+            catch { }
+
+            try
+            {
+                socket.Close();
+            }
+            catch { }
         }
 
-        internal void Rename(string newName)
+        private bool EnsureRuntimeSocket()
+        {
+            lock (SocketMapSyncRoot)
+            {
+                string name = Name;
+                if (string.IsNullOrEmpty(name))
+                    return false;
+
+                TCPClient owner;
+                if (RuntimeNameOwners.TryGetValue(name, out owner) && !ReferenceEquals(owner, this))
+                    return false;
+
+                RuntimeNameOwners[name] = this;
+                if (!L_socket.ContainsKey(name))
+                    L_socket.Add(name, CreateRuntimeSocket());
+                return true;
+            }
+        }
+
+        private Socket GetRuntimeSocket()
+        {
+            lock (SocketMapSyncRoot)
+            {
+                string name = Name;
+                TCPClient owner;
+                if (string.IsNullOrEmpty(name) ||
+                    !RuntimeNameOwners.TryGetValue(name, out owner) ||
+                    !ReferenceEquals(owner, this))
+                    return null;
+
+                Socket socket;
+                return L_socket.TryGetValue(name, out socket) ? socket : null;
+            }
+        }
+
+        private static Socket SwapRuntimeSocket(string name, Socket replacement)
+        {
+            if (string.IsNullOrEmpty(name))
+                return null;
+
+            lock (SocketMapSyncRoot)
+            {
+                Socket previous;
+                L_socket.TryGetValue(name, out previous);
+                L_socket[name] = replacement;
+                return previous;
+            }
+        }
+
+        private bool TryInstallCurrentRuntimeSocket(Socket replacement, int generation, bool automaticReconnect, out string socketName)
+        {
+            Socket previous = null;
+            lock (SocketMapSyncRoot)
+            {
+                socketName = Name;
+                TCPClient owner;
+                if (string.IsNullOrEmpty(socketName) ||
+                    (RuntimeNameOwners.TryGetValue(socketName, out owner) && !ReferenceEquals(owner, this)) ||
+                    !IsCurrentGeneration(generation) ||
+                    (automaticReconnect && (!AutoConnect || manualDisconnect)))
+                    return false;
+
+                RuntimeNameOwners[socketName] = this;
+                L_socket.TryGetValue(socketName, out previous);
+                L_socket[socketName] = replacement;
+            }
+
+            if (!ReferenceEquals(previous, replacement))
+                CloseRuntimeSocket(previous);
+            return true;
+        }
+
+        private static Socket RemoveRuntimeSocket(string name, Socket expected)
+        {
+            if (string.IsNullOrEmpty(name))
+                return null;
+
+            lock (SocketMapSyncRoot)
+            {
+                Socket current;
+                if (!L_socket.TryGetValue(name, out current) ||
+                    (expected != null && !ReferenceEquals(current, expected)))
+                    return null;
+
+                L_socket.Remove(name);
+                return current;
+            }
+        }
+
+        private static Socket RemoveRuntimeSocket(Socket expected)
+        {
+            if (expected == null)
+                return null;
+
+            lock (SocketMapSyncRoot)
+            {
+                string matchedName = null;
+                foreach (KeyValuePair<string, Socket> item in L_socket)
+                {
+                    if (ReferenceEquals(item.Value, expected))
+                    {
+                        matchedName = item.Key;
+                        break;
+                    }
+                }
+
+                if (matchedName == null)
+                    return null;
+
+                L_socket.Remove(matchedName);
+                return expected;
+            }
+        }
+
+        private static bool IsCurrentRuntimeSocket(Socket expected)
+        {
+            if (expected == null)
+                return false;
+
+            lock (SocketMapSyncRoot)
+            {
+                foreach (Socket socket in L_socket.Values)
+                    if (ReferenceEquals(socket, expected))
+                        return true;
+                return false;
+            }
+        }
+
+        internal static KeyValuePair<string, Socket>[] GetRuntimeSocketSnapshot()
+        {
+            lock (SocketMapSyncRoot)
+                return L_socket.ToArray();
+        }
+
+        internal static void ResetRuntimeStore()
+        {
+            Socket[] sockets;
+            lock (SocketMapSyncRoot)
+            {
+                foreach (TCPClient client in RuntimeNameOwners.Values.Distinct())
+                {
+                    client.manualDisconnect = true;
+                    unchecked { client.connectionGeneration++; }
+                }
+
+                sockets = L_socket.Values.Distinct().ToArray();
+                L_socket.Clear();
+                RuntimeNameOwners.Clear();
+            }
+
+            foreach (Socket socket in sockets)
+                CloseRuntimeSocket(socket);
+        }
+
+        internal static void RemoveRuntimeSocket(string name)
+        {
+            Socket removed = null;
+            lock (SocketMapSyncRoot)
+            {
+                TCPClient owner;
+                if (RuntimeNameOwners.TryGetValue(name, out owner))
+                {
+                    owner.manualDisconnect = true;
+                    unchecked { owner.connectionGeneration++; }
+                    RuntimeNameOwners.Remove(name);
+                }
+
+                L_socket.TryGetValue(name, out removed);
+                L_socket.Remove(name);
+            }
+
+            CloseRuntimeSocket(removed);
+        }
+
+        internal static void UnregisterRuntime(TCPClient client)
+        {
+            if (client == null)
+                return;
+
+            Socket removed = null;
+            lock (SocketMapSyncRoot)
+            {
+                string name = client.Name;
+                TCPClient owner;
+                if (!string.IsNullOrEmpty(name) &&
+                    RuntimeNameOwners.TryGetValue(name, out owner) &&
+                    ReferenceEquals(owner, client))
+                {
+                    client.manualDisconnect = true;
+                    unchecked { client.connectionGeneration++; }
+                    RuntimeNameOwners.Remove(name);
+                    L_socket.TryGetValue(name, out removed);
+                    L_socket.Remove(name);
+                }
+            }
+
+            CloseRuntimeSocket(removed);
+        }
+
+        private bool TryRenameRuntimeSocket(string newName)
+        {
+            lock (SocketMapSyncRoot)
+            {
+                string oldName = Name;
+                if (string.Equals(oldName, newName, StringComparison.Ordinal))
+                    return true;
+                TCPClient destinationOwner;
+                if (RuntimeNameOwners.TryGetValue(newName, out destinationOwner) &&
+                    !ReferenceEquals(destinationOwner, this))
+                    return false;
+
+                TCPClient oldOwner;
+                bool ownsOldName = !string.IsNullOrEmpty(oldName) &&
+                    RuntimeNameOwners.TryGetValue(oldName, out oldOwner) &&
+                    ReferenceEquals(oldOwner, this);
+                Socket moving = null;
+                if (ownsOldName)
+                {
+                    L_socket.TryGetValue(oldName, out moving);
+                    L_socket.Remove(oldName);
+                    RuntimeNameOwners.Remove(oldName);
+                }
+
+                RuntimeNameOwners[newName] = this;
+                L_socket.Add(newName, moving ?? CreateRuntimeSocket());
+                Name = newName;
+                return true;
+            }
+        }
+
+        internal bool Rename(string newName)
         {
             try
             {
                 if (string.IsNullOrEmpty(newName) || Name == newName)
-                    return;
+                    return Name == newName;
 
-                Socket socket = null;
-                if (L_socket.ContainsKey(Name))
-                {
-                    socket = L_socket[Name];
-                    L_socket.Remove(Name);
-                }
-
-                Name = newName;
-                if (!L_socket.ContainsKey(Name))
-                    L_socket.Add(Name, socket ?? new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp));
+                return TryRenameRuntimeSocket(newName);
             }
             catch (Exception ex)
             {
                 Log.SaveError(ex);
+                return false;
             }
         }
 
@@ -100,13 +348,9 @@ namespace VMPro
         {
             try
             {
-                EnsureRuntime();
-                foreach (KeyValuePair<string, Socket> item in L_socket)
-                {
-                    if (item.Key == Name)
-                        return item.Value;
-                }
-                return null;
+                if (!EnsureRuntimeSocket())
+                    return null;
+                return GetRuntimeSocket();
             }
             catch (Exception ex)
             {
@@ -127,61 +371,137 @@ namespace VMPro
         /// </summary>
         internal bool Connect(int timeoutMs, bool showTip)
         {
+            int generation = BeginExplicitConnect();
+            return ConnectPrepared(timeoutMs, showTip, generation);
+        }
+
+        internal int BeginExplicitConnect()
+        {
+            lock (SocketMapSyncRoot)
+            {
+                manualDisconnect = false;
+                unchecked { connectionGeneration++; }
+                return connectionGeneration;
+            }
+        }
+
+        internal bool ConnectPrepared(int timeoutMs, bool showTip, int generation)
+        {
+            return ConnectCore(timeoutMs, showTip, false, generation);
+        }
+
+        private bool ConnectCore(int timeoutMs, bool showTip, bool automaticReconnect, int generation)
+        {
+            Socket socket = null;
             try
             {
-                EnsureRuntime();
-                for (int i = 0; i < L_socket.Count; i++)
-                {
-                    if (L_socket.Keys.ToArray()[i] == Name)
-                        L_socket[L_socket.Keys.ToArray()[i]] = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-                }
+                if (!IsCurrentGeneration(generation) || (automaticReconnect && !ShouldAutoReconnect(generation)))
+                    return false;
+
+                string serverIp = severIP;
+                int serverPort = severPort;
                 IPAddress ip;
                 try
                 {
-                    ip = IPAddress.Parse(severIP);
+                    ip = IPAddress.Parse(serverIp);
                 }
                 catch
                 {
                     ShowConnectMessage("\r\nIP地址有误或IP不存在，连接失败，请检查");
                     return false;
                 }
-                IPEndPoint point = new IPEndPoint(ip, severPort);
+                IPEndPoint point = new IPEndPoint(ip, serverPort);
+                socket = CreateRuntimeSocket();
+                if (!IsCurrentGeneration(generation) || (automaticReconnect && !ShouldAutoReconnect(generation)))
+                {
+                    CloseRuntimeSocket(socket);
+                    return false;
+                }
+
+                string socketName;
+                if (!TryInstallCurrentRuntimeSocket(socket, generation, automaticReconnect, out socketName))
+                {
+                    CloseRuntimeSocket(socket);
+                    return false;
+                }
+                if (!IsCurrentGeneration(generation) || (automaticReconnect && !ShouldAutoReconnect(generation)))
+                {
+                    RemoveRuntimeSocket(socket);
+                    CloseRuntimeSocket(socket);
+                    return false;
+                }
                 try
                 {
-                    Socket socket = FindSocketByName();
-                    if (socket == null)
-                        return false;
-
                     IAsyncResult result = socket.BeginConnect(point, null, null);
                     bool success = result.AsyncWaitHandle.WaitOne(timeoutMs, true);
                     if (!success)
                     {
-                        try { socket.Close(); } catch { }
+                        RemoveRuntimeSocket(socket);
+                        CloseRuntimeSocket(socket);
                         if (showTip)
-                            ShowConnectMessage(string.Format("\r\n客户端 [{0}] 连接失败：服务端未监听或网络超时", Name));
+                            ShowConnectMessage(string.Format("\r\n客户端 [{0}] 连接失败：服务端未监听或网络超时", socketName));
                         return false;
                     }
                     socket.EndConnect(result);
                 }
                 catch (Exception ex)
                 {
+                    RemoveRuntimeSocket(socket);
+                    CloseRuntimeSocket(socket);
                     if (showTip)
-                        ShowConnectMessage(string.Format("\r\n客户端 [{0}] 连接失败：{1}", Name, ex.Message));
+                        ShowConnectMessage(string.Format("\r\n客户端 [{0}] 连接失败：{1}", socketName, ex.Message));
                     return false;
                 }
-                if (FindSocketByName().Connected)
+
+                if (socket.Connected && IsCurrentGeneration(generation) && IsCurrentRuntimeSocket(socket))
                 {
-                    Thread th_recieve = new Thread(Recieve);
+                    Thread th_recieve = new Thread(new ThreadStart(delegate { Recieve(socket, generation); }));
                     th_recieve.IsBackground = true;
                     th_recieve.Start();
                     return true;
                 }
+
+                RemoveRuntimeSocket(socket);
+                CloseRuntimeSocket(socket);
                 return false;
             }
             catch (Exception ex)
             {
+                RemoveRuntimeSocket(socket);
+                CloseRuntimeSocket(socket);
                 Log.SaveError(ex);
                 return false;
+            }
+        }
+
+        private bool IsCurrentGeneration(int generation)
+        {
+            return Volatile.Read(ref connectionGeneration) == generation;
+        }
+
+        private bool ShouldAutoReconnect(int generation)
+        {
+            return IsCurrentGeneration(generation) && AutoConnect && !manualDisconnect;
+        }
+
+        private Socket InvalidateAndDetachRuntimeSocket()
+        {
+            lock (SocketMapSyncRoot)
+            {
+                manualDisconnect = true;
+                unchecked { connectionGeneration++; }
+
+                string name = Name;
+                TCPClient owner;
+                if (string.IsNullOrEmpty(name) ||
+                    !RuntimeNameOwners.TryGetValue(name, out owner) ||
+                    !ReferenceEquals(owner, this))
+                    return null;
+
+                Socket socket;
+                L_socket.TryGetValue(name, out socket);
+                L_socket.Remove(name);
+                return socket;
             }
         }
 
@@ -189,10 +509,7 @@ namespace VMPro
         {
             try
             {
-                if (Frm_Main.Instance.InvokeRequired)
-                    Frm_Main.Instance.BeginInvoke(new Action(() => Frm_MessageBox.Instance.MessageBoxShow(message)));
-                else
-                    Frm_MessageBox.Instance.MessageBoxShow(message);
+                Machine.ShowMessageOnMainUiThread(message);
             }
             catch (Exception ex)
             {
@@ -207,13 +524,13 @@ namespace VMPro
         {
             try
             {
-                if (Frm_TCPClient.Instance.Visible)
-                {
-                    string curTime = DateTime.Now.ToString("HH:mm:ss");
-                    Frm_TCPClient.Instance.tbx_log.AppendText(curTime + "<-  : " + msg + "\r\n");
-                }
+                string curTime = DateTime.Now.ToString("HH:mm:ss");
+                Frm_TCPClient.TryAppendLog(this, curTime + "<-  : " + msg + "\r\n");
                 byte[] buffer = Encoding.Default.GetBytes(msg);
-                FindSocketByName().Send(buffer);
+                Socket socket = FindSocketByName();
+                if (socket == null)
+                    return;
+                socket.Send(buffer);
             }
             catch (Exception ex)
             {
@@ -231,17 +548,16 @@ namespace VMPro
                 int length = 0;
                 try
                 {
-                    length = FindSocketByName().Receive(buffer);
+                    Socket socket = FindSocketByName();
+                    if (socket != null)
+                        length = socket.Receive(buffer);
                 }
                 catch { }
                 string result = Encoding.Default.GetString(buffer, 0, length);
                 if (length > 0)
                 {
-                    if (Frm_TCPClient.Instance.Visible)
-                    {
-                        string curTime = DateTime.Now.ToString("HH:mm:ss");
-                        Frm_TCPClient.Instance.tbx_log.AppendText(curTime + "->  : " + result + "\r\n");
-                    }
+                    string curTime = DateTime.Now.ToString("HH:mm:ss");
+                    Frm_TCPClient.TryAppendLog(this, curTime + "->  : " + result + "\r\n");
                     return result;
                 }
                 else
@@ -260,7 +576,7 @@ namespace VMPro
         /// <summary>
         /// 接收消息
         /// </summary>
-        private void Recieve()
+        private void Recieve(Socket socket, int generation)
         {
             try
             {
@@ -270,71 +586,54 @@ namespace VMPro
                     int length = 0;
                     try
                     {
-                        length = FindSocketByName().Receive(buffer);
+                        length = socket.Receive(buffer);
                     }
                     catch { }
                     string result = Encoding.Default.GetString(buffer, 0, length);
                     if (length > 0)
                     {
+                        if (!IsCurrentGeneration(generation) || !IsCurrentRuntimeSocket(socket))
+                            return;
+
                         string logLine = DateTime.Now.ToString("HH:mm:ss") + "->  : " + result + "\r\n";
-                        Frm_Main.Instance.BeginInvoke(new Action(() =>
-                        {
-                            if (Frm_TCPClient.Instance.Visible)
-                                Frm_TCPClient.Instance.tbx_log.AppendText(logLine);
-                        }));
+                        Frm_TCPClient.TryAppendLog(this, logLine);
                         receivedStr = result;
                     }
                     else
                     {
-                        if (FindSocketByName() != null)
-                        {
-                            try
-                            {
-                                FindSocketByName().Disconnect(false);
-                                FindSocketByName().Close();
-
-                            }
-                            catch { }
-                        }
-
-                        string localName1 = Name;
-                        Frm_Main.Instance.BeginInvoke(new Action(() =>
-                        {
-                            if (Frm_TCPClient.Instance.Visible)
-                            {
-                                if (Frm_DeviceManager.Instance.dgv_deviceList.SelectedRows.Count > 0 &&
-                                    Frm_DeviceManager.Instance.dgv_deviceList.SelectedRows[0].Cells[0].Value.ToString() == localName1)
-                                {
-                                    Frm_TCPClient.Instance.btn_connect.TextStr = "连接";
-                                    Frm_DeviceManager.Instance.lbl_tip.Text = "连接已断开";
-                                }
-                            }
-                        }));
-                        Frm_Main.Instance.OutputMsg("服务器连接已中断，已启动自动重连...", Color.Red);
-
-                        if (!AutoConnect)
+                        bool wasCurrentSocket = RemoveRuntimeSocket(socket) != null;
+                        CloseRuntimeSocket(socket);
+                        if (!wasCurrentSocket || !IsCurrentGeneration(generation))
                             return;
 
-                        while (FindSocketByName() == null || !FindSocketByName().Connected)
+                        string localName1 = Name;
+                        Frm_TCPClient.TryApplyConnectionState(this, false);
+                        Frm_DeviceManager.TrySetTipForDevice("TCPClient", localName1,
+                            "连接已断开", Color.Red);
+
+                        if (!ShouldAutoReconnect(generation))
+                            return;
+
+                        Frm_Main.Instance.OutputMsg("服务器连接已中断，已启动自动重连...", Color.Red);
+                        while (ShouldAutoReconnect(generation))
                         {
-                            if (Connect(2000, false))
+                            Socket current = GetRuntimeSocket();
+                            if (current != null && current.Connected)
+                                break;
+
+                            if (ConnectCore(2000, false, true, generation))
                                 break;
                             Thread.Sleep(1000);
                         }
 
+                        Socket reconnected = GetRuntimeSocket();
+                        if (!ShouldAutoReconnect(generation) || reconnected == null || !reconnected.Connected)
+                            return;
+
                         string localName2 = Name;
-                        Frm_Main.Instance.BeginInvoke(new Action(() =>
-                        {
-                            if (Frm_TCPClient.Instance.Visible)
-                            {
-                                if (Frm_DeviceManager.Instance.dgv_deviceList.SelectedRows.Count > 0 &&
-                                    Frm_DeviceManager.Instance.dgv_deviceList.SelectedRows[0].Cells[0].Value.ToString() == localName2)
-                                {
-                                    Frm_TCPClient.Instance.btn_connect.TextStr = "断开";
-                                    Frm_DeviceManager.Instance.lbl_tip.Text = "连接成功";
-                                }
-                            }
-                        }));
+                        Frm_TCPClient.TryApplyConnectionState(this, true);
+                        Frm_DeviceManager.TrySetTipForDevice("TCPClient", localName2,
+                            "连接成功", Color.Green);
                         //////});
                         //////th.IsBackground = true;
                         //////th.Start();
@@ -355,9 +654,8 @@ namespace VMPro
         {
             try
             {
-                if (FindSocketByName().Connected)
-                    FindSocketByName().Disconnect(false);
-                FindSocketByName().Close();
+                Socket socket = InvalidateAndDetachRuntimeSocket();
+                CloseRuntimeSocket(socket);
             }
             catch (Exception ex)
             {

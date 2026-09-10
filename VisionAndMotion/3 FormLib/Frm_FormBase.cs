@@ -13,6 +13,7 @@ namespace VMPro
     public partial class Frm_FormBase : Form
     {
         private bool titleButtonsAligned = false;
+        private ToolTip titleButtonToolTip;
 
         internal Frm_FormBase()
         {
@@ -24,7 +25,9 @@ namespace VMPro
         protected override void OnLoad(EventArgs e)
         {
             base.OnLoad(e);
+            ModernUiTheme.Apply(this);
             AlignTitleButtons();
+            ConfigureTitleButtons();
             titleButtonsAligned = true;
         }
 
@@ -32,7 +35,10 @@ namespace VMPro
         {
             base.OnSizeChanged(e);
             if (titleButtonsAligned)
+            {
                 AlignTitleButtons();
+                UpdateMaximizeButtonGlyph();
+            }
         }
 
         #region 任务栏入口：让模态弹窗拥有独立的任务栏按钮
@@ -209,7 +215,8 @@ namespace VMPro
 
         private void AlignTitleButtons()
         {
-            const int buttonSize = 25;
+            const int buttonWidth = 34;
+            int buttonHeight = Math.Max(25, panel1.Height);
 
             if (button100.Parent != panel1)
             {
@@ -223,19 +230,97 @@ namespace VMPro
             button2.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             btn_baseClose.Anchor = AnchorStyles.Top | AnchorStyles.Right;
 
-            button100.Size = new Size(buttonSize, buttonSize);
-            button1.Size = new Size(buttonSize, buttonSize);
-            button2.Size = new Size(buttonSize, buttonSize);
-            btn_baseClose.Size = new Size(buttonSize, buttonSize);
+            button100.Size = new Size(buttonWidth, buttonHeight);
+            button1.Size = new Size(buttonWidth, buttonHeight);
+            button2.Size = new Size(buttonWidth, buttonHeight);
+            btn_baseClose.Size = new Size(buttonWidth, buttonHeight);
 
-            btn_baseClose.Location = new Point(panel1.Width - buttonSize, 0);
-            button2.Location = new Point(panel1.Width - buttonSize * 2, 0);
-            button1.Location = new Point(panel1.Width - buttonSize * 3, 0);
-            button100.Location = new Point(panel1.Width - buttonSize * 4, 0);
+            btn_baseClose.Location = new Point(panel1.Width - buttonWidth, 0);
+            button2.Location = new Point(panel1.Width - buttonWidth * 2, 0);
+            button1.Location = new Point(panel1.Width - buttonWidth * 3, 0);
+            button100.Location = new Point(panel1.Width - buttonWidth * 4, 0);
             button100.BringToFront();
             button1.BringToFront();
             button2.BringToFront();
             btn_baseClose.BringToFront();
+        }
+
+        private void ConfigureTitleButtons()
+        {
+            int iconSize = ModernVectorIconFactory.GetPixelSize(panel1, 16);
+            Button[] buttons = { button100, button1, button2, btn_baseClose };
+            string[] names = { "置顶", "最小化", "最大化或还原", "关闭" };
+
+            if (titleButtonToolTip == null)
+            {
+                titleButtonToolTip = new ToolTip();
+                titleButtonToolTip.ShowAlways = true;
+            }
+
+            for (int index = 0; index < buttons.Length; index++)
+            {
+                Button button = buttons[index];
+                button.Text = string.Empty;
+                button.BackgroundImage = null;
+                button.BackgroundImageLayout = ImageLayout.Center;
+                button.ImageAlign = ContentAlignment.MiddleCenter;
+                button.FlatStyle = FlatStyle.Flat;
+                button.FlatAppearance.BorderSize = 0;
+                button.FlatAppearance.MouseOverBackColor = button == btn_baseClose
+                    ? ModernUiTheme.Danger
+                    : ModernUiTheme.AccentHover;
+                button.FlatAppearance.MouseDownBackColor = button == btn_baseClose
+                    ? Color.FromArgb(183, 45, 45)
+                    : ModernUiTheme.AccentPressed;
+                button.AccessibleName = names[index];
+                titleButtonToolTip.SetToolTip(button, names[index]);
+            }
+
+            button100.Image = ModernVectorIconFactory.Get(ModernVectorIconFactory.Glyph.Pin, iconSize, Color.White);
+            button1.Image = ModernVectorIconFactory.Get(ModernVectorIconFactory.Glyph.Minimize, iconSize, Color.White);
+            btn_baseClose.Image = ModernVectorIconFactory.Get(ModernVectorIconFactory.Glyph.Close, iconSize, Color.White);
+            UpdateMaximizeButtonGlyph();
+            UpdatePinButtonVisual();
+        }
+
+        internal void RefreshTitleButtonVisuals()
+        {
+            if (IsDisposed)
+                return;
+            ConfigureTitleButtons();
+        }
+
+        private void UpdateMaximizeButtonGlyph()
+        {
+            if (button2 == null || button2.IsDisposed)
+                return;
+            int iconSize = ModernVectorIconFactory.GetPixelSize(panel1, 16);
+            ModernVectorIconFactory.Glyph glyph = WindowState == FormWindowState.Maximized
+                ? ModernVectorIconFactory.Glyph.Restore
+                : ModernVectorIconFactory.Glyph.Maximize;
+            button2.Image = ModernVectorIconFactory.Get(glyph, iconSize, Color.White);
+        }
+
+        private void UpdatePinButtonVisual()
+        {
+            if (button100 == null || button100.IsDisposed)
+                return;
+            button100.BackColor = TopMost ? ModernUiTheme.AccentPressed : ModernUiTheme.HeaderBlue;
+            button100.AccessibleDescription = TopMost ? "当前窗口已置顶" : "当前窗口未置顶";
+        }
+
+        /// <summary>
+        /// 将工具窗体嵌入其它面板时隐藏基类自定义标题栏，避免标题按钮覆盖宿主布局。
+        /// </summary>
+        internal void SetEmbeddedMode(bool embedded)
+        {
+            panel1.Visible = !embedded;
+            button100.Visible = !embedded;
+            if (embedded)
+            {
+                FormBorderStyle = FormBorderStyle.None;
+                Padding = Padding.Empty;
+            }
         }
 
         #region 窗体拖动
@@ -389,13 +474,12 @@ namespace VMPro
             if (this.WindowState == FormWindowState.Normal)
             {
                 this.WindowState = FormWindowState.Maximized;
-                button2.BackgroundImage = Resources.Min;
             }
             else if (this.WindowState == FormWindowState.Maximized)
             {
                 this.WindowState = FormWindowState.Normal;
-                button2.BackgroundImage = Resources.Max;
             }
+            UpdateMaximizeButtonGlyph();
         }
 
         private void panel1_DoubleClick(object sender, EventArgs e)
@@ -406,13 +490,12 @@ namespace VMPro
             if (this.WindowState == FormWindowState.Normal)
             {
                 this.WindowState = FormWindowState.Maximized;
-                button2.BackgroundImage = Resources.Min;
             }
             else if (this.WindowState == FormWindowState.Maximized)
             {
                 this.WindowState = FormWindowState.Normal;
-                button2.BackgroundImage = Resources.Max;
             }
+            UpdateMaximizeButtonGlyph();
         }
 
         private void button4_Click(object sender, EventArgs e)
@@ -426,13 +509,12 @@ namespace VMPro
             if (this.TopMost)
             {
                 this.TopMost = false;
-                button100.Image = Resources.unTopLevel;
             }
             else
             {
                 this.TopMost = true;
-                button100.Image = Resources.钉;
             }
+            UpdatePinButtonVisual();
             lbl_title.Focus();
         }
 

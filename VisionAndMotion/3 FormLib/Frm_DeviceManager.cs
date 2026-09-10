@@ -42,9 +42,63 @@ namespace VMPro
         {
             get
             {
-                if (_instance == null)
+                if (_instance == null || _instance.IsDisposed)
                     _instance = new Frm_DeviceManager();
                 return _instance;
+            }
+        }
+
+        internal static bool TryGetExistingInstance(out Frm_DeviceManager form)
+        {
+            form = _instance;
+            if (form == null || form.IsDisposed || form.Disposing)
+            {
+                form = null;
+                return false;
+            }
+            return true;
+        }
+
+        internal static bool TrySetTipForDevice(string deviceType, string deviceName, string message, Color color)
+        {
+            Frm_DeviceManager form;
+            if (!TryGetExistingInstance(out form) || !form.IsHandleCreated)
+                return false;
+
+            MethodInvoker apply = delegate
+            {
+                try
+                {
+                    Frm_DeviceManager current;
+                    if (!TryGetExistingInstance(out current) ||
+                        !ReferenceEquals(current, form) ||
+                        !current.Visible ||
+                        !current.IsSelectedDevice(deviceType, deviceName))
+                        return;
+
+                    current.SetTip(message, color);
+                }
+                catch (Exception ex)
+                {
+                    Log.SaveError(ex);
+                }
+            };
+
+            try
+            {
+                if (form.InvokeRequired)
+                    form.BeginInvoke(apply);
+                else
+                    apply();
+                return true;
+            }
+            catch (ObjectDisposedException)
+            {
+                return false;
+            }
+            catch (InvalidOperationException)
+            {
+                return false;
             }
         }
 
@@ -455,6 +509,32 @@ namespace VMPro
             if (dgv_deviceList.SelectedRows.Count > 0 && dgv_deviceList.SelectedRows[0].Tag != null)
                 return dgv_deviceList.SelectedRows[0].Tag.ToString();
             return string.Empty;
+        }
+
+        private bool IsSelectedDevice(string deviceType, string deviceName)
+        {
+            string selectedType;
+            string selectedName;
+            if (lst_deviceListSimple != null && lst_deviceListSimple.SelectedItem is SimpleDeviceItem)
+            {
+                SimpleDeviceItem item = (SimpleDeviceItem)lst_deviceListSimple.SelectedItem;
+                selectedType = item.DeviceType;
+                selectedName = item.DeviceName;
+            }
+            else
+            {
+                selectedType = GetSelectedDeviceType();
+                selectedName = GetSelectedDeviceName();
+            }
+
+            if (!string.Equals(selectedName, deviceName, StringComparison.Ordinal))
+                return false;
+
+            if (string.Equals(selectedType, deviceType, StringComparison.Ordinal))
+                return true;
+
+            return (deviceType == "TCPSever" && selectedType == DefaultTcpServerType) ||
+                (deviceType == DefaultTcpServerType && selectedType == "TCPSever");
         }
 
         private void SetTip(string message, Color color)
@@ -1058,9 +1138,10 @@ namespace VMPro
                     {
                         tcpClient.Close();
                         Project.Instance.L_TCPClient.Remove(tcpClient);
+                        TCPClient.UnregisterRuntime(tcpClient);
                     }
-                    if (TCPClient.L_socket.ContainsKey(deviceName))
-                        TCPClient.L_socket.Remove(deviceName);
+                    else
+                        TCPClient.RemoveRuntimeSocket(deviceName);
                     break;
                 case "LightController":
                     LightController_Base lightController = FindLightController(deviceName);

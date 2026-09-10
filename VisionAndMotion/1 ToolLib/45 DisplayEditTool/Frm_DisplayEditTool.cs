@@ -269,6 +269,7 @@ namespace VMPro
         private void button4_Click(object sender, EventArgs e)
         {
             Frm_IOConfig.result1 = displayEditTool.toolPar;
+            Frm_IOConfig.Instance.toolInfoForEdit = null;
             Frm_IOConfig.Instance.jobName = this.jobName;
             Frm_IOConfig.Instance.ShowDialog();
         }

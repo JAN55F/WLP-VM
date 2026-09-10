@@ -27,6 +27,9 @@ namespace ViewWindow.Model
 		// flush_graphic 是 HALCON 进程级状态，所有窗口必须串行切换。
 		// 既保证整帧一次提交消除 ROI 拖动闪烁，也避免窗口之间互相冻结。
 		private static readonly object GraphicRenderLock = new object();
+		// 每个窗口单独保护背景图与叠加对象栈。显示、替换和释放必须使用
+		// 同一把锁，避免 repaint 正在使用对象时另一线程将其 Dispose。
+		private readonly object objectStackLock = new object();
 		/// <summary>No action is performed on mouse events</summary>
 		public const int MODE_VIEW_NONE       = 10;
 
@@ -795,49 +798,52 @@ namespace ViewWindow.Model
 		{
 			lock (GraphicRenderLock)
 			{
-				bool flushDisabled = false;
-				try
-			    {
-					int count = HObjImageList.Count;
-					HObjectEntry entry;
-
-					HSystem.SetSystem("flush_graphic", "false");
-					flushDisabled = true;
-					window.ClearWindow();
-					mGC.stateOfSettings.Clear();
-
-					// 整帧按背景 -> 结果叠加 -> ROI 的顺序绘制。
-					for (int i = 0; i < count; i++)
-					{
-						entry = ((HObjectEntry)HObjImageList[i]);
-						mGC.applyContext(window, entry.gContext);
-						window.DispObj(entry.HObj);
-					}
-
-					showHObjectList();
-					addInfoDelegate();
-
-					if (roiManager != null && (dispROI == MODE_INCLUDE_ROI))
-						roiManager.paintData(window, viewPort);
-				}
-				catch (Exception ex)
+				lock (objectStackLock)
 				{
-					System.Diagnostics.Debug.WriteLine(ex.ToString());
-				}
-				finally
-				{
+					bool flushDisabled = false;
 					try
-					{
-						if (flushDisabled)
-							HSystem.SetSystem("flush_graphic", "true");
+				    {
+						int count = HObjImageList.Count;
+						HObjectEntry entry;
 
-						// 一次性提交刚才绘制的完整帧。
-						window.SetColor("black");
-						window.DispLine(-100.0, -100.0, -101.0, -101.0);
+						HSystem.SetSystem("flush_graphic", "false");
+						flushDisabled = true;
+						window.ClearWindow();
+						mGC.stateOfSettings.Clear();
+
+						// 整帧按背景 -> 结果叠加 -> ROI 的顺序绘制。
+						for (int i = 0; i < count; i++)
+						{
+							entry = ((HObjectEntry)HObjImageList[i]);
+							mGC.applyContext(window, entry.gContext);
+							window.DispObj(entry.HObj);
+						}
+
+						showHObjectList();
+						addInfoDelegate();
+
+						if (roiManager != null && (dispROI == MODE_INCLUDE_ROI))
+							roiManager.paintData(window, viewPort);
 					}
-					catch (Exception flushException)
+					catch (Exception ex)
 					{
-						System.Diagnostics.Debug.WriteLine(flushException.ToString());
+						System.Diagnostics.Debug.WriteLine(ex.ToString());
+					}
+					finally
+					{
+						try
+						{
+							if (flushDisabled)
+								HSystem.SetSystem("flush_graphic", "true");
+
+							// 一次性提交刚才绘制的完整帧。
+							window.SetColor("black");
+							window.DispLine(-100.0, -100.0, -101.0, -101.0);
+						}
+						catch (Exception flushException)
+						{
+							System.Diagnostics.Debug.WriteLine(flushException.ToString());
+						}
 					}
 				}
 			}
@@ -856,40 +862,37 @@ namespace ViewWindow.Model
 		/// <param name="obj">Iconic object</param>
 		public void addIconicVar(HObject img)
 		{
-            //先把HObjImageList给全部释放了,源代码 会出现内存泄漏问题
-            for (int i = 0; i < HObjImageList.Count; i++)
-            {
-                 ((HObjectEntry)HObjImageList[i]).clear();
-            }
-
-
-			HObjectEntry entry;
-
 			if (img == null)
 				return;
-            
+
             HTuple classValue=null;
             HOperatorSet.GetObjClass(img, out classValue);
             if (!classValue.S.Equals("image"))
             {
                 return;
             }
-            
-            HImage obj = new HImage(img);
 
-			if (obj is HImage)
+            HImage obj = null;
+            try
             {
+				obj = new HImage(img);
 				double r, c;
 				int h, w, area;
 				string s;
 
-				area = ((HImage)obj).GetDomain().AreaCenter(out r, out c);
-				((HImage)obj).GetImagePointer1(out s, out w, out h);
+				HRegion domain = obj.GetDomain();
+				try
+				{
+					area = domain.AreaCenter(out r, out c);
+				}
+				finally
+				{
+					domain.Dispose();
+				}
+				obj.GetImagePointer1(out s, out w, out h);
 
 				if (area == (w * h))
 				{
-					clearList();
-
 					if ((h != imageHeight) || (w != imageWidth))
 					{
 						imageHeight = h;
@@ -898,20 +901,28 @@ namespace ViewWindow.Model
 						setImagePart(0, 0, h, w);
 					}
 				}//if
-			}//if
 
-			entry = new HObjectEntry(obj, mGC.copyContextList());
+				lock (objectStackLock)
+				{
+					// 图像栈只保留当前背景图；释放旧条目后再清集合，避免保存已 Dispose 的条目。
+					ClearImageListCore();
+					HObjImageList.Add(new HObjectEntry(obj, mGC.copyContextList()));
+					obj = null; // 所有权已转交给 HObjectEntry
 
-			HObjImageList.Add(entry);
+					//每当传入背景图的时候 都清空HObjectList
+					ClearHObjectListCore();
 
-            //每当传入背景图的时候 都清空HObjectList
-            clearHObjectList();
-
-            if (HObjImageList.Count > MAXNUMOBJLIST)
+					if (HObjImageList.Count > MAXNUMOBJLIST)
+					{
+						((HObjectEntry)HObjImageList[0]).clear();
+						HObjImageList.RemoveAt(0);
+					}
+				}
+            }
+            finally
             {
-                //需要自己手动释放
-                ((HObjectEntry)HObjImageList[0]).clear();
-                HObjImageList.RemoveAt(1);
+                if (obj != null)
+                    obj.Dispose();
             }
 				
 		}
@@ -922,6 +933,18 @@ namespace ViewWindow.Model
 		/// </summary>
 		public void clearList()
 		{
+			lock (objectStackLock)
+				ClearImageListCore();
+		}
+
+		private void ClearImageListCore()
+		{
+			for (int i = 0; i < HObjImageList.Count; i++)
+			{
+				HObjectEntry entry = HObjImageList[i] as HObjectEntry;
+				if (entry != null)
+					entry.clear();
+			}
 			HObjImageList.Clear();
 		}
 
@@ -930,7 +953,8 @@ namespace ViewWindow.Model
 		/// </summary>
 		public int getListCount()
 		{
-			return HObjImageList.Count;
+			lock (objectStackLock)
+				return HObjImageList.Count;
 		}
 
 		/// <summary>
@@ -948,25 +972,28 @@ namespace ViewWindow.Model
 		/// </param>
 		public void changeGraphicSettings(string mode, string val)
 		{
-			switch (mode)
+			lock (objectStackLock)
 			{
-				case GraphicsContext.GC_COLOR:
-					mGC.setColorAttribute(val);
-					break;
-				case GraphicsContext.GC_DRAWMODE:
-					mGC.setDrawModeAttribute(val);
-					break;
-				case GraphicsContext.GC_LUT:
-					mGC.setLutAttribute(val);
-					break;
-				case GraphicsContext.GC_PAINT:
-					mGC.setPaintAttribute(val);
-					break;
-				case GraphicsContext.GC_SHAPE:
-					mGC.setShapeAttribute(val);
-					break;
-				default:
-					break;
+				switch (mode)
+				{
+					case GraphicsContext.GC_COLOR:
+						mGC.setColorAttribute(val);
+						break;
+					case GraphicsContext.GC_DRAWMODE:
+						mGC.setDrawModeAttribute(val);
+						break;
+					case GraphicsContext.GC_LUT:
+						mGC.setLutAttribute(val);
+						break;
+					case GraphicsContext.GC_PAINT:
+						mGC.setPaintAttribute(val);
+						break;
+					case GraphicsContext.GC_SHAPE:
+						mGC.setShapeAttribute(val);
+						break;
+					default:
+						break;
+				}
 			}
 		}
 
@@ -985,16 +1012,19 @@ namespace ViewWindow.Model
 		/// </param>
 		public void changeGraphicSettings(string mode, int val)
 		{
-			switch (mode)
+			lock (objectStackLock)
 			{
-				case GraphicsContext.GC_COLORED:
-					mGC.setColoredAttribute(val);
-					break;
-				case GraphicsContext.GC_LINEWIDTH:
-					mGC.setLineWidthAttribute(val);
-					break;
-				default:
-					break;
+				switch (mode)
+				{
+					case GraphicsContext.GC_COLORED:
+						mGC.setColoredAttribute(val);
+						break;
+					case GraphicsContext.GC_LINEWIDTH:
+						mGC.setLineWidthAttribute(val);
+						break;
+					default:
+						break;
+				}
 			}
 		}
 
@@ -1013,13 +1043,16 @@ namespace ViewWindow.Model
 		/// </param>
 		public void changeGraphicSettings(string mode, HTuple val)
 		{
-			switch (mode)
+			lock (objectStackLock)
 			{
-				case GraphicsContext.GC_LINESTYLE:
-					mGC.setLineStyleAttribute(val);
-					break;
-				default:
-					break;
+				switch (mode)
+				{
+					case GraphicsContext.GC_LINESTYLE:
+						mGC.setLineStyleAttribute(val);
+						break;
+					default:
+						break;
+				}
 			}
 		}
 
@@ -1028,7 +1061,8 @@ namespace ViewWindow.Model
 		/// </summary>
 		public void clearGraphicContext()
 		{
-			mGC.clear();
+			lock (objectStackLock)
+				mGC.clear();
 		}
 
 		/// <summary>
@@ -1036,7 +1070,8 @@ namespace ViewWindow.Model
 		/// </summary>
 		public Hashtable getGraphicContext()
 		{
-			return mGC.copyContextList();
+			lock (objectStackLock)
+				return mGC.copyContextList();
 		}
 
         /// <summary>
@@ -1083,46 +1118,54 @@ namespace ViewWindow.Model
         /// </summary>
         /// <param name="hObj">传入的region.xld,image</param>
         /// <param name="color">颜色</param>
-        public void DispObj(HObject hObj, string color)
-        {
-            lock (this)
-            {
-                //显示指定的颜色
-                if (color != null)
-                {
-                    HOperatorSet.SetColor(viewPort.HalconWindow, color);
-                }
-                else
-                {
-                    HOperatorSet.SetColor(viewPort.HalconWindow, "red");
-                }
+		public void DispObj(HObject hObj, string color)
+		{
+			lock (GraphicRenderLock)
+			{
+				lock (objectStackLock)
+				{
+					//显示指定的颜色
+					if (color != null)
+					{
+						HOperatorSet.SetColor(viewPort.HalconWindow, color);
+					}
+					else
+					{
+						HOperatorSet.SetColor(viewPort.HalconWindow, "red");
+					}
 
 
-                if (hObj != null && hObj.IsInitialized())
-                {
-                    //
-                    HObject temp = new HObject(hObj);
-                    //
-                    hObjectList.Add(new HObjectWithColor(temp, color));
+					if (hObj != null && hObj.IsInitialized())
+					{
+						//
+						HObject temp = new HObject(hObj);
+						//
+						hObjectList.Add(new HObjectWithColor(temp, color));
 
-                    viewPort.HalconWindow.DispObj(temp);
+						viewPort.HalconWindow.DispObj(temp);
 
-                }
+					}
 
-                //恢复默认的红色
-                HOperatorSet.SetColor(viewPort.HalconWindow, "red");
-            }
-        }
+					//恢复默认的红色
+					HOperatorSet.SetColor(viewPort.HalconWindow, "red");
+				}
+			}
+		}
 
         /// <summary>
         /// 每次传入新的背景Image时,清空hObjectList,避免内存没有被释放
         /// </summary>
-        public void clearHObjectList()
-        {
+		public void clearHObjectList()
+		{
+			lock (objectStackLock)
+				ClearHObjectListCore();
+		}
 
-            foreach (HObjectWithColor hObjectWithColor in hObjectList)
-            {
-                hObjectWithColor.HObject.Dispose();
+		private void ClearHObjectListCore()
+		{
+			foreach (HObjectWithColor hObjectWithColor in hObjectList)
+			{
+				hObjectWithColor.HObject.Dispose();
             }
 
             hObjectList.Clear();

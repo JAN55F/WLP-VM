@@ -35,10 +35,90 @@ namespace VMPro
         {
             get
             {
-                if (_instance == null)
+                if (_instance == null || _instance.IsDisposed)
                     _instance = new Frm_TCPServer();
                 return _instance;
             }
+        }
+
+        internal static bool TryGetExistingInstance(out Frm_TCPServer form)
+        {
+            form = _instance;
+            if (form == null || form.IsDisposed || form.Disposing)
+            {
+                form = null;
+                return false;
+            }
+            return true;
+        }
+
+        internal static bool TryPost(TCPSever source, Action<Frm_TCPServer> update)
+        {
+            Frm_TCPServer form;
+            if (source == null || update == null || !TryGetExistingInstance(out form) || !form.IsHandleCreated)
+                return false;
+
+            MethodInvoker apply = delegate
+            {
+                try
+                {
+                    Frm_TCPServer current;
+                    if (!TryGetExistingInstance(out current) ||
+                        !ReferenceEquals(current, form) ||
+                        !ReferenceEquals(tcpSever, source))
+                        return;
+
+                    update(current);
+                }
+                catch (Exception ex)
+                {
+                    Log.SaveError(ex);
+                }
+            };
+
+            try
+            {
+                if (form.InvokeRequired)
+                    form.BeginInvoke(apply);
+                else
+                    apply();
+                return true;
+            }
+            catch (ObjectDisposedException)
+            {
+                return false;
+            }
+            catch (InvalidOperationException)
+            {
+                return false;
+            }
+        }
+
+        internal static void TryAppendLog(TCPSever source, string logLine)
+        {
+            TryPost(source, form =>
+            {
+                if (form.Visible && (form.TopLevel || form.Parent != null))
+                    form.tbx_log.AppendText(logLine);
+            });
+        }
+
+        internal static void TryApplyListeningState(TCPSever source, bool isListening)
+        {
+            TryPost(source, form =>
+            {
+                form.btn_listen.TextStr = isListening ? "停止监听" : "开始监听";
+                if (!isListening)
+                {
+                    form.lbx_connectedList.Items.Clear();
+                    form.cbx_connectedList.Clear();
+                }
+            });
+        }
+
+        internal static void TryRefreshConnectedClients(TCPSever source)
+        {
+            TryPost(source, form => form.RefreshConnectedClients(source));
         }
 
 
@@ -62,6 +142,8 @@ namespace VMPro
                     btn_listen.TextStr = "停止监听";
                 else
                     btn_listen.TextStr = "开始监听";
+
+                RefreshConnectedClients(tcpSever);
             }
             catch (Exception ex)
             {
@@ -79,6 +161,25 @@ namespace VMPro
             }
             if (tcpSever != null)
                 tcpSever.Rename(tbx_severName.TextStr.Trim());
+        }
+
+        private void RefreshConnectedClients(TCPSever source)
+        {
+            lbx_connectedList.Items.Clear();
+            cbx_connectedList.Clear();
+
+            if (source == null)
+                return;
+
+            string[] clientNames = source.GetConnectedClientNamesSnapshot();
+            for (int i = 0; i < clientNames.Length; i++)
+            {
+                lbx_connectedList.Items.Add(clientNames[i]);
+                cbx_connectedList.Add(clientNames[i]);
+            }
+
+            if (cbx_connectedList.Items.Length > 0)
+                cbx_connectedList.SelectedIndex = 0;
         }
         private void tbx_severIP_TextStrChanged(string textStr)
         {
@@ -104,27 +205,11 @@ namespace VMPro
         {
             try
             {
-                for (int i = 0; i < TCPSever.L_STCPSever.Count; i++)
-                {
-                    if (TCPSever.L_STCPSever[i].severName == tcpSever.Name)
-                    {
-                        foreach (KeyValuePair<string, Socket> item in TCPSever.L_STCPSever[i].L_Client)
-                        {
-                            if (item.Key == lbx_connectedList.SelectedItem.ToString())
-                            {
-                                item.Value.Disconnect(false);
-                                item.Value.Close();
-                                TCPSever.L_STCPSever[i].L_Client.Remove(item.Key);
+                if (tcpSever == null || lbx_connectedList.SelectedItem == null)
+                    return;
 
-                                lbx_connectedList.Items.RemoveAt(lbx_connectedList.SelectedIndex);
-                                //   cbx_connectedList .Items .remove      //移除，待完善
-                                if (cbx_connectedList.Items.Length > 0)
-                                    cbx_connectedList.SelectedIndex = 0;
-                                break;
-                            }
-                        }
-                    }
-                }
+                if (tcpSever.TryDisconnectClient(lbx_connectedList.SelectedItem.ToString()))
+                    RefreshConnectedClients(tcpSever);
             }
             catch (Exception ex)
             {

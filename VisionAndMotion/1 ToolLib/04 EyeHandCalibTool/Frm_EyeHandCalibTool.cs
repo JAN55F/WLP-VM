@@ -685,7 +685,7 @@ namespace VMPro
         private void button15_Click(object sender, EventArgs e)
         {
             this.TopMost = true;
-            button100.Image = Resources.钉;
+            RefreshTitleButtonVisuals();
 
             if (dgv_calibrateData.SelectedRows.Count != 0)
                 GetPixelXY(dgv_calibrateData.SelectedRows[0].Index);
@@ -756,7 +756,7 @@ namespace VMPro
             try
             {
                 this.TopMost = true;
-                button100.Image = Resources.钉;
+                RefreshTitleButtonVisuals();
 
 
                 if (dataGridView2.SelectedRows.Count != 0)
@@ -836,7 +836,7 @@ namespace VMPro
         private void button10_Click(object sender, EventArgs e)
         {
             this.TopMost = true;
-            button100.Image = Resources.钉;
+            RefreshTitleButtonVisuals();
 
             if (dataGridView3.SelectedRows.Count != 0)
             {

@@ -31,11 +31,15 @@ namespace VMPro
         /// 窗体对象实例
         /// </summary>
         private static Frm_ShapeMatchTool _instance;
+        internal static Frm_ShapeMatchTool CurrentInstance
+        {
+            get { return _instance != null && !_instance.IsDisposed ? _instance : null; }
+        }
         internal static Frm_ShapeMatchTool Instance
         {
             get
             {
-                if (_instance == null)
+                if (_instance == null || _instance.IsDisposed)
                     _instance = new Frm_ShapeMatchTool();
                 return _instance;
             }
@@ -435,7 +439,7 @@ namespace VMPro
         private void btn_confirm_Click(object sender, EventArgs e)
         {
             this.TopMost = true;
-            button100.Image = Resources.钉;
+            RefreshTitleButtonVisuals();
             //"运行流程"：从流程第一个工具开始依次运行（图像从上往下传递），直到运行到当前工具为止
             btn_runTool.Enabled = false;
             Stopwatch sw = new Stopwatch();
@@ -958,6 +962,7 @@ namespace VMPro
         private void button4_Click_3(object sender, EventArgs e)
         {
             Frm_IOConfig.result1 = shapeMatchTool.toolPar;
+            Frm_IOConfig.Instance.toolInfoForEdit = null;
             Frm_IOConfig.Instance.jobName = this.jobName;
             Frm_IOConfig.Instance.ShowDialog();
         }

@@ -147,7 +147,7 @@ namespace VMPro
             try
             {
                 this.TopMost = true;
-                button100.Image = Resources.钉;
+                RefreshTitleButtonVisuals();
 
                 Job.RunAndWait(jobName);
                 tbx_featureX.Value = upCamAlignTool.toolPar.InputPar.位置.Point.X.ToString();
@@ -291,7 +291,7 @@ namespace VMPro
         private void btn_runJob_Click(object sender, EventArgs e)
         {
             this.TopMost = true;
-            button100.Image = Resources.钉;
+            RefreshTitleButtonVisuals();
             Job.RunAndWaitToCurrentTool(jobName, toolName);
             this.Focus();
         }

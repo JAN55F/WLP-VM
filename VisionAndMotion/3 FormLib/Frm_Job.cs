@@ -21,6 +21,7 @@ namespace VMPro
         {
             InitializeComponent();
             Init_Language();
+            InitializeModernEditor();
         }
 
         /// <summary>
@@ -83,14 +84,16 @@ namespace VMPro
             {
                 if (!Permission.CheckPermission(PermissionLevel.Admin))
                     return;
-                if (btn_runLoop.Text == "连续运行")
+                if (btn_runLoop.Text == "连续运行" || btn_runLoop.Text == "Run Loop")
                     Job.FindJobByName(Frm_Job.Instance.tbc_jobs.SelectedTab.Text).LoopRun(true);
                 else
                     Job.FindJobByName(Frm_Job.Instance.tbc_jobs.SelectedTab.Text).LoopRun(false);
             }
             catch (Exception ex)
             {
-                Log.SaveError(ex);
+                Log.SaveErrorAndShow(ex, Project.Instance.configuration.language == Language.English 
+                    ? "Failed to run job loop" 
+                    : "流程循环运行失败", "btn_jobLoopRun_Click");
             }
         }
         private void Frm_Job_FormClosed(object sender, FormClosedEventArgs e)
@@ -108,16 +111,21 @@ namespace VMPro
             {
 
                 Frm_Monitor.Instance.dgv_monitor.Rows.Clear();
-                if (Frm_Job.Instance.tbc_jobs.RowCount > 0)
+                // 隐藏流程页签后，窗体首次显示前 RowCount 可能仍为 0，
+                // 但 TabPages 和 SelectedTab 已经有效。不能依赖 RowCount 判断是否有流程，
+                // 否则必须切换一次流程才会完成当前流程的状态初始化。
+                if (Frm_Job.Instance.tbc_jobs.TabPages.Count > 0 &&
+                    Frm_Job.Instance.tbc_jobs.SelectedTab != null)
                 {
                     Job currentJob = Job.FindJobByName(Frm_Job.Instance.tbc_jobs.SelectedTab.Text);
                     if (currentJob == null)
                         return;
 
+                    bool english = Project.Instance.configuration.language == Language.English;
                     if (currentJob.isRunLoop)
-                        Frm_Job.Instance.Text = "流程编辑器    Runing...";
+                        Frm_Job.Instance.Text = english ? "Workflow Editor · Running" : "流程编辑器 · 运行中";
                     else
-                        Frm_Job.Instance.Text = "流程编辑器";
+                        Frm_Job.Instance.Text = english ? "Workflow Editor" : "流程编辑器";
 
                     if (Machine.machineRunStatu == MachineRunStatu.Running && currentJob.jobRunMode == JobRunMode.LoopRunAfterStart)
                     {
@@ -150,7 +158,9 @@ namespace VMPro
             }
             catch (Exception ex)
             {
-                Log.SaveError(ex);
+                Log.SaveErrorAndShow(ex, Project.Instance.configuration.language == Language.English 
+                    ? "Failed to select job" 
+                    : "选择流程失败", "tbc_jobs_SelectedIndexChanged");
             }
         }
         private void tsb_createJob_Click(object sender, EventArgs e)
@@ -182,7 +192,9 @@ namespace VMPro
             }
             catch (Exception ex)
             {
-                Log.SaveError(ex);
+                Log.SaveErrorAndShow(ex, Project.Instance.configuration.language == Language.English 
+                    ? "Failed to fold job" 
+                    : "折叠流程失败", "tsb_foldJob_Click");
             }
         }
         internal void tsb_deleteJob_Click(object sender, EventArgs e)
@@ -202,7 +214,7 @@ namespace VMPro
                     return;
                 if (Frm_Job.Instance.tbc_jobs.TabPages.Count == 0)
                 {
-                    Frm_Main.Instance.OutputMsg("当前无可用流程，不可打开流程属性页面", Color.Black);
+                    Frm_Main.Instance.OutputMsg("当前无可用流程，不可打开流程属性页面", System.Drawing.Color.Black);
                     return;
                 }
                 Frm_JobInfo.Instance.tbx_jobName.TextStr = tbc_jobs.SelectedTab.Text;
@@ -210,7 +222,9 @@ namespace VMPro
             }
             catch (Exception ex)
             {
-                Log.SaveError(ex);
+                Log.SaveErrorAndShow(ex, Project.Instance.configuration.language == Language.English 
+                    ? "Failed to show job info" 
+                    : "显示流程属性失败", "tsb_jobInfo_Click");
             }
         }
 

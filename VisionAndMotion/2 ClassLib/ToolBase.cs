@@ -8,14 +8,83 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Windows.Forms;
 using WeifenLuo.WinFormsUI.Docking;
+using System.Runtime.Serialization;
 
 namespace VMPro
 {
     [Serializable]
     public class ToolBase
     {
+
+        /// <summary>
+        /// HALCON 的 HObject 非 null 不代表里面一定有可用图像；反序列化、尚未采图或
+        /// GenEmptyObj 后都可能持有空对象。所有 GetImageSize 调用前统一走这里验证。
+        /// </summary>
+        internal static bool TryGetHalconImageSize(HObject image, out HTuple width, out HTuple height)
+        {
+            width = new HTuple();
+            height = new HTuple();
+            try
+            {
+                if (image == null || !image.IsInitialized())
+                    return false;
+
+                HOperatorSet.GetImageSize(image, out width, out height);
+                return width != null && height != null &&
+                       width.TupleLength() > 0 && height.TupleLength() > 0 &&
+                       width[0].D > 0 && height[0].D > 0;
+            }
+            catch
+            {
+                width = new HTuple();
+                height = new HTuple();
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 将运行线程产生的界面更新安全地投递到控件线程。BeginInvoke 只负责排队，
+        /// 原调用栈上的 try/catch 无法捕获回调真正执行时的异常，因此回调内部也必须保护。
+        /// </summary>
+        internal static bool TryPostControlAction(Control control, Action action)
+        {
+            if (control == null || action == null || control.IsDisposed ||
+                control.Disposing || !control.IsHandleCreated)
+                return false;
+
+            MethodInvoker safeAction = delegate
+            {
+                try
+                {
+                    if (!control.IsDisposed && !control.Disposing)
+                        action();
+                }
+                catch (Exception ex)
+                {
+                    Log.SaveError(ex);
+                }
+            };
+
+            try
+            {
+                if (control.InvokeRequired)
+                    control.BeginInvoke(safeAction);
+                else
+                    safeAction();
+                return true;
+            }
+            catch (ObjectDisposedException)
+            {
+                return false;
+            }
+            catch (InvalidOperationException)
+            {
+                return false;
+            }
+        }
 
 
         /// <summary>
@@ -90,6 +159,14 @@ namespace VMPro
         /// 工具运行状态
         /// </summary>
         internal ToolRunStatu toolRunStatu = (Project.Instance.configuration.language == Language.English ? ToolRunStatu.Not_Run : ToolRunStatu.未运行);
+
+        [OnDeserialized]
+        private void OnDeserialized(StreamingContext context)
+        {
+            // Monitor 锁和名称属于当前进程状态，旧项目不能继续沿用序列化快照。
+            obj = new object();
+            jobName = jobName ?? string.Empty;
+        }
         /// <summary>
         /// 运行工具
         /// </summary>
@@ -114,7 +191,6 @@ namespace VMPro
         /// <summary>
         /// 图像窗体锁
         /// </summary>
-        private object obj11 = new object();
 
         internal object GetValue(object obj, string name)
         {
@@ -466,162 +542,236 @@ namespace VMPro
             }
         }
         /// <summary>
+        /// 将流程显示操作投递到图像窗体 UI 线程。后台线程只读取流程名和目标窗口名快照；
+        /// DockPanel、窗体集合和 HALCON 窗口句柄均在 UI 回调中访问。
+        /// </summary>
+        private void PostToImageWindow(
+            string requestedJobName,
+            Action<Job, Frm_ImageWindow> uiAction,
+            Action skippedAction = null)
+        {
+            int skipped = 0;
+            Action skipOnce = delegate
+            {
+                if (Interlocked.Exchange(ref skipped, 1) == 0 && skippedAction != null)
+                    skippedAction();
+            };
+
+            try
+            {
+                string jobNameSnapshot;
+                string windowNameSnapshot;
+                bool continuousRunSnapshot;
+                if (!TryGetRuntimeDisplaySnapshot(requestedJobName, out jobNameSnapshot,
+                    out windowNameSnapshot, out continuousRunSnapshot))
+                {
+                    skipOnce();
+                    return;
+                }
+
+                // 连续运行位于首页/运动页时只计算结果，不向隐藏的 HALCON 窗口持续排队。
+                // 回到视觉页后的下一轮会自然投递最新图像和叠加层。
+                if (continuousRunSnapshot && Machine.curFormMode != FormMode.VisionForm)
+                {
+                    skipOnce();
+                    return;
+                }
+
+                bool posted = Frm_ImageWindow.TryPostRuntimeDisplay(delegate
+                {
+                    bool actionStarted = false;
+                    try
+                    {
+                        Job currentJob = Job.FindJobByName(jobNameSnapshot);
+                        if (currentJob == null)
+                            return;
+
+                        Frm_ImageWindow imageWindow = null;
+                        if (!string.IsNullOrEmpty(windowNameSnapshot))
+                            Frm_ImageWindow.D_imageWindow.TryGetValue(windowNameSnapshot, out imageWindow);
+
+                        if ((imageWindow == null || imageWindow.IsDisposed) && !Machine.loading)
+                        {
+                            imageWindow = Frm_ImageWindow.D_imageWindow.Values.FirstOrDefault(
+                                candidate => candidate != null && !candidate.IsDisposed);
+                            if (imageWindow != null)
+                                currentJob.debugImageWindow = imageWindow.Text;
+                        }
+
+                        if (imageWindow == null || imageWindow.IsDisposed)
+                            return;
+
+                        ShowImageWindowWhenAppropriate(currentJob, imageWindow);
+                        actionStarted = true;
+                        uiAction(currentJob, imageWindow);
+                    }
+                    finally
+                    {
+                        if (!actionStarted)
+                            skipOnce();
+                    }
+                }, skipOnce);
+
+                if (!posted)
+                    skipOnce();
+            }
+            catch (Exception ex)
+            {
+                skipOnce();
+                Log.SaveError(ex);
+            }
+        }
+
+        /// <summary>
+        /// 供具体工具把一组有顺序的运行期图层作为一次 UI 操作投递。
+        /// 调用方必须在投递前复制会被后续运行替换的 HALCON 对象，
+        /// 并通过 skippedAction 释放未被显示的快照。
+        /// </summary>
+        protected void PostToImageWindow(
+            Action<Job, Frm_ImageWindow> uiAction,
+            Action skippedAction = null)
+        {
+            PostToImageWindow(jobName, uiAction, skippedAction);
+        }
+
+        /// <summary>
+        /// 仅从流程模型取得异步显示所需的字符串快照，不调用会弹出窗体的 FindJobByName。
+        /// </summary>
+        private static bool TryGetRuntimeDisplaySnapshot(
+            string requestedJobName,
+            out string resolvedJobName,
+            out string windowName,
+            out bool continuousRun)
+        {
+            resolvedJobName = null;
+            windowName = null;
+            continuousRun = false;
+            if (string.IsNullOrEmpty(requestedJobName) ||
+                Project.Instance.curEngine == null ||
+                Project.Instance.curEngine.L_jobList == null)
+                return false;
+
+            Job[] jobs = Project.Instance.curEngine.L_jobList.ToArray();
+            foreach (Job job in jobs)
+            {
+                if (job != null && job.jobName == requestedJobName)
+                {
+                    resolvedJobName = job.jobName;
+                    windowName = job.debugImageWindow;
+                    continuousRun = job.isRunLoop;
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private static void ShowImageWindowWhenAppropriate(Job job, Frm_ImageWindow imageWindow)
+        {
+            if (Machine.machineRunStatu == MachineRunStatu.Running)
+                return;
+
+            if (!job.isRunLoop)
+            {
+                Frm_ImageWindow activeImageWindow = Frm_Main.Instance.dockPanel.ActiveDocument as Frm_ImageWindow;
+                if (!ReferenceEquals(activeImageWindow, imageWindow))
+                    imageWindow.Show();
+                return;
+            }
+
+            TabPage selectedJob = Frm_Job.Instance.tbc_jobs.SelectedTab;
+            if (selectedJob != null && selectedJob.Text == job.jobName)
+                imageWindow.Show();
+        }
+
+        /// <summary>
         /// 显示文本
         /// </summary>
-        /// <param name="jobName">文本信息</param>
-        /// <param name="text"></param>
-        /// <param name="row"></param>
-        /// <param name="col"></param>
         internal void Show_Text(string text, double row = 20, double col = 20)
         {
-            try
+            PostToImageWindow(jobName, delegate(Job job, Frm_ImageWindow imageWindow)
             {
-                foreach (KeyValuePair<string, Frm_ImageWindow> item in Frm_ImageWindow.D_imageWindow)
-                {
-                    if (item.Key == Job.FindJobByName(jobName).debugImageWindow)
-                    {
-                        if ((Machine.machineRunStatu != MachineRunStatu.Running && !Job.FindJobByName(jobName).isRunLoop)
-                            || (Machine.machineRunStatu != MachineRunStatu.Running && Job.FindJobByName(jobName).isRunLoop) && Job.FindJobByName(jobName).jobName == Frm_Job.Instance.tbc_jobs.SelectedTab.Text)
-                            item.Value.Show();
-                        Frm_Main.Instance.disp_message(item.Value.hwc_imageWindow.HWindowHalconID,
-                                                            text,
-                                                            new HTuple("image"),
-                                                            new HTuple(row),
-                                                            new HTuple(col),
-                                                            new HTuple("green"),
-                                                            new HTuple("false"));
-                        return;
-                    }
-                }
-                if (!Machine.loading)
-                {
-                    if (Frm_ImageWindow.D_imageWindow.Count > 0)
-                    {
-                        Job.FindJobByName(jobName).debugImageWindow = Frm_ImageWindow.D_imageWindow.Values.ToArray()[0].Text;
-                        Show_Text(text, row, col);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Log.SaveError(ex);
-            }
+                Frm_Main.Instance.disp_message(imageWindow.hwc_imageWindow.HWindowHalconID,
+                                               text,
+                                               new HTuple("image"),
+                                               new HTuple(row),
+                                               new HTuple(col),
+                                               new HTuple("green"),
+                                               new HTuple("false"));
+            });
         }
-        /// <summary>
-        /// 显示图像
-        /// </summary>
-        /// <param name="image"></param>
-        internal void Display_Image(HObject image, Frm_ImageWindow frm_imageWindow)
-        {
-            try
-            {
-                Application.DoEvents();
-                lock (obj11)
-                {
-                    if (frm_imageWindow.isFullScreenMode)
-                        HOperatorSet.DispObj(image, Frm_FullScreen.Instance.windowHandle);
-                    else
-                        frm_imageWindow.hwc_imageWindow.HobjectToHimage(image);
-                    frm_imageWindow.currentImage = image;
-                }
-                Application.DoEvents();
 
-            }
-            catch (Exception ex)
-            {
-                Log.SaveError(ex);
-            }
-        }
         /// <summary>
-        /// 显示图像
+        /// 显示图像。入队前复制 HALCON 图像，所有权在 UI 回调中转交给目标窗体。
         /// </summary>
         internal void ShowImage(HObject image)
         {
+            if (image == null || !image.IsInitialized())
+                return;
+
+            HImage imageSnapshot = null;
             try
             {
-                foreach (KeyValuePair<string, Frm_ImageWindow> item in Frm_ImageWindow.D_imageWindow)
+                imageSnapshot = new HImage(image);
+                HImage queuedImage = imageSnapshot;
+                imageSnapshot = null;
+
+                PostToImageWindow(jobName, delegate(Job job, Frm_ImageWindow imageWindow)
                 {
-                    if (item.Key == Job.FindJobByName(jobName).debugImageWindow)
+                    bool ownershipTransferred = false;
+                    try
                     {
-                        //以下两行是防止运行一次流程时流程编辑器老是闪烁，不好看
-                        IDockContent temp = Frm_Main.Instance.dockPanel.ActiveDocument;
-                        Frm_ImageWindow ff = temp as Frm_ImageWindow;
-                        if ((Machine.machineRunStatu != MachineRunStatu.Running && !Job.FindJobByName(jobName).isRunLoop && ff.Text != Job.FindJobByName(jobName).debugImageWindow)
-                            || (Machine.machineRunStatu != MachineRunStatu.Running && Job.FindJobByName(jobName).isRunLoop) && Job.FindJobByName(jobName).jobName == Frm_Job.Instance.tbc_jobs.SelectedTab.Text)
-                            //if (!Frm_ImageWindow.isMax)         //放大模式不切换窗体
-                            item.Value.Show();
-
-
-                        Display_Image(image, item.Value);
-
-
-
-                        //////HTuple w, h;
-                        //////HOperatorSet.GetImageSize(image, out w, out h);
-                        //////HOperatorSet.SetWindowExtents(Job.FindJobByName(jobName).www, 0, 0, (w.I), (h.I));
-                        //////HOperatorSet.SetPart(Job.FindJobByName(jobName).www, 0, 0, (h - 1), (w - 1));
-                        //////HOperatorSet.DispObj(image, Job.FindJobByName(jobName).www);
-
-
-                        Application.DoEvents();
-
-                        return;
+                        imageWindow.DisplayRuntimeImage(queuedImage);
+                        ownershipTransferred = true;
                     }
-                }
-                if (!Machine.loading)
-                {
-                    if (Frm_ImageWindow.D_imageWindow.Count > 0)
+                    finally
                     {
-                        Job.FindJobByName(jobName).debugImageWindow = Frm_ImageWindow.D_imageWindow.Values.ToArray()[0].Text;
-                        ShowImage(image);
+                        if (!ownershipTransferred)
+                            queuedImage.Dispose();
                     }
-                }
+                }, queuedImage.Dispose);
             }
             catch (Exception ex)
             {
+                if (imageSnapshot != null)
+                    imageSnapshot.Dispose();
                 Log.SaveError(ex);
             }
         }
+
         /// <summary>
-        /// 显示图像
+        /// 显示叠加对象。入队前复制 HALCON 对象，UI 显示完成后释放队列快照。
         /// </summary>
         internal void ShowObj(HObject obj, string color)
         {
+            if (obj == null || !obj.IsInitialized())
+                return;
+
+            HObject objectSnapshot = null;
             try
             {
-                foreach (KeyValuePair<string, Frm_ImageWindow> item in Frm_ImageWindow.D_imageWindow)
+                objectSnapshot = new HObject(obj);
+                HObject queuedObject = objectSnapshot;
+                objectSnapshot = null;
+
+                PostToImageWindow(jobName, delegate(Job job, Frm_ImageWindow imageWindow)
                 {
-                    if (item.Key == Job.FindJobByName(jobName).debugImageWindow)
+                    try
                     {
-                        //以下两行是防止运行一次流程时流程编辑器老是闪烁，不好看
-                        IDockContent temp = Frm_Main.Instance.dockPanel.ActiveDocument;
-                        Frm_ImageWindow ff = temp as Frm_ImageWindow;
-                        if ((Machine.machineRunStatu != MachineRunStatu.Running && !Job.FindJobByName(jobName).isRunLoop && ff.Text != Job.FindJobByName(jobName).debugImageWindow)
-                            || (Machine.machineRunStatu != MachineRunStatu.Running && Job.FindJobByName(jobName).isRunLoop) && Job.FindJobByName(jobName).jobName == Frm_Job.Instance.tbc_jobs.SelectedTab.Text)
-                            item.Value.Show();
-                        item.Value.hwc_imageWindow.DispObj(obj, color);
-
-                        HOperatorSet.SetLineWidth(Job.FindJobByName(jobName).www, 5);
-                        HOperatorSet.SetColor(Job.FindJobByName(jobName).www, color);
-                        HOperatorSet.DispObj(obj, Job.FindJobByName(jobName).www);
-                        return;
+                        imageWindow.hwc_imageWindow.DispObj(queuedObject, color);
+                        HOperatorSet.SetLineWidth(job.www, 5);
+                        HOperatorSet.SetColor(job.www, color);
+                        HOperatorSet.DispObj(queuedObject, job.www);
                     }
-                }
-                if (!Machine.loading)
-                {
-                    if (Frm_ImageWindow.D_imageWindow.Count > 0)
+                    finally
                     {
-                        Job.FindJobByName(jobName).debugImageWindow = Frm_ImageWindow.D_imageWindow.Values.ToArray()[0].Text;
-                        ShowObj(obj, color);
-
+                        queuedObject.Dispose();
                     }
-                }
-
-                HOperatorSet.SetColor(Job.FindJobByName(jobName).www, color);
-                HOperatorSet.DispObj(obj, Job.FindJobByName(jobName).www);
+                }, queuedObject.Dispose);
             }
             catch (Exception ex)
             {
+                if (objectSnapshot != null)
+                    objectSnapshot.Dispose();
                 Log.SaveError(ex);
             }
         }
@@ -630,58 +780,22 @@ namespace VMPro
         /// </summary>
         internal void SetDraw(string drawMode)
         {
-            try
+            PostToImageWindow(jobName, delegate(Job job, Frm_ImageWindow imageWindow)
             {
-                foreach (KeyValuePair<string, Frm_ImageWindow> item in Frm_ImageWindow.D_imageWindow)
-                {
-                    if (item.Key == Job.FindJobByName(jobName).debugImageWindow)
-                    {
-                        //以下两行是防止运行一次流程时流程编辑器老是闪烁，不好看
-                        IDockContent temp = Frm_Main.Instance.dockPanel.ActiveDocument;
-                        Frm_ImageWindow ff = temp as Frm_ImageWindow;
-                        if ((Machine.machineRunStatu != MachineRunStatu.Running && !Job.FindJobByName(jobName).isRunLoop && ff.Text != Job.FindJobByName(jobName).debugImageWindow)
-                            || (Machine.machineRunStatu != MachineRunStatu.Running && Job.FindJobByName(jobName).isRunLoop) && Job.FindJobByName(jobName).jobName == Frm_Job.Instance.tbc_jobs.SelectedTab.Text)
-                            item.Value.Show();
-                        HOperatorSet.SetDraw(item.Value.hwc_imageWindow.HWindowHalconID, drawMode);
-
-                        HOperatorSet.SetDraw(Job.FindJobByName(jobName).www, drawMode);
-                        return;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Log.SaveError(ex);
-            }
+                HOperatorSet.SetDraw(imageWindow.hwc_imageWindow.HWindowHalconID, drawMode);
+                HOperatorSet.SetDraw(job.www, drawMode);
+            });
         }
         /// <summary>
         /// 显示图像
         /// </summary>
         internal void SetLineWidth(int width)
         {
-            try
+            PostToImageWindow(jobName, delegate(Job job, Frm_ImageWindow imageWindow)
             {
-                foreach (KeyValuePair<string, Frm_ImageWindow> item in Frm_ImageWindow.D_imageWindow)
-                {
-                    if (item.Key == Job.FindJobByName(jobName).debugImageWindow)
-                    {
-                        //以下两行是防止运行一次流程时流程编辑器老是闪烁，不好看
-                        IDockContent temp = Frm_Main.Instance.dockPanel.ActiveDocument;
-                        Frm_ImageWindow ff = temp as Frm_ImageWindow;
-                        if ((Machine.machineRunStatu != MachineRunStatu.Running && !Job.FindJobByName(jobName).isRunLoop && ff.Text != Job.FindJobByName(jobName).debugImageWindow)
-                            || (Machine.machineRunStatu != MachineRunStatu.Running && Job.FindJobByName(jobName).isRunLoop) && Job.FindJobByName(jobName).jobName == Frm_Job.Instance.tbc_jobs.SelectedTab.Text)
-                            item.Value.Show();
-                        HOperatorSet.SetLineWidth(item.Value.hwc_imageWindow.HWindowHalconID, width);
-
-                        HOperatorSet.SetLineWidth(Job.FindJobByName(jobName).www, width);
-                        return;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Log.SaveError(ex);
-            }
+                HOperatorSet.SetLineWidth(imageWindow.hwc_imageWindow.HWindowHalconID, width);
+                HOperatorSet.SetLineWidth(job.www, width);
+            });
         }
         /// <summary>
         /// 通过流程名获取窗体句柄
@@ -747,20 +861,10 @@ namespace VMPro
         /// </summary>
         internal void SetColor(string jobName, string color)
         {
-            try
+            PostToImageWindow(jobName, delegate(Job job, Frm_ImageWindow imageWindow)
             {
-                foreach (KeyValuePair<string, Frm_ImageWindow> item in Frm_ImageWindow.D_imageWindow)
-                {
-                    if (item.Key == Job.FindJobByName(jobName).debugImageWindow)
-                    {
-                        HOperatorSet.SetColor(item.Value.hwc_imageWindow.HWindowHalconID, new HTuple(color));
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Log.SaveError(ex);
-            }
+                HOperatorSet.SetColor(imageWindow.hwc_imageWindow.HWindowHalconID, new HTuple(color));
+            });
         }
         /// <summary>
         /// 在图像中显示字符串

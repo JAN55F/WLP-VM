@@ -43,14 +43,13 @@ namespace VMPro
                 }
                 catch
                 {
-                    Frm_MessageBox.Instance.MessageBoxShow("\r\n雷赛DMC2210运动控制卡初始化失败，可能原因：\r\n① 未安装对应运动控制卡驱动");
+                    Machine.ShowMessageOnMainUiThread("\r\n雷赛DMC2210运动控制卡初始化失败，可能原因：\r\n① 未安装对应运动控制卡驱动");
                     return;
                 }
 
                 if (count == 0)
                 {
-                    Frm_MessageBox messageBox = new Frm_MessageBox();
-                    messageBox.MessageBoxShow("\r\n未识别到雷赛DMC2210运动控制卡");
+                    Machine.ShowMessageOnMainUiThread("\r\n未识别到雷赛DMC2210运动控制卡");
                 }
                 else
                 {

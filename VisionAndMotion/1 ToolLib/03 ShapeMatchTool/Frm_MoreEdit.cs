@@ -177,7 +177,7 @@ namespace VMPro
         private void btn_runJob_Click(object sender, EventArgs e)
         {
             this.TopMost = true;
-            button100.Image = Resources.钉;
+            RefreshTitleButtonVisuals();
             //"运行流程"：从流程第一个工具开始依次运行（图像从上往下传递），直到运行到当前工具为止
             Job job = Job.FindJobByName(jobName);
             if (job != null)

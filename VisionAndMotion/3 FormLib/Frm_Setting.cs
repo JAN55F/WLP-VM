@@ -17,6 +17,68 @@ namespace VMPro
         {
             InitializeComponent();
             Init_Language();
+            ApplyModernSettingNavigation();
+        }
+
+        private void ApplyModernSettingNavigation()
+        {
+            bool english = Project.Instance.configuration.language == Language.English;
+            TreeNode duplicateSecurityNode = null;
+            TreeNode userSecurityNode = null;
+            foreach (TreeNode node in tvw_setting.Nodes)
+            {
+                if (node.Text == "常规")
+                    node.Text = english ? "General" : "常规";
+                else if (node.Text == "项目")
+                    node.Text = english ? "Project" : "项目";
+                else if (node.Text == "方案")
+                    node.Text = english ? "Solution" : "方案";
+                else if (node.Text == "功能")
+                    node.Text = english ? "Startup" : "启动";
+                else if (node.Text == "运行")
+                    node.Text = english ? "Run" : "运行";
+                else if (node.Text == "用户管理")
+                {
+                    node.Text = english ? "Users and security" : "用户与安全";
+                    userSecurityNode = node;
+                }
+                else if (node.Text == "安全")
+                {
+                    if (userSecurityNode == null)
+                    {
+                        node.Text = english ? "Users and security" : "用户与安全";
+                        foreach (TreeNode child in node.Nodes)
+                        {
+                            if (child.Text == "用户管理")
+                                child.Text = english ? "User management" : "用户管理";
+                        }
+                        userSecurityNode = node;
+                    }
+                    else
+                    {
+                        duplicateSecurityNode = node;
+                    }
+                }
+            }
+
+            if (duplicateSecurityNode != null)
+                tvw_setting.Nodes.Remove(duplicateSecurityNode);
+
+            // 常用设置把运行参数放在权限管理之前，减少操作员查找跨度。
+            TreeNode runNode = null;
+            foreach (TreeNode node in tvw_setting.Nodes)
+            {
+                if (node.Text == "运行" || node.Text == "Run")
+                {
+                    runNode = node;
+                    break;
+                }
+            }
+            if (runNode != null && userSecurityNode != null && runNode.Index > userSecurityNode.Index)
+            {
+                tvw_setting.Nodes.Remove(runNode);
+                tvw_setting.Nodes.Insert(userSecurityNode.Index, runNode);
+            }
         }
 
         /// <summary>
@@ -43,7 +105,9 @@ namespace VMPro
             {
                 if (Project.Instance.configuration.language == Language.English)
                 {
-                    this.Text = "Axis Control";
+                    this.Text = "Settings";
+                    lbl_title.Text = "System settings";
+                    button3.Text = "Save";
                 }
             }
             catch (Exception ex)
@@ -60,6 +124,7 @@ namespace VMPro
                 tvw_setting.SelectedNode = tvw_setting.Nodes[0];
 
                 Frm_GeneralSettings.Instance.tbx_companyName.TextStr = Project.Instance.configuration.CompanyName;
+                Frm_GeneralSettings.Instance.tbx_companyName.Enabled = false;
                 Frm_GeneralSettings.Instance.cbo_lanuage.TextStr = Project.Instance.configuration.language == Language.English ? "English" : "简体中文";
                 Frm_GeneralSettings.Instance.tbx_dataPath.TextStr = Project.Instance.configuration.dataPath;
 
@@ -119,6 +184,8 @@ namespace VMPro
                 switch (node.Text)
                 {
                     case "功能":
+                    case "启动":
+                    case "Startup":
                         pnl_window.Controls.Clear();
                         Frm_StartSetting.Instance.TopLevel = false;
                         Frm_StartSetting.Instance.Parent = pnl_window;
@@ -126,6 +193,7 @@ namespace VMPro
                         windowType = 3;
                         break;
                     case "项目":
+                    case "Project":
                         pnl_window.Controls.Clear();
                         Frm_ProjetSettings.Instance.TopLevel = false;
                         Frm_ProjetSettings.Instance.Parent = pnl_window;
@@ -133,6 +201,7 @@ namespace VMPro
                         windowType = 1;
                         break;
                     case "方案":
+                    case "Solution":
                         pnl_window.Controls.Clear();
                         Frm_EngineManager.Instance.TopLevel = false;
                         Frm_EngineManager.Instance.Parent = pnl_window;
@@ -140,6 +209,7 @@ namespace VMPro
                         windowType = 2;
                         break;
                     case "运行":
+                    case "Run":
                         pnl_window.Controls.Clear();
                         Frm_RunSettings.Instance.TopLevel = false;
                         Frm_RunSettings.Instance.Parent = pnl_window;
@@ -147,6 +217,7 @@ namespace VMPro
                         windowType = 5;
                         break;
                     case "常规":
+                    case "General":
                         pnl_window.Controls.Clear();
                         Frm_GeneralSettings.Instance.TopLevel = false;
                         Frm_GeneralSettings.Instance.Parent = pnl_window;
@@ -155,6 +226,9 @@ namespace VMPro
                         break;
                     case "安全":
                     case "用户管理":
+                    case "User management":
+                    case "用户与安全":
+                    case "Users and security":
                         if (windowType != 4)
                         {
                             pnl_window.Controls.Clear();
@@ -215,8 +289,10 @@ namespace VMPro
                 Project.Instance.configuration.language = Frm_GeneralSettings.Instance.cbo_lanuage.SelectedIndex == 0 ? Language.Chinese : Language.English;
                 Project.Instance.configuration.cardType = (Frm_ProjetSettings.Instance.cbx_cardType.TextStr == string.Empty ? CardType.无 : (CardType)Enum.Parse(typeof(CardType), Frm_ProjetSettings.Instance.cbx_cardType.TextStr));
                 Project.Instance.configuration.autoConnectAfterStart = Frm_StartSetting.Instance.ckb_autoConnect.Checked;
-                Project.Instance.configuration.CompanyName = Frm_GeneralSettings.Instance.tbx_companyName.TextStr.Trim();
+                Project.Instance.configuration.CompanyName = Configuration.DefaultCompanyName;
+                Frm_GeneralSettings.Instance.tbx_companyName.TextStr = Configuration.DefaultCompanyName;
                 Project.Instance.configuration.displayLine = Frm_StartSetting.Instance.ckb_displayLine.Checked;
+                Frm_Job.Instance.RefreshConnectionDisplayMode();
                 Project.Instance.configuration.autoRunAfterStart = Frm_StartSetting.Instance.cCheckBox1.Checked;
 
                 Project.Instance.configuration.endStop = Frm_RunSettings.Instance.cCheckBox1.Checked;

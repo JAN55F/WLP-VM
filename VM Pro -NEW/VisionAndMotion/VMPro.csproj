@@ -1,0 +1,1923 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProductVersion>8.0.30703</ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{6B7E93AD-48F7-4F86-9482-2321D6F1D10A}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>VMPro</RootNamespace>
+    <AssemblyName>CVMPro</AssemblyName>
+    <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <TargetFrameworkProfile>
+    </TargetFrameworkProfile>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Prefer32Bit>false</Prefer32Bit>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <Prefer32Bit>false</Prefer32Bit>
+  </PropertyGroup>
+  <PropertyGroup>
+    <ApplicationIcon>
+    </ApplicationIcon>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <DebugType>full</DebugType>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <CodeAnalysisLogFile>bin\Debug\VisionTool.dll.CodeAnalysisLog.xml</CodeAnalysisLogFile>
+    <CodeAnalysisUseTypeNameInSuppression>true</CodeAnalysisUseTypeNameInSuppression>
+    <CodeAnalysisModuleSuppressionsFile>GlobalSuppressions.cs</CodeAnalysisModuleSuppressionsFile>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRuleSetDirectories>;C:\Program Files (x86)\Microsoft Visual Studio 10.0\Team Tools\Static Analysis Tools\\Rule Sets</CodeAnalysisRuleSetDirectories>
+    <CodeAnalysisRuleDirectories>;C:\Program Files (x86)\Microsoft Visual Studio 10.0\Team Tools\Static Analysis Tools\FxCop\\Rules</CodeAnalysisRuleDirectories>
+    <CodeAnalysisIgnoreBuiltInRules>false</CodeAnalysisIgnoreBuiltInRules>
+    <CodeAnalysisFailOnMissingRules>false</CodeAnalysisFailOnMissingRules>
+    <Prefer32Bit>false</Prefer32Bit>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
+    <OutputPath>bin\x64\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <Optimize>true</Optimize>
+    <DebugType>pdbonly</DebugType>
+    <PlatformTarget>x64</PlatformTarget>
+    <CodeAnalysisLogFile>bin\Release\VisionTool.dll.CodeAnalysisLog.xml</CodeAnalysisLogFile>
+    <CodeAnalysisUseTypeNameInSuppression>true</CodeAnalysisUseTypeNameInSuppression>
+    <CodeAnalysisModuleSuppressionsFile>GlobalSuppressions.cs</CodeAnalysisModuleSuppressionsFile>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRuleSetDirectories>;C:\Program Files (x86)\Microsoft Visual Studio 10.0\Team Tools\Static Analysis Tools\\Rule Sets</CodeAnalysisRuleSetDirectories>
+    <CodeAnalysisIgnoreBuiltInRuleSets>false</CodeAnalysisIgnoreBuiltInRuleSets>
+    <CodeAnalysisRuleDirectories>;C:\Program Files (x86)\Microsoft Visual Studio 10.0\Team Tools\Static Analysis Tools\FxCop\\Rules</CodeAnalysisRuleDirectories>
+    <CodeAnalysisIgnoreBuiltInRules>false</CodeAnalysisIgnoreBuiltInRules>
+    <Prefer32Bit>false</Prefer32Bit>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Basler.Pylon">
+      <HintPath>..\..\VM Pro V0.0.1.6\Start\bin\Debug\Basler.Pylon.dll</HintPath>
+    </Reference>
+    <Reference Include="CoreMotionApi_CLRLib">
+      <HintPath>..\..\..\5 插件机\2 Files\Card_SoftSinvo\Card_SoftSinvo\bin\Debug\CoreMotionApi_CLRLib.dll</HintPath>
+    </Reference>
+    <Reference Include="FlyCapture2Managed">
+      <HintPath>..\..\VM Pro V0.0.0.5\Start\bin\Debug\FlyCapture2Managed.dll</HintPath>
+    </Reference>
+    <Reference Include="halcondotnet">
+      <HintPath>..\..\..\4 压件机\1 Program\VM Pro V0.0.1.3 20200322\Start\bin\Debug\halcondotnet.dll</HintPath>
+    </Reference>
+    <Reference Include="MvCameraControl.Net">
+      <HintPath>..\..\VM Pro V0.0.0.5\Start\bin\Debug\MvCameraControl.Net.dll</HintPath>
+    </Reference>
+    <Reference Include="Newtonsoft.Json, Version=10.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>bin\Debug\Dll\Newtonsoft.Json.dll</HintPath>
+    </Reference>
+    <Reference Include="HslCommunication">
+      <HintPath>..\packages\HslCommunication.12.8.3\lib\net451\HslCommunication.dll</HintPath>
+    </Reference>
+    <Reference Include="Ookii.Dialogs.WinForms">
+      <HintPath>..\..\VM Pro V0.0.1.2\Start\bin\Debug\Ookii.Dialogs.WinForms.dll</HintPath>
+    </Reference>
+    <Reference Include="PresentationCore" />
+    <Reference Include="PresentationFramework" />
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Management" />
+    <Reference Include="System.Runtime.Serialization.Formatters.Soap" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Windows.Forms.DataVisualization" />
+    <Reference Include="System.Xaml" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Xml" />
+    <Reference Include="Tool">
+      <HintPath>..\Start\bin\Debug\Tool.dll</HintPath>
+    </Reference>
+    <Reference Include="UIAutomationProvider" />
+    <Reference Include="WindowsBase" />
+    <Reference Include="WindowsFormsIntegration" />
+    <Reference Include="WMX3Api_CLRLib">
+      <HintPath>..\..\VM Pro V0.0.1.2\Start\bin\Debug\WMX3Api_CLRLib.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="1 ToolLib\01 ImageAcqTool\SDK_Halcon.cs" />
+    <Compile Include="1 ToolLib\01 ImageAcqTool\Frm_SDKInfo.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\01 ImageAcqTool\Frm_SDKInfo.Designer.cs">
+      <DependentUpon>Frm_SDKInfo.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\01 ImageAcqTool\Frm_AcqImageTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\01 ImageAcqTool\Frm_AcqImageTool.Designer.cs">
+      <DependentUpon>Frm_AcqImageTool.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\03 ShapeMatchTool\Frm_MoreEdit.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\03 ShapeMatchTool\Frm_MoreEdit.designer.cs">
+      <DependentUpon>Frm_MoreEdit.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\03 ShapeMatchTool\Frm_ShapeMatchTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\03 ShapeMatchTool\Frm_ShapeMatchTool.Designer.cs">
+      <DependentUpon>Frm_ShapeMatchTool.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\05 OneKeyEyeHandCalibTool\Frm_ConnectPara.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\05 OneKeyEyeHandCalibTool\Frm_ConnectPara.Designer.cs">
+      <DependentUpon>Frm_ConnectPara.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\10 FindCircleTool\Frm_FindCircleTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\10 FindCircleTool\Frm_FindCircleTool.Designer.cs">
+      <DependentUpon>Frm_FindCircleTool.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\10 XYPlatformTool\XYPlatformTool.cs" />
+    <Compile Include="1 ToolLib\10 XYPlatformTool\Frm_XYPlatformTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\10 XYPlatformTool\Frm_XYPlatformTool.designer.cs">
+      <DependentUpon>Frm_XYPlatformTool.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\11 BlobAnalyseTool\Frm_BlobAnalyseTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\11 BlobAnalyseTool\Frm_BlobAnalyseTool.designer.cs">
+      <DependentUpon>Frm_BlobAnalyseTool.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\17 DistancePLTool\Frm_DistancePLTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\17 DistancePLTool\Frm_DistancePLTool.designer.cs">
+      <DependentUpon>Frm_DistancePLTool.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\17 DistancePLTool\DistancePLTool.cs" />
+    <Compile Include="1 ToolLib\19 LLIntersectTool\LLPointTool.cs" />
+    <Compile Include="1 ToolLib\19 LLIntersectTool\Frm_LLIntersectTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\19 LLIntersectTool\Frm_LLIntersectTool.designer.cs">
+      <DependentUpon>Frm_LLIntersectTool.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\21 QRCodeTool\Frm_QRCodeTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\21 QRCodeTool\Frm_QRCodeTool.designer.cs">
+      <DependentUpon>Frm_QRCodeTool.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\19 KenyenceScanerTool\Frm_KenyenceScanerTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\19 KenyenceScanerTool\Frm_KenyenceScanerTool.designer.cs">
+      <DependentUpon>Frm_KenyenceScanerTool.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\19 KenyenceScanerTool\KenyenceScanerTool.cs" />
+    <Compile Include="1 ToolLib\13 CreateROITool\Frm_CreateROITool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\13 CreateROITool\Frm_CreateROITool.designer.cs">
+      <DependentUpon>Frm_CreateROITool.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\13 CreateROITool\CreateROITool.cs" />
+    <Compile Include="1 ToolLib\20 RegionFeatureTool\Frm_RegionFeatureTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\20 RegionFeatureTool\Frm_RegionFeatureTool.designer.cs">
+      <DependentUpon>Frm_RegionFeatureTool.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\20 RegionFeatureTool\RegionFeatureTool.cs" />
+    <Compile Include="1 ToolLib\22 RegionOperationTool\Frm_RegionOperationTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\22 RegionOperationTool\Frm_RegionOperationTool.designer.cs">
+      <DependentUpon>Frm_RegionOperationTool.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\22 RegionOperationTool\RegionOperationTool.cs" />
+    <Compile Include="1 ToolLib\14 CreatePositionTool\CreatePositionTool.cs" />
+    <Compile Include="1 ToolLib\14 CreatePositionTool\Frm_CreatePositionTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\14 CreatePositionTool\Frm_CreatePositionTool.designer.cs">
+      <DependentUpon>Frm_CreatePositionTool.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\24 CreateLineTool\CreateLineTool.cs" />
+    <Compile Include="1 ToolLib\24 CreateLineTool\Frm_CreateLineTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\24 CreateLineTool\Frm_CreateLineTool.designer.cs">
+      <DependentUpon>Frm_CreateLineTool.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\07 UpCamAlignTool\UpCamAlignTool.cs" />
+    <Compile Include="1 ToolLib\07 UpCamAlignTool\Frm_UpCamAlignTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\07 UpCamAlignTool\Frm_UpCamAlignTool.designer.cs">
+      <DependentUpon>Frm_UpCamAlignTool.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\26 CenterOfTwoPointTool\Frm_CenterOfTwoPointTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\26 CenterOfTwoPointTool\Frm_CenterOfTwoPointTool.designer.cs">
+      <DependentUpon>Frm_CenterOfTwoPointTool.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\26 CenterOfTwoPointTool\CenterOfTwoPointTool.cs" />
+    <Compile Include="1 ToolLib\27 OPTLightTool\OPTLightTool.cs" />
+    <Compile Include="1 ToolLib\27 OPTLightTool\Frm_OPTLightTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\27 OPTLightTool\Frm_OPTLightTool.designer.cs">
+      <DependentUpon>Frm_OPTLightTool.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\06 OneDimensionalCalibTool\Frm_OneDimensionalCalibTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\06 OneDimensionalCalibTool\Frm_OneDimensionalCalibTool.designer.cs">
+      <DependentUpon>Frm_OneDimensionalCalibTool.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\06 OneDimensionalCalibTool\OneDimensionalCalibTool.cs" />
+    <Compile Include="1 ToolLib\05 OneKeyEyeHandCalibTool\OneKeyEyeHandCalibTool.cs" />
+    <Compile Include="1 ToolLib\05 OneKeyEyeHandCalibTool\Frm_OneKeyEyeHandCalibTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\05 OneKeyEyeHandCalibTool\Frm_OneKeyEyeHandCalibTool.designer.cs">
+      <DependentUpon>Frm_OneKeyEyeHandCalibTool.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\30 Temp\Frm_KenyenceScanerTool1.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\30 Temp\Frm_KenyenceScanerTool1.designer.cs">
+      <DependentUpon>Frm_KenyenceScanerTool1.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\30 Temp\KenyenceScanerTool1.cs" />
+    <Compile Include="1 ToolLib\31 Temp1\Frm_KenyenceScanerTool2.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\31 Temp1\Frm_KenyenceScanerTool2.designer.cs">
+      <DependentUpon>Frm_KenyenceScanerTool2.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\31 Temp1\KenyenceScanerTool2.cs" />
+    <Compile Include="1 ToolLib\15 ArrayRegionTool\Frm_ArrayRegionTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\15 ArrayRegionTool\Frm_ArrayRegionTool.designer.cs">
+      <DependentUpon>Frm_ArrayRegionTool.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\15 ArrayRegionTool\ArrayRegionTool.cs" />
+    <Compile Include="1 ToolLib\33 OptLightControlTool\Frm_OptLightControlTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\33 OptLightControlTool\Frm_OptLightControlTool.designer.cs">
+      <DependentUpon>Frm_OptLightControlTool.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\33 OptLightControlTool\OptLightControlTool.cs" />
+    <Compile Include="1 ToolLib\17 MarkTool\Frm_MarkTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\17 MarkTool\Frm_MarkTool.designer.cs">
+      <DependentUpon>Frm_MarkTool.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\17 MarkTool\MarkTool.cs" />
+    <Compile Include="1 ToolLib\35 BuChangTool\Frm_BuChangTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\35 BuChangTool\Frm_BuChangTool.designer.cs">
+      <DependentUpon>Frm_BuChangTool.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\35 BuChangTool\BuChangTool.cs" />
+    <Compile Include="1 ToolLib\36 BatteryFirstAlignTool\BatteryFirstAlignTool.cs" />
+    <Compile Include="1 ToolLib\36 BatteryFirstAlignTool\Frm_BatteryFirstAlignTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\36 BatteryFirstAlignTool\Frm_BatteryFirstAlignTool.designer.cs">
+      <DependentUpon>Frm_BatteryFirstAlignTool.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\09 RotatePlatformTool\RotatePlatformTool.cs" />
+    <Compile Include="1 ToolLib\09 RotatePlatformTool\Frm_RotatePlatformTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\09 RotatePlatformTool\Frm_RotatePlatformTool.designer.cs">
+      <DependentUpon>Frm_RotatePlatformTool.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\37 SaveImageTool\SaveImageTool.cs" />
+    <Compile Include="1 ToolLib\37 SaveImageTool\Frm_SaveImageTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\37 SaveImageTool\Frm_SaveImageTool.designer.cs">
+      <DependentUpon>Frm_SaveImageTool.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\38 PoseToStrTool\Frm_PoseToStrTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\38 PoseToStrTool\Frm_PoseToStrTool.designer.cs">
+      <DependentUpon>Frm_PoseToStrTool.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\38 PoseToStrTool\PoseToStrTool.cs" />
+    <Compile Include="1 ToolLib\39 PointAlignTool\Frm_PointAlignTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\39 PointAlignTool\Frm_PointAlignTool.designer.cs">
+      <DependentUpon>Frm_PointAlignTool.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\39 PointAlignTool\PointAlignTool.cs" />
+    <Compile Include="1 ToolLib\40 PointOffsetTool\Frm_PointOffsetTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\40 PointOffsetTool\Frm_PointOffsetTool.designer.cs">
+      <DependentUpon>Frm_PointOffsetTool.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\40 PointOffsetTool\PointOffsetTool.cs" />
+    <Compile Include="1 ToolLib\41 AlignFitTool\Frm_AlignFitTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\41 AlignFitTool\Frm_AlignFitTool.designer.cs">
+      <DependentUpon>Frm_AlignFitTool.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\41 AlignFitTool\AlignFitTool.cs" />
+    <Compile Include="1 ToolLib\42 ImageProprecessingTool\Binary.cs" />
+    <Compile Include="1 ToolLib\42 ImageProprecessingTool\FillUp.cs" />
+    <Compile Include="1 ToolLib\42 ImageProprecessingTool\Frm_BinaryThreshold.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\42 ImageProprecessingTool\Frm_BinaryThreshold.Designer.cs">
+      <DependentUpon>Frm_BinaryThreshold.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\42 ImageProprecessingTool\Frm_ImageProprecessingTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\42 ImageProprecessingTool\Frm_ImageProprecessingTool.designer.cs">
+      <DependentUpon>Frm_ImageProprecessingTool.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\42 ImageProprecessingTool\ImageProprecessingTool.cs" />
+    <Compile Include="1 ToolLib\43 ApplyTransTool\ApplyTransTool.cs" />
+    <Compile Include="1 ToolLib\43 ApplyTransTool\Frm_ApplyTransTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\43 ApplyTransTool\Frm_ApplyTransTool.designer.cs">
+      <DependentUpon>Frm_ApplyTransTool.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\44 AlignWithoutCalibRotateCenterTool\Frm_AlignWithoutCalibRotateCenterTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\44 AlignWithoutCalibRotateCenterTool\Frm_AlignWithoutCalibRotateCenterTool.designer.cs">
+      <DependentUpon>Frm_AlignWithoutCalibRotateCenterTool.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\44 AlignWithoutCalibRotateCenterTool\AlignWithoutCalibRotateCenterTool.cs" />
+    <Compile Include="1 ToolLib\45 DisplayEditTool\Frm_DisplayEditTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\45 DisplayEditTool\Frm_DisplayEditTool.designer.cs">
+      <DependentUpon>Frm_DisplayEditTool.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\45 DisplayEditTool\DisplayEditTool.cs" />
+    <Compile Include="1 ToolLib\46 DistancePPTool\Frm_DistancePPTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\46 DistancePPTool\Frm_DistancePPTool.designer.cs">
+      <DependentUpon>Frm_DistancePPTool.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\46 DistancePPTool\DistancePPTool.cs" />
+    <Compile Include="1 ToolLib\01 ImageAcqTool\SDK_Base.cs" />
+    <Compile Include="1 ToolLib\47 EthernetReceiveTool\EthernetReceiveTool.cs" />
+    <Compile Include="1 ToolLib\47 EthernetReceiveTool\Frm_EthernetReceiveTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\47 EthernetReceiveTool\Frm_EthernetReceiveTool.designer.cs">
+      <DependentUpon>Frm_EthernetReceiveTool.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\48 EthernetSendTool\EthernetSendTool.cs" />
+    <Compile Include="1 ToolLib\48 EthernetSendTool\Frm_EthernetSendTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\48 EthernetSendTool\Frm_EthernetSendTool.designer.cs">
+      <DependentUpon>Frm_EthernetSendTool.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\49 PLCCommTool\PLCCommTool.cs" />
+    <Compile Include="1 ToolLib\49 PLCCommTool\Frm_PLCCommTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\49 PLCCommTool\Frm_PLCCommTool.Designer.cs">
+      <DependentUpon>Frm_PLCCommTool.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\49 DataAnalyseTool\DataAnalyseTool.cs" />
+    <Compile Include="1 ToolLib\49 DataAnalyseTool\Frm_DataAnalyseTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\49 DataAnalyseTool\Frm_DataAnalyseTool.designer.cs">
+      <DependentUpon>Frm_DataAnalyseTool.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\50 MeasurementTool\Frm_MeasurementTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\50 MeasurementTool\Frm_MeasurementTool.designer.cs">
+      <DependentUpon>Frm_MeasurementTool.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\50 MeasurementTool\MeasurementTool.cs" />
+    <Compile Include="1 ToolLib\51 AngleSSTool\Frm_AngleLLTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\51 AngleSSTool\Frm_AngleLLTool.designer.cs">
+      <DependentUpon>Frm_AngleLLTool.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\51 AngleSSTool\AngleLLTool.cs" />
+    <Compile Include="2 ClassLib\Scaner.cs" />
+    <Compile Include="2 ClassLib\TCPClient.cs" />
+    <Compile Include="2 ClassLib\TCPSever.cs" />
+    <Compile Include="3 FormLib\Frm_AcqDevice.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_AcqDevice.designer.cs">
+      <DependentUpon>Frm_AcqDevice.cs</DependentUpon>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_FromDevice1.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_FromDevice1.designer.cs">
+      <DependentUpon>Frm_FromDevice1.cs</DependentUpon>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_FromLocal1.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_FromLocal1.designer.cs">
+      <DependentUpon>Frm_FromLocal1.cs</DependentUpon>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_IOConfig.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_IOConfig.designer.cs">
+      <DependentUpon>Frm_IOConfig.cs</DependentUpon>
+    </Compile>
+    <Compile Include="2 ClassLib\Motion\Card_ADLink.cs" />
+    <Compile Include="2 ClassLib\Scheme.cs" />
+    <Compile Include="1 ToolLib\01 ImageAcqTool\Frm_FromDevice.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\01 ImageAcqTool\Frm_FromDevice.designer.cs">
+      <DependentUpon>Frm_FromDevice.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\01 ImageAcqTool\Frm_FromLocal.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\01 ImageAcqTool\Frm_FromLocal.Designer.cs">
+      <DependentUpon>Frm_FromLocal.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\01 ImageAcqTool\AcqImageTool.cs" />
+    <Compile Include="1 ToolLib\20 CircleCalibTool\CircleCalibrationTool.cs" />
+    <Compile Include="1 ToolLib\20 CircleCalibTool\Frm_CircleCalibrationTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\20 CircleCalibTool\Frm_CircleCalibrationTool.Designer.cs">
+      <DependentUpon>Frm_CircleCalibrationTool.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\02 ColorToRGBTool\ColorToRGBTool.cs" />
+    <Compile Include="1 ToolLib\02 ColorToRGBTool\Frm_ColorToRGBTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\02 ColorToRGBTool\Frm_ColorToRGBTool.designer.cs">
+      <DependentUpon>Frm_ColorToRGBTool.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\21 OCRTool\Frm_OCRTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\21 OCRTool\Frm_OCRTool.designer.cs">
+      <DependentUpon>Frm_OCRTool.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\21 OCRTool\OCRTool.cs" />
+    <Compile Include="1 ToolLib\21 QRCodeTool\QRCodeTool.cs" />
+    <Compile Include="1 ToolLib\01 ImageAcqTool\SDK_Basler.cs" />
+    <Compile Include="1 ToolLib\01 ImageAcqTool\SDK_HIKVision.cs" />
+    <Compile Include="1 ToolLib\01 ImageAcqTool\SDK_MindVision.cs" />
+    <Compile Include="1 ToolLib\01 ImageAcqTool\SDK_PointGrey.cs" />
+    <Compile Include="2 ClassLib\Motion\Card_LeadShineDMC2210.cs" />
+    <Compile Include="2 ClassLib\Motion\Card_LeadShineDMC2410.cs" />
+    <Compile Include="2 ClassLib\Motion\Card_WMX.cs" />
+    <Compile Include="2 ClassLib\Motion\Card_Ymc3100.cs" />
+    <Compile Include="2 ClassLib\Motion\SmartPosTable.cs" />
+    <Compile Include="2 ClassLib\PLCComm.cs" />
+    <Compile Include="2 ClassLib\PLCDevice.cs" />
+    <Compile Include="2 ClassLib\CipCommunication.cs" />
+    <Compile Include="2 ClassLib\Project.cs" />
+    <Compile Include="2 ClassLib\ToolBase.cs" />
+    <Compile Include="2 ClassLib\Using\APS168x64.cs" />
+    <Compile Include="2 ClassLib\Using\APS_Define.cs" />
+    <Compile Include="2 ClassLib\Using\Common.cs" />
+    <Compile Include="2 ClassLib\Using\DMC2210.cs" />
+    <Compile Include="2 ClassLib\Using\DMC2410.cs" />
+    <Compile Include="2 ClassLib\Using\HalconTool.cs" />
+    <Compile Include="2 ClassLib\Using\TestData.cs" />
+    <Compile Include="2 ClassLib\Using\YWC_PCAPI\ymcErrorCode.cs" />
+    <Compile Include="2 ClassLib\Using\YWC_PCAPI\ymcPCConst.cs" />
+    <Compile Include="2 ClassLib\Using\YWC_PCAPI\ymcPCFunction.cs" />
+    <Compile Include="2 ClassLib\Using\YWC_PCAPI\ymcPCStruct.cs" />
+    <Compile Include="3 FormLib\Frm_ConfirmBox.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_ConfirmBox.designer.cs">
+      <DependentUpon>Frm_ConfirmBox.cs</DependentUpon>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_DrawSearchROI.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_DrawSearchROI.designer.cs">
+      <DependentUpon>Frm_DrawSearchROI.cs</DependentUpon>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_CloseTip.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_CloseTip.Designer.cs">
+      <DependentUpon>Frm_CloseTip.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\09 FindLineTool\FindLineTool.cs" />
+    <Compile Include="1 ToolLib\09 FindLineTool\Frm_FindLineTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\09 FindLineTool\Frm_FindLineTool.Designer.cs">
+      <DependentUpon>Frm_FindLineTool.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\10 FindCircleTool\FindCircleTool.cs" />
+    <Compile Include="1 ToolLib\22 BarcodeTool\BarcodeTool.cs" />
+    <Compile Include="1 ToolLib\22 BarcodeTool\Frm_BarcodeTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\22 BarcodeTool\Frm_BarcodeTool.Designer.cs">
+      <DependentUpon>Frm_BarcodeTool.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\12 SubImageTool\Frm_SubImageTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\12 SubImageTool\Frm_SubImageTool.Designer.cs">
+      <DependentUpon>Frm_SubImageTool.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\11 BlobAnalyseTool\BlobAnalyseTool.cs" />
+    <Compile Include="1 ToolLib\08 DownCamAlignTool\Frm_DownCamAlignTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\08 DownCamAlignTool\Frm_DownCamAlignTool.Designer.cs">
+      <DependentUpon>Frm_DownCamAlignTool.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\08 DownCamAlignTool\DownCamAlignTool.cs" />
+    <Compile Include="1 ToolLib\11 BlobAnalyseTool\Frm_ProcessingItem.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\11 BlobAnalyseTool\Frm_ProcessingItem.Designer.cs">
+      <DependentUpon>Frm_ProcessingItem.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\11 BlobAnalyseTool\Frm_ProcessingItem1.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\11 BlobAnalyseTool\Frm_ProcessingItem1.Designer.cs">
+      <DependentUpon>Frm_ProcessingItem1.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\30 LabelTool\Frm_LabelTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\30 LabelTool\Frm_LabelTool.Designer.cs">
+      <DependentUpon>Frm_LabelTool.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\30 LabelTool\LabelTool.cs" />
+    <Compile Include="1 ToolLib\16 FitLineTool\FitLineTool.cs" />
+    <Compile Include="1 ToolLib\16 FitLineTool\Frm_FitLineTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\16 FitLineTool\Frm_FitLineTool.Designer.cs">
+      <DependentUpon>Frm_FitLineTool.cs</DependentUpon>
+    </Compile>
+    <Compile Include="1 ToolLib\18 DistanceLLTool\DistanceLLTool.cs" />
+    <Compile Include="1 ToolLib\18 DistanceLLTool\Frm_DistanceLLTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\18 DistanceLLTool\Frm_DistanceLLTool.Designer.cs">
+      <DependentUpon>Frm_DistanceLLTool.cs</DependentUpon>
+    </Compile>
+    <Compile Include="2 ClassLib\Using\CircleFuc.cs" />
+    <Compile Include="2 ClassLib\Log.cs" />
+    <Compile Include="2 ClassLib\Motion\CardBase.cs" />
+    <Compile Include="3 FormLib\SettingPages\Frm_EngineManager.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="3 FormLib\SettingPages\Frm_EngineManager.designer.cs">
+      <DependentUpon>Frm_EngineManager.cs</DependentUpon>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_InputMessage.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_InputMessage.designer.cs">
+      <DependentUpon>Frm_InputMessage.cs</DependentUpon>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_Login.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_Login.designer.cs">
+      <DependentUpon>Frm_Login.cs</DependentUpon>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_MessageBox.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_MessageBox.designer.cs">
+      <DependentUpon>Frm_MessageBox.cs</DependentUpon>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_GlobalVariable.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_GlobalVariable.designer.cs">
+      <DependentUpon>Frm_GlobalVariable.cs</DependentUpon>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_PosTableEdit.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_PosTableEdit.Designer.cs">
+      <DependentUpon>Frm_PosTableEdit.cs</DependentUpon>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_DeviceManager.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_DeviceManager.designer.cs">
+      <DependentUpon>Frm_DeviceManager.cs</DependentUpon>
+    </Compile>
+    <Compile Include="4 EditPart\Frm_ProductData.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="4 EditPart\Frm_ProductData.Designer.cs">
+      <DependentUpon>Frm_ProductData.cs</DependentUpon>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_TaskNotifier.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_TaskNotifier.Designer.cs">
+      <DependentUpon>Frm_TaskNotifier.cs</DependentUpon>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_FormBase.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_FormBase.Designer.cs">
+      <DependentUpon>Frm_FormBase.cs</DependentUpon>
+    </Compile>
+    <Compile Include="2 ClassLib\Using\CommandRun.cs" />
+    <Compile Include="2 ClassLib\Machine.cs" />
+    <Compile Include="2 ClassLib\Permission.cs" />
+    <Compile Include="2 ClassLib\Motion\ThreeColorLamp.cs" />
+    <Compile Include="3 FormLib\Frm_MotionControl.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_MotionControl.Designer.cs">
+      <DependentUpon>Frm_MotionControl.cs</DependentUpon>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_inputSingalVitual.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_inputSingalVitual.Designer.cs">
+      <DependentUpon>Frm_inputSingalVitual.cs</DependentUpon>
+    </Compile>
+    <Compile Include="2 ClassLib\Regiest.cs" />
+    <Compile Include="3 FormLib\Frm_Feedback.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_Feedback.Designer.cs">
+      <DependentUpon>Frm_Feedback.cs</DependentUpon>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_ImageWindow.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_ImageWindow.Designer.cs">
+      <DependentUpon>Frm_ImageWindow.cs</DependentUpon>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_JobInfo.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_JobInfo.Designer.cs">
+      <DependentUpon>Frm_JobInfo.cs</DependentUpon>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_LayoutManage.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_LayoutManage.Designer.cs">
+      <DependentUpon>Frm_LayoutManage.cs</DependentUpon>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_LightController.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_LightController.Designer.cs">
+      <DependentUpon>Frm_LightController.cs</DependentUpon>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_Output.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_Output.Designer.cs">
+      <DependentUpon>Frm_Output.cs</DependentUpon>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_Regiest.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_Regiest.Designer.cs">
+      <DependentUpon>Frm_Regiest.cs</DependentUpon>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_TCPServer.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_TCPServer.Designer.cs">
+      <DependentUpon>Frm_TCPServer.cs</DependentUpon>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_PLCComm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_PLCComm.Designer.cs">
+      <DependentUpon>Frm_PLCComm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_Scaner.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_Scaner.designer.cs">
+      <DependentUpon>Frm_Scaner.cs</DependentUpon>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_Serial.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_Serial.designer.cs">
+      <DependentUpon>Frm_Serial.cs</DependentUpon>
+    </Compile>
+    <Compile Include="2 ClassLib\Serial.cs" />
+    <Compile Include="4 EditPart\ShareMemProH.cs" />
+    <Compile Include="4 EditPart\Task_SmartLineA.cs" />
+    <Compile Include="4 EditPart\Frm_UserForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="4 EditPart\Frm_UserForm.Designer.cs">
+      <DependentUpon>Frm_UserForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_About.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_About.designer.cs">
+      <DependentUpon>Frm_About.cs</DependentUpon>
+    </Compile>
+    <Compile Include="2 ClassLib\Using\IOC0640.cs" />
+    <Compile Include="2 ClassLib\Motion\Card_IOC0640.cs" />
+    <Compile Include="1 ToolLib\30 CodeEditTool\CodeEditTool.cs" />
+    <Compile Include="1 ToolLib\30 CodeEditTool\Frm_CodeEditTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\04 EyeHandCalibTool\Frm_EyeHandCalibTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\04 EyeHandCalibTool\Frm_EyeHandCalibTool.Designer.cs">
+      <DependentUpon>Frm_EyeHandCalibTool.cs</DependentUpon>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_Monitor.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_Monitor.Designer.cs">
+      <DependentUpon>Frm_Monitor.cs</DependentUpon>
+    </Compile>
+    <Compile Include="2 ClassLib\VM.cs" />
+    <Compile Include="2 ClassLib\Configuration.cs" />
+    <Compile Include="3 FormLib\SettingPages\Frm_GeneralSettings.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="3 FormLib\SettingPages\Frm_GeneralSettings.Designer.cs">
+      <DependentUpon>Frm_GeneralSettings.cs</DependentUpon>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_Lock.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_Lock.Designer.cs">
+      <DependentUpon>Frm_Lock.cs</DependentUpon>
+    </Compile>
+    <Compile Include="3 FormLib\SettingPages\Frm_ProjetSettings.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="3 FormLib\SettingPages\Frm_ProjetSettings.Designer.cs">
+      <DependentUpon>Frm_ProjetSettings.cs</DependentUpon>
+    </Compile>
+    <Compile Include="3 FormLib\SettingPages\Frm_RunSettings.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="3 FormLib\SettingPages\Frm_RunSettings.Designer.cs">
+      <DependentUpon>Frm_RunSettings.cs</DependentUpon>
+    </Compile>
+    <Compile Include="2 ClassLib\Motion\AxisParameter.cs" />
+    <Compile Include="2 ClassLib\Motion\Card_Googol.cs" />
+    <Compile Include="1 ToolLib\04 EyeHandCalibTool\EyeHandCalibTool.cs" />
+    <Compile Include="2 ClassLib\Using\GraphicsContext.cs" />
+    <Compile Include="2 ClassLib\Using\gts.cs" />
+    <Compile Include="2 ClassLib\Using\HObjectEntry.cs" />
+    <Compile Include="1 ToolLib\18 OutputTool\OutputTool.cs" />
+    <Compile Include="2 ClassLib\Job.cs" />
+    <Compile Include="2 ClassLib\Using\SACTools.cs" />
+    <Compile Include="1 ToolLib\03 ShapeMatchTool\ShapeMatchTool.cs" />
+    <Compile Include="1 ToolLib\12 SubImageTool\SubImageTool.cs" />
+    <Compile Include="2 ClassLib\ToolInfo.cs" />
+    <Compile Include="3 FormLib\Frm_AxisSetting.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_AxisSetting.Designer.cs">
+      <DependentUpon>Frm_AxisSetting.cs</DependentUpon>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_ComConfig.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_ComConfig.Designer.cs">
+      <DependentUpon>Frm_ComConfig.cs</DependentUpon>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_FullScreen.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_FullScreen.Designer.cs">
+      <DependentUpon>Frm_FullScreen.cs</DependentUpon>
+    </Compile>
+    <Compile Include="3 FormLib\SettingPages\Frm_StartSettings.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="3 FormLib\SettingPages\Frm_StartSettings.Designer.cs">
+      <DependentUpon>Frm_StartSettings.cs</DependentUpon>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_TCPClient.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_TCPClient.Designer.cs">
+      <DependentUpon>Frm_TCPClient.cs</DependentUpon>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_ToolBox.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_ToolBox.Designer.cs">
+      <DependentUpon>Frm_ToolBox.cs</DependentUpon>
+    </Compile>
+    <Compile Include="3 FormLib\SettingPages\Frm_UserManager.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="3 FormLib\SettingPages\Frm_UserManager.Designer.cs">
+      <DependentUpon>Frm_UserManager.cs</DependentUpon>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_Welcome.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_Welcome.Designer.cs">
+      <DependentUpon>Frm_Welcome.cs</DependentUpon>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_Setting.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_Setting.Designer.cs">
+      <DependentUpon>Frm_Setting.cs</DependentUpon>
+    </Compile>
+    <Compile Include="2 ClassLib\Using\MVSDK.cs" />
+    <Compile Include="3 FormLib\Frm_Job.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_Job.Designer.cs">
+      <DependentUpon>Frm_Job.cs</DependentUpon>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_Main.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="3 FormLib\Frm_Main.Designer.cs">
+      <DependentUpon>Frm_Main.cs</DependentUpon>
+    </Compile>
+    <Compile Include="2 ClassLib\DataStrct.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Properties\Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="1 ToolLib\01 ImageAcqTool\Frm_SDKInfo.resx">
+      <DependentUpon>Frm_SDKInfo.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\01 ImageAcqTool\Frm_AcqImageTool.resx">
+      <DependentUpon>Frm_AcqImageTool.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\01 ImageAcqTool\Frm_FromDevice.resx">
+      <DependentUpon>Frm_FromDevice.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\01 ImageAcqTool\Frm_FromLocal.resx">
+      <DependentUpon>Frm_FromLocal.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\03 ShapeMatchTool\Frm_MoreEdit.resx">
+      <DependentUpon>Frm_MoreEdit.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\03 ShapeMatchTool\Frm_ShapeMatchTool.resx">
+      <DependentUpon>Frm_ShapeMatchTool.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\05 OneKeyEyeHandCalibTool\Frm_ConnectPara.resx">
+      <DependentUpon>Frm_ConnectPara.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\10 FindCircleTool\Frm_FindCircleTool.resx">
+      <DependentUpon>Frm_FindCircleTool.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\10 XYPlatformTool\Frm_XYPlatformTool.resx">
+      <DependentUpon>Frm_XYPlatformTool.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\11 BlobAnalyseTool\Frm_BlobAnalyseTool.resx">
+      <DependentUpon>Frm_BlobAnalyseTool.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\20 CircleCalibTool\Frm_CircleCalibrationTool.resx">
+      <DependentUpon>Frm_CircleCalibrationTool.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\02 ColorToRGBTool\Frm_ColorToRGBTool.resx">
+      <DependentUpon>Frm_ColorToRGBTool.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\17 DistancePLTool\Frm_DistancePLTool.resx">
+      <DependentUpon>Frm_DistancePLTool.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\19 LLIntersectTool\Frm_LLIntersectTool.resx">
+      <DependentUpon>Frm_LLIntersectTool.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\21 OCRTool\Frm_OCRTool.resx">
+      <DependentUpon>Frm_OCRTool.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\21 QRCodeTool\Frm_QRCodeTool.resx">
+      <DependentUpon>Frm_QRCodeTool.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\19 KenyenceScanerTool\Frm_KenyenceScanerTool.resx">
+      <DependentUpon>Frm_KenyenceScanerTool.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\13 CreateROITool\Frm_CreateROITool.resx">
+      <DependentUpon>Frm_CreateROITool.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\20 RegionFeatureTool\Frm_RegionFeatureTool.resx">
+      <DependentUpon>Frm_RegionFeatureTool.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\22 RegionOperationTool\Frm_RegionOperationTool.resx">
+      <DependentUpon>Frm_RegionOperationTool.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\14 CreatePositionTool\Frm_CreatePositionTool.resx">
+      <DependentUpon>Frm_CreatePositionTool.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\24 CreateLineTool\Frm_CreateLineTool.resx">
+      <DependentUpon>Frm_CreateLineTool.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\07 UpCamAlignTool\Frm_UpCamAlignTool.resx">
+      <DependentUpon>Frm_UpCamAlignTool.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\26 CenterOfTwoPointTool\Frm_CenterOfTwoPointTool.resx">
+      <DependentUpon>Frm_CenterOfTwoPointTool.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\27 OPTLightTool\Frm_OPTLightTool.resx">
+      <DependentUpon>Frm_OPTLightTool.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\06 OneDimensionalCalibTool\Frm_OneDimensionalCalibTool.resx">
+      <DependentUpon>Frm_OneDimensionalCalibTool.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\05 OneKeyEyeHandCalibTool\Frm_OneKeyEyeHandCalibTool.resx">
+      <DependentUpon>Frm_OneKeyEyeHandCalibTool.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\30 Temp\Frm_KenyenceScanerTool1.resx">
+      <DependentUpon>Frm_KenyenceScanerTool1.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\31 Temp1\Frm_KenyenceScanerTool2.resx">
+      <DependentUpon>Frm_KenyenceScanerTool2.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\15 ArrayRegionTool\Frm_ArrayRegionTool.resx">
+      <DependentUpon>Frm_ArrayRegionTool.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\33 OptLightControlTool\Frm_OptLightControlTool.resx">
+      <DependentUpon>Frm_OptLightControlTool.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\17 MarkTool\Frm_MarkTool.resx">
+      <DependentUpon>Frm_MarkTool.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\35 BuChangTool\Frm_BuChangTool.resx">
+      <DependentUpon>Frm_BuChangTool.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\36 BatteryFirstAlignTool\Frm_BatteryFirstAlignTool.resx">
+      <DependentUpon>Frm_BatteryFirstAlignTool.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\09 RotatePlatformTool\Frm_RotatePlatformTool.resx">
+      <DependentUpon>Frm_RotatePlatformTool.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\37 SaveImageTool\Frm_SaveImageTool.resx">
+      <DependentUpon>Frm_SaveImageTool.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\38 PoseToStrTool\Frm_PoseToStrTool.resx">
+      <DependentUpon>Frm_PoseToStrTool.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\39 PointAlignTool\Frm_PointAlignTool.resx">
+      <DependentUpon>Frm_PointAlignTool.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\40 PointOffsetTool\Frm_PointOffsetTool.resx">
+      <DependentUpon>Frm_PointOffsetTool.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\41 AlignFitTool\Frm_AlignFitTool.resx">
+      <DependentUpon>Frm_AlignFitTool.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\42 ImageProprecessingTool\Frm_BinaryThreshold.resx">
+      <DependentUpon>Frm_BinaryThreshold.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\42 ImageProprecessingTool\Frm_ImageProprecessingTool.resx">
+      <DependentUpon>Frm_ImageProprecessingTool.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\43 ApplyTransTool\Frm_ApplyTransTool.resx">
+      <DependentUpon>Frm_ApplyTransTool.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\44 AlignWithoutCalibRotateCenterTool\Frm_AlignWithoutCalibRotateCenterTool.resx">
+      <DependentUpon>Frm_AlignWithoutCalibRotateCenterTool.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\45 DisplayEditTool\Frm_DisplayEditTool.resx">
+      <DependentUpon>Frm_DisplayEditTool.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\46 DistancePPTool\Frm_DistancePPTool.resx">
+      <DependentUpon>Frm_DistancePPTool.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\47 EthernetReceiveTool\Frm_EthernetReceiveTool.resx">
+      <DependentUpon>Frm_EthernetReceiveTool.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\48 EthernetSendTool\Frm_EthernetSendTool.resx">
+      <DependentUpon>Frm_EthernetSendTool.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\49 DataAnalyseTool\Frm_DataAnalyseTool.resx">
+      <DependentUpon>Frm_DataAnalyseTool.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\50 MeasurementTool\Frm_MeasurementTool.resx">
+      <DependentUpon>Frm_MeasurementTool.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\51 AngleSSTool\Frm_AngleLLTool.resx">
+      <DependentUpon>Frm_AngleLLTool.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="3 FormLib\Frm_AcqDevice.resx">
+      <DependentUpon>Frm_AcqDevice.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="3 FormLib\Frm_FromDevice1.resx">
+      <DependentUpon>Frm_FromDevice1.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="3 FormLib\Frm_FromLocal1.resx">
+      <DependentUpon>Frm_FromLocal1.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="3 FormLib\Frm_IOConfig.resx">
+      <DependentUpon>Frm_IOConfig.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="3 FormLib\Frm_ConfirmBox.resx">
+      <DependentUpon>Frm_ConfirmBox.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="3 FormLib\Frm_DrawSearchROI.resx">
+      <DependentUpon>Frm_DrawSearchROI.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="3 FormLib\Frm_CloseTip.resx">
+      <DependentUpon>Frm_CloseTip.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\09 FindLineTool\Frm_FindLineTool.resx">
+      <DependentUpon>Frm_FindLineTool.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\16 FitLineTool\Frm_FitLineTool.resx">
+      <DependentUpon>Frm_FitLineTool.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\22 BarcodeTool\Frm_BarcodeTool.resx">
+      <DependentUpon>Frm_BarcodeTool.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\12 SubImageTool\Frm_SubImageTool.resx">
+      <DependentUpon>Frm_SubImageTool.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\08 DownCamAlignTool\Frm_DownCamAlignTool.resx">
+      <DependentUpon>Frm_DownCamAlignTool.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\11 BlobAnalyseTool\Frm_ProcessingItem.resx">
+      <DependentUpon>Frm_ProcessingItem.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\11 BlobAnalyseTool\Frm_ProcessingItem1.resx">
+      <DependentUpon>Frm_ProcessingItem1.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\30 LabelTool\Frm_LabelTool.resx">
+      <DependentUpon>Frm_LabelTool.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\18 DistanceLLTool\Frm_DistanceLLTool.resx">
+      <DependentUpon>Frm_DistanceLLTool.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="3 FormLib\SettingPages\Frm_EngineManager.resx">
+      <DependentUpon>Frm_EngineManager.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="3 FormLib\Frm_InputMessage.resx">
+      <DependentUpon>Frm_InputMessage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="3 FormLib\Frm_Login.resx">
+      <DependentUpon>Frm_Login.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="3 FormLib\Frm_MessageBox.resx">
+      <DependentUpon>Frm_MessageBox.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="3 FormLib\Frm_MotionControl.resx">
+      <DependentUpon>Frm_MotionControl.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="3 FormLib\Frm_inputSingalVitual.resx">
+      <DependentUpon>Frm_inputSingalVitual.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="3 FormLib\Frm_AxisSetting.resx">
+      <DependentUpon>Frm_AxisSetting.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="1 ToolLib\04 EyeHandCalibTool\Frm_EyeHandCalibTool.resx">
+      <DependentUpon>Frm_EyeHandCalibTool.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="3 FormLib\Frm_ComConfig.resx">
+      <DependentUpon>Frm_ComConfig.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="3 FormLib\Frm_Feedback.resx">
+      <DependentUpon>Frm_Feedback.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="3 FormLib\Frm_ImageWindow.resx">
+      <DependentUpon>Frm_ImageWindow.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="3 FormLib\Frm_JobInfo.resx">
+      <DependentUpon>Frm_JobInfo.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="3 FormLib\Frm_LayoutManage.resx">
+      <DependentUpon>Frm_LayoutManage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="3 FormLib\Frm_Lock.resx">
+      <DependentUpon>Frm_Lock.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="3 FormLib\Frm_Monitor.resx">
+      <DependentUpon>Frm_Monitor.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="3 FormLib\Frm_LightController.resx">
+      <DependentUpon>Frm_LightController.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="3 FormLib\Frm_Output.resx">
+      <DependentUpon>Frm_Output.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="3 FormLib\Frm_PLCComm.resx">
+      <DependentUpon>Frm_PLCComm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="3 FormLib\Frm_GlobalVariable.resx">
+      <DependentUpon>Frm_GlobalVariable.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="3 FormLib\Frm_PosTableEdit.resx">
+      <DependentUpon>Frm_PosTableEdit.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="3 FormLib\Frm_DeviceManager.resx">
+      <DependentUpon>Frm_DeviceManager.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="4 EditPart\Frm_ProductData.resx">
+      <DependentUpon>Frm_ProductData.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="3 FormLib\Frm_Regiest.resx">
+      <DependentUpon>Frm_Regiest.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="3 FormLib\Frm_TaskNotifier.resx">
+      <DependentUpon>Frm_TaskNotifier.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="3 FormLib\Frm_TCPServer.resx">
+      <DependentUpon>Frm_TCPServer.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="3 FormLib\Frm_FormBase.resx">
+      <DependentUpon>Frm_FormBase.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="3 FormLib\Frm_Scaner.resx">
+      <DependentUpon>Frm_Scaner.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="3 FormLib\Frm_Serial.resx">
+      <DependentUpon>Frm_Serial.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="4 EditPart\Frm_UserForm.resx">
+      <DependentUpon>Frm_UserForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="3 FormLib\Frm_About.resx">
+      <DependentUpon>Frm_About.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="3 FormLib\SettingPages\Frm_GeneralSettings.resx">
+      <DependentUpon>Frm_GeneralSettings.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="3 FormLib\Frm_FullScreen.resx">
+      <DependentUpon>Frm_FullScreen.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="3 FormLib\SettingPages\Frm_ProjetSettings.resx">
+      <DependentUpon>Frm_ProjetSettings.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="3 FormLib\SettingPages\Frm_RunSettings.resx">
+      <DependentUpon>Frm_RunSettings.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="3 FormLib\SettingPages\Frm_StartSettings.resx">
+      <DependentUpon>Frm_StartSettings.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="3 FormLib\Frm_TCPClient.resx">
+      <DependentUpon>Frm_TCPClient.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="3 FormLib\Frm_ToolBox.resx">
+      <DependentUpon>Frm_ToolBox.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="3 FormLib\SettingPages\Frm_UserManager.resx">
+      <DependentUpon>Frm_UserManager.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="3 FormLib\Frm_Welcome.resx">
+      <DependentUpon>Frm_Welcome.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="3 FormLib\Frm_Setting.resx">
+      <DependentUpon>Frm_Setting.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="3 FormLib\Frm_Job.resx">
+      <DependentUpon>Frm_Job.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="3 FormLib\Frm_Main.resx">
+      <DependentUpon>Frm_Main.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Properties\Resources.resx">
+      <Generator>PublicResXFileCodeGenerator</Generator>
+      <SubType>Designer</SubType>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\On.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Off.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Pause.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Run.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Delete.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Folder.png" />
+    <None Include="Resources\Region.png" />
+    <None Include="Resources\String.png" />
+    <None Include="Resources\Logo.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\SubImageTool.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\OutputTool.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\FixtureTool.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Image.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Image.bmp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\FindLineTool.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\FindCircleTool.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\CoorTransTool.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\ShapeMatchTool.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\GrayMatchTool.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\ImageAcquistionTool.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\BlobAnalyseTool.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\LabelTool.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\LogicTool.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\UnknownTool.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\DistancePPTool.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\DistancePLTool.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\AngleLLTool.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\FitCircleTool.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\FitLineTool.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\OCRTool.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\2DUncodeTool.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\BarCodeTool.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\UpCameraRobotAlignTool.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\ColorTransGrayTool.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Empty.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\CodeEdit\FastColoredTextBox\2 FastColoredTextBox.csproj">
+      <Project>{6dd14a85-ccfc-4774-bd26-0f5772512319}</Project>
+      <Name>FastColoredTextBox</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ControlLib\Controls\Controls.csproj">
+      <Project>{6d2088cb-161b-47fb-9c35-0ee8de61a3df}</Project>
+      <Name>Controls</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\DockForm\WinFormsUI\1 WinFormsUI.csproj">
+      <Project>{c75532c4-765b-418e-b09b-46d36b2abdb1}</Project>
+      <Name>1 WinFormsUI</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ImageWindow\HWindow_Tool.csproj">
+      <Project>{9baa53fd-89b5-43e2-ac59-a27b006debb6}</Project>
+      <Name>HWindow_Tool</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\LightController\LightController.csproj">
+      <Project>{18955788-a97f-4139-a6b3-2195c582340f}</Project>
+      <Name>LightController</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\CodeEditTool.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\DistanceLLTool.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\DownCameraAlignTool.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\ColorToRGBTool.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\GreenLight.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\RedLight.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\YellowLight.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Product1.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Debug.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Lock.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Unlock.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Light.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\LightTool.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Error.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Tip.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Warn.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\BatteryAlign.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\LLPointTool.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Robot.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\CreatePosTool.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\MarkTool.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\LineCalib.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\RegionFeature.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\ArrayRegionTool.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\EyeHandCalibTool.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\imageProProcessingTool.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\imagePreProcessingTool.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\SaveImageTool.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Dimension CalibTool.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\WhileTool.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\CreateROITool.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\GenSegmentTool.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\RegionArrayTool.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\TwoPointCenterTool.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\ScanerTool.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Scaner.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\ImageAcqTool.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Client.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Sever.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\XY.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Rotate.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\MoveDown.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\MoveUp.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\JobProperity.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\ButtonDown.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\ButtonUp.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Green.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Red.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Yellow.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\ToolBox.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Disable.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Enable.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\偏移.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\max.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\min.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\勾选.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\去勾选.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\复选框.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\去复选框.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\上一个 %281%29.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\上一个 %282%29.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\上一个 %283%29.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\上一个.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\查找 %281%29.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\关.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\开.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\按钮 %282%29.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\按钮 %281%29.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\按钮.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\电力传动机械部件.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\电力传动机械部件0.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\主页 %281%29.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\主页00.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\图像 %287%29.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\图像00.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\主页.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\主页 %283%29.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\复位 %281%29.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\复位.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\启动 %281%29.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\启动.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\停止 %281%29.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\停止.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\登录 %281%29.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\登录.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\锁定 %281%29.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\锁定.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\系统 %283%29.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\系统 %285%29.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\退出444.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\退出.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\退出666.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\退出777.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\参数配置 %281%29.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\参数配置.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\停止1.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\查找3.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\上上.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\下下.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\上一个000.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\钉.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\钉子 %283%29.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\字符.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\底部对齐.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\顶部对齐.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\组合表格.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\分支.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\循环.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\扫码枪.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\扫码枪 %281%29.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\电机 %281%29.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\电机 %283%29.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\电机 %282%29.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\添加 %281%29.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\添加 %282%29.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\LightTool~1.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\LightTool~2.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\开关 关 %281%29.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\开关 关.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\开关 关 %282%29.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\开关 关 %283%29.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\电机 %286%29.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\电机 %288%29.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\服务器.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\客户端.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\光照度-允乐.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\急速退款 %281%29.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\急速退款.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\客户端1.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\图片 .png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\图片 %282%29.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\图片 %283%29.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\图片 %286%29.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\图片 %287%29.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\图片 %288%29.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\照片 %281%29.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\照片 %282%29.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\照片 %283%29.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\照片.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\图片 %2810%29.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\图片 copy 3.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\图片 %2811%29.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\图片.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\查找.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\图像_images17~2.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\图像_images17.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\图像.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\放大 %281%29.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\放大.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\放大 %282%29.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\斜线.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\分割斜线.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Delete1.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\下 移.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\上 移1.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\删 除4.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\圆.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\新建文件夹\正方形 %281%29.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\新建文件夹\正方形 %282%29.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\新建文件夹\正方形 %283%29.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\新建文件夹\正方形 %284%29.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\新建文件夹\正方形 %285%29.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\新建文件夹\正方形 %286%29.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\新建文件夹\正方形 %287%29.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\新建文件夹\正方形.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\发.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\收 %281%29.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\收.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\发送区.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\接收区.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\阵列.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\输出管理.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\显示模版.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\展示板.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\展示B1.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\首页展示.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\大屏展示.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\停止 %2811111%29.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\停止222.png" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>

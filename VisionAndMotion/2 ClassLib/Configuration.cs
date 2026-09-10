@@ -27,7 +27,7 @@ namespace VMPro
         /// <summary>
         /// 数据输出路径
         /// </summary>
-        public string dataPath = "D:\\VM Pro";
+        public string dataPath = "D:\\WLP VM";
         private static bool _speedMode = false;
 
         public static bool SpeedMode
@@ -234,30 +234,73 @@ namespace VMPro
         /// <summary>
         /// 公司名称
         /// </summary>
-        internal const string DefaultCompanyName = "威乐普科技有限公司";
+        internal const string DefaultCompanyName = "威乐普电子科技有限公司";
+        internal const string ProductName = "WLP VM";
+        internal const string ProductVersion = "1.0.0";
+        internal const string ProductDisplayName = ProductName + " v" + ProductVersion;
+        internal const string DefaultProgramTitle = ProductName;
         private string _companyName = DefaultCompanyName;
         public string CompanyName
         {
             get { return Project.Instance.configuration._companyName; }
             set
             {
-                Project.Instance.configuration._companyName = value;
-                Frm_Main.Instance.lbl_title.Text = string.Format(Project.Instance.configuration.CompanyName + " - " + Project.Instance.configuration.ProgramTitle);
+                // 当前发行版使用固定公司品牌；旧项目或设置页输入不能覆盖。
+                Project.Instance.configuration._companyName = DefaultCompanyName;
+                Frm_Main.Instance.lbl_title.Text = BuildApplicationTitle(
+                    Project.Instance.configuration.ProgramTitle);
             }
         }
         /// <summary>
         /// 项目名称
         /// </summary>
-        private string programTitle = "未命名";
+        private string programTitle = DefaultProgramTitle;
         public string ProgramTitle
         {
-            get { return Project.Instance.configuration.programTitle; }
+            get { return NormalizeProgramTitle(Project.Instance.configuration.programTitle); }
             set
             {
-                Project.Instance.configuration.programTitle = value;
-                Frm_Main.Instance.lbl_title.Text = string.Format(Project.Instance.configuration.CompanyName + " - " + Project.Instance.configuration.ProgramTitle);
+                Project.Instance.configuration.programTitle = NormalizeProgramTitle(value);
+                Frm_Main.Instance.lbl_title.Text = BuildApplicationTitle(
+                    Project.Instance.configuration.ProgramTitle);
 
             }
+        }
+
+        /// <summary>
+        /// 旧版曾把产品名或演示产线名存入项目标题。品牌升级后只归一化
+        /// 这些已知占位值；用户自行命名的项目仍原样保留。
+        /// </summary>
+        internal static string NormalizeProgramTitle(string title)
+        {
+            string normalized = (title ?? string.Empty).Trim();
+            if (normalized.Length == 0 ||
+                string.Equals(normalized, "未命名", StringComparison.Ordinal) ||
+                string.Equals(normalized, "手机组装", StringComparison.Ordinal) ||
+                string.Equals(normalized, "通用视觉软件", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(normalized, "VM Pro", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(normalized, "VM Pro 通用视觉软件", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(normalized, ProductDisplayName, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(normalized, ProductName, StringComparison.OrdinalIgnoreCase))
+            {
+                return DefaultProgramTitle;
+            }
+
+            return normalized;
+        }
+
+        /// <summary>
+        /// 主窗口始终保留软件品牌；当用户设置了独立项目名时，将项目名作为
+        /// 次级上下文展示，避免加载项目后“WLP VM”从标题中消失。
+        /// </summary>
+        internal static string BuildApplicationTitle(string projectTitle)
+        {
+            string normalized = NormalizeProgramTitle(projectTitle);
+            string productTitle = string.Format("{0} - {1}", DefaultCompanyName, ProductDisplayName);
+            if (string.Equals(normalized, DefaultProgramTitle, StringComparison.OrdinalIgnoreCase))
+                return productTitle;
+
+            return string.Format("{0} · {1}", productTitle, normalized);
         }
 
 
@@ -273,14 +316,15 @@ namespace VMPro
                     autoBackupProgram = Convert.ToBoolean(ini.IniReadConfig("autoBackup"));
                     autoConnectAfterStart = Convert.ToBoolean(ini.IniReadConfig("AutoConnectAfterStart"));
                     autoRunVel = Convert.ToInt16(ini.IniReadConfig("AutoRunVel"));
-                    programTitle = ini.IniReadConfig("ProgramTitle");
+                    programTitle = NormalizeProgramTitle(ini.IniReadConfig("ProgramTitle"));
                     timeBetweenJobRun = Convert.ToInt16(ini.IniReadConfig("TimeBetweenJobRun"));
                     switchedToAutoMode = Convert.ToBoolean(ini.IniReadConfig("SwitchedToAuto"));
                     language = (Language)Enum.Parse(typeof(Language), ini.IniReadConfig("Language"));
                     cardType = (CardType)Enum.Parse(typeof(CardType), ini.IniReadConfig("CardType"));
                     autoStartAfterStartup = Convert.ToBoolean(ini.IniReadConfig("AutoStartAfterStartup"));
-                    // 公司名称为当前产品固定品牌，不再沿用旧配置文件中的示例名称。
-                    CompanyName = DefaultCompanyName;
+                    // 配置会在壳层构造前读取；这里只更新模型，不能经属性 setter
+                    // 隐式创建或直接触碰主窗体。Machine.InitAll 随后统一刷新标题。
+                    _companyName = DefaultCompanyName;
                     localIPAsSever = ini.IniReadConfig("LocalIPAsSever");
                     displayLine = Convert.ToBoolean(ini.IniReadConfig("DisplayLine"));
                     localPortAsSever = Convert.ToInt32(ini.IniReadConfig("LocalPortAsSever"));
@@ -368,7 +412,7 @@ namespace VMPro
                 ini.IniWriteConfig("autoBackup", autoBackupProgram.ToString());
                 ini.IniWriteConfig("AutoConnectAfterStart", autoConnectAfterStart.ToString());
                 ini.IniWriteConfig("AutoRunVel", autoRunVel.ToString());
-                ini.IniWriteConfig("ProgramTitle", programTitle);
+                ini.IniWriteConfig("ProgramTitle", NormalizeProgramTitle(programTitle));
                 ini.IniWriteConfig("TimeBetweenJobRun", timeBetweenJobRun.ToString());
                 ini.IniWriteConfig("SwitchedToAuto", switchedToAutoMode.ToString());
                 ini.IniWriteConfig("Language", language.ToString());

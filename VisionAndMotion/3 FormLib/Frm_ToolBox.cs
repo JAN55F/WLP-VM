@@ -21,6 +21,7 @@ namespace VMPro
         {
             InitializeComponent();
             this.tvw_tools.ImageList = Job.imageList;
+            InitializeModernToolboxUi();
         }
 
         /// <summary>
@@ -275,7 +276,23 @@ namespace VMPro
                         itemNode.Tag = DataType.Image;
                         if (toolInfo1 == null)
                         {
-                            toolInfo.output.Add(new ToolIO(Project.Instance.configuration.language == Language.English ? "OutputImage" : "输入图像", "", DataType.Image));
+                            // 该节点是输入项，必须加入 input 集合；加入 output 会导致运行时找不到输入图像。
+                            toolInfo.input.Add(new ToolIO(Project.Instance.configuration.language == Language.English ? "OutputImage" : "输入图像", "", DataType.Image));
+
+                            itemNode = toolNode.Nodes.Add("", Project.Instance.configuration.language == Language.English ? "-->Red" : "-->红", 34, 34);
+                            itemNode.ForeColor = Color.Blue;
+                            itemNode.Tag = DataType.Image;
+                            toolInfo.output.Add(new ToolIO(Project.Instance.configuration.language == Language.English ? "Red" : "红", "", DataType.Image));
+
+                            itemNode = toolNode.Nodes.Add("", Project.Instance.configuration.language == Language.English ? "-->Green" : "-->绿", 34, 34);
+                            itemNode.ForeColor = Color.Blue;
+                            itemNode.Tag = DataType.Image;
+                            toolInfo.output.Add(new ToolIO(Project.Instance.configuration.language == Language.English ? "Green" : "绿", "", DataType.Image));
+
+                            itemNode = toolNode.Nodes.Add("", Project.Instance.configuration.language == Language.English ? "-->Blue" : "-->蓝", 34, 34);
+                            itemNode.ForeColor = Color.Blue;
+                            itemNode.Tag = DataType.Image;
+                            toolInfo.output.Add(new ToolIO(Project.Instance.configuration.language == Language.English ? "Blue" : "蓝", "", DataType.Image));
                         }
                         break;
                     #endregion
@@ -2777,8 +2794,24 @@ namespace VMPro
                     ElseNode.Nodes.Add("", Project.Instance.configuration.language == Language.English ? "Output" : "输出项", 59, 59);
                 }
 
+                ApplyModernToolCategories(
+                    ImageNode,
+                    DetectNode,
+                    CalibNode,
+                    AlignNode,
+                    LogicNode,
+                    FindAndFitNode,
+                    CreateNode,
+                    GeometryNode,
+                    CalculateNode,
+                    LightNode,
+                    CommNode,
+                    D3Node,
+                    ElseNode);
+
                 //默认展开第一个图像相关节点
                 this.tvw_tools.Nodes[0].Expand();
+                FinalizeModernToolboxUi();
             }
             catch (Exception ex)
             {
@@ -2789,6 +2822,15 @@ namespace VMPro
         {
             try
             {
+                if (tvw_tools.SelectedNode != null &&
+                    tvw_tools.SelectedNode.Level == 0 &&
+                    tvw_tools.SelectedNode.Tag is string)
+                {
+                    lbl_toolInfo.Text = (Project.Instance.configuration.language == Language.English ? "Notes: " : "说明：") +
+                                        tvw_tools.SelectedNode.Tag.ToString();
+                    return;
+                }
+
                 switch (tvw_tools.SelectedNode.Text)
                 {
                     case "图像相关":

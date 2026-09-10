@@ -28,9 +28,19 @@ namespace VMPro
         {
             try
             {
+                ModernUiTheme.Install();
+                // 菜单、快捷栏和欢迎页会在构造时读取语言。配置必须先在 UI
+                // 线程载入，否则 English 配置仍会先生成一套中文壳层。
+                Project.Instance.configuration.Read(false);
                 Frm_Welcome.Instance.Show();
                 System.Windows.Forms.Application.DoEvents();
                 var frm = Frm_Main.Instance;          //这一句看似没用，实则有用，因为在这里加这一行就会实例化主窗体，不然主窗体就会在后台线程中被实例化，那就会有问题
+                // 提前在 UI 线程创建日志调度所用的句柄；初始化线程的早期日志随后
+                // 可安全 BeginInvoke，避免在后台线程首次构造 Dock/WinForms 窗体。
+                IntPtr mainWindowHandle = frm.Handle;
+                IntPtr statusStripHandle = frm.statusStrip1.Handle;
+                GC.KeepAlive(mainWindowHandle);
+                GC.KeepAlive(statusStripHandle);
                 Thread th = new Thread(Machine.InitAll);
                 th.IsBackground = true;
                 th.Start();
@@ -165,9 +175,9 @@ namespace VMPro
 
                 Project.Instance.curEngine.L_jobList.Add(job);
            
-                TreeView tvw_job = new TreeView();
+                TreeView tvw_job = new FlowEditorTreeView(job.GetConnectionSnapshot, job.ShouldDisplayConnections);
                 tvw_job.Scrollable = true;
-                tvw_job.ItemHeight = 26;
+                tvw_job.ItemHeight = 34;
                 tvw_job.ShowLines = false;
                 tvw_job.AllowDrop = true;
                 tvw_job.ImageList = Job.imageList;
@@ -198,25 +208,9 @@ namespace VMPro
                 Frm_Job.Instance.tbc_jobs.TabPages[Frm_Job.Instance.tbc_jobs.TabPages.Count - 1].Controls.Add(tvw_job);
                 tvw_job.Dock = DockStyle.Fill;
                 tvw_job.ShowNodeToolTips = true;
-                tvw_job.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
+                tvw_job.Font = ModernUiTheme.UiFont;
 
-                //以下事件为画线事件
-                if (Project.Instance.configuration.displayLine)
-                {
-                    //////Frm_Job.Instance.Paint += job.Instance_Paint;
-                    tvw_job.MouseMove += job.DrawLineWithoutRefresh;
-                    tvw_job.MouseWheel += job.DrawLineWithoutRefresh;
-
-                    tvw_job.AfterExpand += job.Draw_Line;
-                    tvw_job.AfterCollapse += job.Draw_Line;
-                    Frm_Job.Instance.tbc_jobs.SelectedIndexChanged += job.tbc_jobs_SelectedIndexChanged;
-                }
-
-                Frm_Job.Instance.tbc_jobs.TabPages.Add(job.jobName);
-                Frm_Job.Instance.tbc_jobs.TabPages[Frm_Job.Instance.tbc_jobs.TabPages.Count - 1].Controls.Add(tvw_job);
-                tvw_job.Dock = DockStyle.Fill;
-                tvw_job.ShowNodeToolTips = true;
-                tvw_job.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
+                // FlowEditorTreeView 自行跟随滚动、折叠和窗口重绘连线。
 
                 ////////反序列化各工具
                 //////job.D_itemAndSource.Clear();

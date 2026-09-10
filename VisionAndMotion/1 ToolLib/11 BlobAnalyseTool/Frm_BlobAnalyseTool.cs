@@ -80,6 +80,13 @@ namespace VMPro
             }
         }
         /// <summary>
+        /// 只返回已存在的编辑窗体，流程运行时不得为刷新结果表隐式创建窗体。
+        /// </summary>
+        internal static Frm_BlobAnalyseTool CurrentInstance
+        {
+            get { return _instance; }
+        }
+        /// <summary>
         /// 当前工具所对应的工具对象
         /// </summary>
         internal static BlobAnalyseTool blobAnalyseTool = new BlobAnalyseTool();
