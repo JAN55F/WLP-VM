@@ -372,3 +372,6 @@ FodyWeavers.xsd
 /工具箱问题.md
 /工具箱问题.md
 /.gitignore
+
+# macOS AppleDouble files
+._*

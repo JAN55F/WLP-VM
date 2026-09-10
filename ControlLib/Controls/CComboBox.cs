@@ -210,16 +210,13 @@ namespace Controls
                 finally
                 {
                     _syncing = false;
-                    if (editTextBox != null && editTextBox.Text != (_text ?? string.Empty))
-                        editTextBox.Text = _text ?? string.Empty;
-                    Invalidate();
-                }
-                finally
-                {
                     //无论程序设置还是用户选择，都让缓存与内部下拉框的真实显示保持一致；
                     //否则程序化选中后 TextStr 仍是旧值，调用方（如发送目标）会拿到过期内容
                     _selectedIndex = cbx_item.SelectedIndex;
-                    _text = cbx_item.Text;
+                    _text = cbx_item.Text ?? string.Empty;
+                    if (editTextBox != null && editTextBox.Text != (_text ?? string.Empty))
+                        editTextBox.Text = _text ?? string.Empty;
+                    Invalidate();
                 }
             }
         }
