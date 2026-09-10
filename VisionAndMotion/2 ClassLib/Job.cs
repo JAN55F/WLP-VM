@@ -1435,6 +1435,7 @@ namespace VMPro
                 variable2.variableType = 0;
                 Project.Instance.curEngine.globelVariable.L_variable.Add(variable2);
                 Job.isDrawing = false;
+                Project.SaveProject();
 
                 ////自动创建窗体并绑定到此流程
                 //Frm_Main.Instance.CreateNewImageWindowWithoutInput();
@@ -2199,6 +2200,7 @@ namespace VMPro
                     Frm_Main.Instance.OutputMsg(currentJobName == string.Empty
                         ? string.Format("已删除流程 [{0}]，当前无可用流程", jobName)
                         : string.Format("已删除流程 [{0}]，当前流程已切换为 [{1}]", jobName, currentJobName), Color.Black);
+                    Project.SaveProject();
                 }
             }
             catch (Exception ex)

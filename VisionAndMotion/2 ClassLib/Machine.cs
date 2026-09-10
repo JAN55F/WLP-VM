@@ -506,6 +506,7 @@ namespace VMPro
             catch (Exception ex)
             {
                 loading = false;
+                initSucceed = false;
                 Log.SaveError(ex);
             }
         }

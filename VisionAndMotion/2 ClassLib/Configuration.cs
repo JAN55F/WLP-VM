@@ -236,7 +236,8 @@ namespace VMPro
         /// </summary>
         internal const string DefaultCompanyName = "威乐普电子科技有限公司";
         internal const string ProductName = "WLP VM";
-        internal const string ProductVersion = "1.0.0";
+        internal const string ProductVersion = "1.5.0";
+        internal const string ProductUpdateTime = "2026-09-10";
         internal const string ProductDisplayName = ProductName + " v" + ProductVersion;
         internal const string DefaultProgramTitle = ProductName;
         private string _companyName = DefaultCompanyName;
@@ -291,16 +292,16 @@ namespace VMPro
 
         /// <summary>
         /// 主窗口始终保留软件品牌；当用户设置了独立项目名时，将项目名作为
-        /// 次级上下文展示，避免加载项目后“WLP VM”从标题中消失。
+        /// 次级上下文展示，避免加载项目后”WLP VM”从标题中消失。
         /// </summary>
         internal static string BuildApplicationTitle(string projectTitle)
         {
             string normalized = NormalizeProgramTitle(projectTitle);
-            string productTitle = string.Format("{0} - {1}", DefaultCompanyName, ProductDisplayName);
+            string productTitle = string.Format(“{0} - {1} [Debug: {2}]”, DefaultCompanyName, ProductDisplayName, ProductUpdateTime);
             if (string.Equals(normalized, DefaultProgramTitle, StringComparison.OrdinalIgnoreCase))
                 return productTitle;
 
-            return string.Format("{0} · {1}", productTitle, normalized);
+            return string.Format(“{0} · {1}”, productTitle, normalized);
         }
 
 

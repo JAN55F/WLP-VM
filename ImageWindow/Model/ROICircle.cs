@@ -48,6 +48,8 @@ namespace ViewWindow.Model
 
         public ROICircle(double row, double col, double radius)
         {
+            NumHandles = 2;
+            activeHandleIdx = 1;
             createCircle(row, col, radius);
         }
 

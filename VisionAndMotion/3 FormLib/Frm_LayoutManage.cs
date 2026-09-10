@@ -113,7 +113,7 @@ namespace VMPro
             {
                 string layoutName = dataGridView1.SelectedRows[0].Cells[1].Value.ToString() + ".config";
                 string layoutPath = "Config\\Resources\\Layout\\" + layoutName;
-                if (layoutName != "经典布局1.config" && layoutName != "经典布局2.config" && layoutName != "上次退出时布局.config")
+                if (layoutName != "经典布局1.config" && layoutName != "经典布局2.config" && layoutName != "左中右布局.config" && layoutName != "上次退出时布局.config")
                 {
                     if (File.Exists(Application.StartupPath + "\\" + layoutPath))
                         File.Delete(Application.StartupPath + "\\" + layoutPath);
@@ -193,7 +193,7 @@ namespace VMPro
             {
                 string layoutName = dataGridView1.SelectedRows[0].Cells[1].Value.ToString() + ".config";
                 string layoutPath = "Config\\Resources\\Layout\\" + layoutName;
-                if (layoutName != "经典布局1.config" && layoutName != "经典布局2.config" && layoutName != "上次退出时布局.config")
+                if (layoutName != "经典布局1.config" && layoutName != "经典布局2.config" && layoutName != "左中右布局.config" && layoutName != "上次退出时布局.config")
                 {
                     if (File.Exists(Application.StartupPath + "\\" + layoutPath))
                         File.Delete(Application.StartupPath + "\\" + layoutPath);
