@@ -91,7 +91,9 @@ namespace VMPro
             }
             catch (Exception ex)
             {
-                Log.SaveError(ex);
+                Log.SaveErrorAndShow(ex, Project.Instance.configuration.language == Language.English 
+                    ? "Failed to run job loop" 
+                    : "流程循环运行失败", "btn_jobLoopRun_Click");
             }
         }
         private void Frm_Job_FormClosed(object sender, FormClosedEventArgs e)
@@ -156,7 +158,9 @@ namespace VMPro
             }
             catch (Exception ex)
             {
-                Log.SaveError(ex);
+                Log.SaveErrorAndShow(ex, Project.Instance.configuration.language == Language.English 
+                    ? "Failed to select job" 
+                    : "选择流程失败", "tbc_jobs_SelectedIndexChanged");
             }
         }
         private void tsb_createJob_Click(object sender, EventArgs e)

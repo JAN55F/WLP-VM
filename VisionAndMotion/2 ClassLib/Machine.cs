@@ -1000,19 +1000,19 @@ namespace VMPro
             {
                 if (machineRunStatu == MachineRunStatu.Homing)
                 {
-                    Frm_Main.Instance.OutputMsg("复位中，请复位完成后开始", Color.Red);
+                    Frm_Main.Instance.OutputMsg("复位中，请复位完成后开始", System.Drawing.Color.Red);
                     return;
                 }
                 else if (machineRunStatu == MachineRunStatu.WaitReset)
                 {
-                    Frm_Main.Instance.OutputMsg("程序未复位，请复位成后开始", Color.Red);
+                    Frm_Main.Instance.OutputMsg("程序未复位，请复位成后开始", System.Drawing.Color.Red);
                     return;
                 }
                 else
                 {
 
 
-                    Frm_Main.Instance.OutputMsg("开始运行", Color.Black);
+                    Frm_Main.Instance.OutputMsg("开始运行", System.Drawing.Color.Black);
                     Log.SaveLog(LogType.Operate, "开始运行");
                     machineRunStatu = MachineRunStatu.Running;
 
@@ -1033,7 +1033,9 @@ namespace VMPro
             }
             catch (Exception ex)
             {
-                Log.SaveError(ex);
+                Log.SaveErrorAndShow(ex, Project.Instance.configuration.language == Language.English 
+                    ? "Failed to start run operation" 
+                    : "启动运行失败", "StartRun");
             }
         }
         internal static void SwitchFrom(FormMode formMode)
@@ -1050,7 +1052,7 @@ namespace VMPro
                 if (machineRunStatu == MachineRunStatu.Running)
                 {
 
-                    Frm_Main.Instance.OutputMsg("停止运行", Color.Black);
+                    Frm_Main.Instance.OutputMsg("停止运行", System.Drawing.Color.Black);
                     Log.SaveLog(LogType.Operate, "停止自动运行");
                     machineRunStatu = MachineRunStatu.Stop;
 
@@ -1069,7 +1071,9 @@ namespace VMPro
             }
             catch (Exception ex)
             {
-                Log.SaveError(ex);
+                Log.SaveErrorAndShow(ex, Project.Instance.configuration.language == Language.English 
+                    ? "Failed to stop run operation" 
+                    : "停止运行失败", "StopRun");
             }
         }
         /// <summary>

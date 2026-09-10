@@ -971,9 +971,18 @@ namespace VMPro
         }
         private void btn_startRun_Click(object sender, EventArgs e)
         {
-            if (!Permission.CheckPermission(PermissionLevel.Operator))
-                return;
-            Machine.StartRun();
+            try
+            {
+                if (!Permission.CheckPermission(PermissionLevel.Operator))
+                    return;
+                Machine.StartRun();
+            }
+            catch (Exception ex)
+            {
+                Log.SaveErrorAndShow(ex, Project.Instance.configuration.language == Language.English 
+                    ? "Start run button click failed" 
+                    : "启动按钮点击失败");
+            }
         }
         private void Frm_Main_Resize(object sender, EventArgs e)
         {
@@ -1448,15 +1457,24 @@ namespace VMPro
         }
         private void btn_changeMode_Click(object sender, EventArgs e)
         {
-            if (Machine.productionMode)
+            try
             {
-                Log.SaveLog(LogType.Operate, Project.Instance.configuration.language == Language.English ? "Switch to debug page" : "切换到调试页面");
-                Frm_Login.Instance.ShowDialog();
+                if (Machine.productionMode)
+                {
+                    Log.SaveLog(LogType.Operate, Project.Instance.configuration.language == Language.English ? "Switch to debug page" : "切换到调试页面");
+                    Frm_Login.Instance.ShowDialog();
+                }
+                else
+                {
+                    Log.SaveLog(LogType.Operate, Project.Instance.configuration.language == Language.English ? "Switch to production page" : "切换到生产页面");
+                    Machine.SwitchToProductForm();
+                }
             }
-            else
+            catch (Exception ex)
             {
-                Log.SaveLog(LogType.Operate, Project.Instance.configuration.language == Language.English ? "Switch to production page" : "切换到生产页面");
-                Machine.SwitchToProductForm();
+                Log.SaveErrorAndShow(ex, Project.Instance.configuration.language == Language.English 
+                    ? "Failed to change mode" 
+                    : "切换模式失败");
             }
         }
         private void buttonItem14_Click(object sender, EventArgs e)

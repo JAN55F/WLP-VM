@@ -150,6 +150,30 @@ namespace VMPro
             }
         }
 
+        /// <summary>
+        /// 保存错误并显示用户友好的错误消息，防止异常被吞掉导致应用状态异常
+        /// </summary>
+        internal static void SaveErrorAndShow(Exception ex, string userMessage = null, string context = null)
+        {
+            try
+            {
+                SaveError(ex, context);
+                if (userMessage == null)
+                    userMessage = Project.Instance.configuration.language == Language.English 
+                        ? "An error occurred, please check the log file for details." 
+                        : "发生错误，请查看日志文件了解详情。";
+                if (Frm_Main.Instance != null && !Frm_Main.Instance.IsDisposed && Frm_Main.Instance.Visible)
+                    Frm_Main.Instance.OutputMsg(userMessage, System.Drawing.Color.Red);
+                else
+                    Frm_MessageBox.Instance.MessageBoxShow(userMessage);
+            }
+            catch
+            {
+                // 防止显示错误消息时再次抛异常
+                System.Windows.Forms.MessageBox.Show(userMessage ?? "An error occurred");
+            }
+        }
+
     }
     /// <summary>
     /// Log信息类型：通讯信息|异常信息|生产数据
