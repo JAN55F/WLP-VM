@@ -193,12 +193,21 @@ namespace VMPro
 
         public void DrawExpectCircle(string ignoredJobName)
         {
-            if (!Frm_FindCircleTool.IsOpen || !HasValidInput()) return;
-            if (L_regions == null || L_regions.Count == 0) ResetRoiToImage();
-            CaptureTemplatePoseFromCurrentInput();
-            Frm_FindCircleTool.Instance.hWindow_Final1.HobjectToHimage(toolPar.InputPar.图像);
-            Frm_FindCircleTool.Instance.hWindow_Final1.viewWindow.displayInteractiveROI(L_regions);
-            Frm_FindCircleTool.Instance.regions = L_regions;
+            try
+            {
+                if (!Frm_FindCircleTool.IsOpen || !HasValidInput()) return;
+                if (L_regions == null || L_regions.Count == 0) ResetRoiToImage();
+                CaptureTemplatePoseFromCurrentInput();
+                Frm_FindCircleTool.Instance.hWindow_Final1.HobjectToHimage(toolPar.InputPar.图像);
+                Frm_FindCircleTool.Instance.hWindow_Final1.viewWindow.displayInteractiveROI(L_regions);
+                Frm_FindCircleTool.Instance.regions = L_regions;
+            }
+            catch (Exception ex)
+            {
+                Log.SaveErrorAndShow(ex, Project.Instance.configuration.language == Language.English 
+                    ? "Failed to draw expected circle" 
+                    : "绘制期望圆失败", "DrawExpectCircle");
+            }
         }
 
         internal bool SyncDisplayedRoi(bool refreshPreview)
@@ -239,7 +248,12 @@ namespace VMPro
                 }
                 window.viewWindow._hWndControl.repaint();
             }
-            catch (Exception ex) { Log.SaveError(ex); }
+            catch (Exception ex)
+            {
+                Log.SaveErrorAndShow(ex, Project.Instance.configuration.language == Language.English 
+                    ? "Failed to show preview" 
+                    : "预览显示失败", "ShowDraggingPreview");
+            }
         }
 
         internal void ShowContour(bool showROI, bool trans = true) { ShowContour(showROI, trans, false); }

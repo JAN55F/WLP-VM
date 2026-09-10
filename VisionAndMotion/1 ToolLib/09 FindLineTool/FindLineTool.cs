@@ -473,7 +473,12 @@ namespace VMPro
                     CaptureTemplatePoseFromCurrentInput();
                 }
             }
-            catch (Exception ex) { Log.SaveError(ex); }
+            catch (Exception ex)
+            {
+                Log.SaveErrorAndShow(ex, Project.Instance.configuration.language == Language.English 
+                    ? "Failed to edit caliper/ROI" 
+                    : "卡尺编辑失败", "EditCaliper");
+            }
         }
 
         internal void EnableLineRoiEditing()

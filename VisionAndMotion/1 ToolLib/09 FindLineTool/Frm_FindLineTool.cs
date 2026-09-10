@@ -173,26 +173,53 @@ namespace VMPro
 
         private void RoiControllerChanged(int eventType)
         {
-            if (eventType != ROIController.EVENT_MOVING_ROI || findLineTool == null || IsBoundJobExecuting()) return;
-            if (findLineTool.SyncDisplayedRoi(false))
+            try
             {
-                lbl_roiSummary.Text = findLineTool.GetRoiSummary();
-                findLineTool.ShowDraggingPreview();
+                if (eventType != ROIController.EVENT_MOVING_ROI || findLineTool == null || IsBoundJobExecuting()) return;
+                if (findLineTool.SyncDisplayedRoi(false))
+                {
+                    lbl_roiSummary.Text = findLineTool.GetRoiSummary();
+                    findLineTool.ShowDraggingPreview();
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.SaveErrorAndShow(ex, Project.Instance.configuration.language == Language.English 
+                    ? "Error updating ROI" 
+                    : "ROI 更新出错", "RoiControllerChanged");
             }
         }
 
         private void PolarityChanged()
         {
-            if (bindingUi || findLineTool == null) return;
-            findLineTool.polarity = cbx_polarity.SelectedIndex == 1 ? "negative" : cbx_polarity.SelectedIndex == 2 ? "all" : "positive";
-            QueuePreview();
+            try
+            {
+                if (bindingUi || findLineTool == null) return;
+                findLineTool.polarity = cbx_polarity.SelectedIndex == 1 ? "negative" : cbx_polarity.SelectedIndex == 2 ? "all" : "positive";
+                QueuePreview();
+            }
+            catch (Exception ex)
+            {
+                Log.SaveErrorAndShow(ex, Project.Instance.configuration.language == Language.English 
+                    ? "Error changing polarity" 
+                    : "极性修改出错", "PolarityChanged");
+            }
         }
 
         private void EdgeSelectChanged()
         {
-            if (bindingUi || findLineTool == null) return;
-            findLineTool.edgeSelect = cbx_edgeSelect.SelectedIndex == 0 ? "first" : cbx_edgeSelect.SelectedIndex == 1 ? "last" : "all";
-            QueuePreview();
+            try
+            {
+                if (bindingUi || findLineTool == null) return;
+                findLineTool.edgeSelect = cbx_edgeSelect.SelectedIndex == 0 ? "first" : cbx_edgeSelect.SelectedIndex == 1 ? "last" : "all";
+                QueuePreview();
+            }
+            catch (Exception ex)
+            {
+                Log.SaveErrorAndShow(ex, Project.Instance.configuration.language == Language.English 
+                    ? "Error changing edge selection" 
+                    : "边缘选择出错", "EdgeSelectChanged");
+            }
         }
 
         private void ThresholdChanged(double value) { SetNumeric(delegate { findLineTool.threshold = (int)value; }); }
@@ -237,18 +264,36 @@ namespace VMPro
 
         private void DisplayChanged(object sender, EventArgs e)
         {
-            if (bindingUi || findLineTool == null) return;
-            findLineTool.displayCaliper = ckb_displayCaliper.Checked;
-            findLineTool.displayFeature = ckb_displayFeature.Checked;
-            findLineTool.displayLine = cCheckBox3.Checked;
-            QueuePreview();
+            try
+            {
+                if (bindingUi || findLineTool == null) return;
+                findLineTool.displayCaliper = ckb_displayCaliper.Checked;
+                findLineTool.displayFeature = ckb_displayFeature.Checked;
+                findLineTool.displayLine = cCheckBox3.Checked;
+                QueuePreview();
+            }
+            catch (Exception ex)
+            {
+                Log.SaveErrorAndShow(ex, Project.Instance.configuration.language == Language.English 
+                    ? "Error updating display settings" 
+                    : "显示设置更新出错", "DisplayChanged");
+            }
         }
 
         private void btn_preview_Click(object sender, EventArgs e)
         {
-            previewTimer.Stop();
-            previewPending = false;
-            RefreshPreviewNow();
+            try
+            {
+                previewTimer.Stop();
+                previewPending = false;
+                RefreshPreviewNow();
+            }
+            catch (Exception ex)
+            {
+                Log.SaveErrorAndShow(ex, Project.Instance.configuration.language == Language.English 
+                    ? "Preview failed" 
+                    : "预览失败", "btn_preview_Click");
+            }
         }
 
         private void btn_runTool_Click(object sender, EventArgs e)
@@ -265,8 +310,12 @@ namespace VMPro
             }
             catch (Exception ex)
             {
-                Log.SaveError(ex);
-                UpdateRunStatus("运行异常：" + ex.Message, false, 0);
+                Log.SaveErrorAndShow(ex, Project.Instance.configuration.language == Language.English 
+                    ? "Tool execution failed: " + ex.Message 
+                    : "工具运行异常：" + ex.Message, "btn_runTool_Click");
+                UpdateRunStatus(Project.Instance.configuration.language == Language.English 
+                    ? "Execution error: " + ex.Message 
+                    : "运行异常：" + ex.Message, false, 0);
             }
             finally { btn_runTool.Enabled = true; }
         }
@@ -281,33 +330,59 @@ namespace VMPro
             }
             catch (Exception ex)
             {
-                Log.SaveError(ex);
-                UpdateRunStatus("流程运行异常：" + ex.Message, false, 0);
+                Log.SaveErrorAndShow(ex, Project.Instance.configuration.language == Language.English 
+                    ? "Job execution failed: " + ex.Message 
+                    : "流程运行异常：" + ex.Message, "btn_confirm_Click");
+                UpdateRunStatus(Project.Instance.configuration.language == Language.English 
+                    ? "Job error: " + ex.Message 
+                    : "流程运行异常：" + ex.Message, false, 0);
             }
         }
 
         private void btn_editRoi_Click(object sender, EventArgs e)
         {
-            if (findLineTool == null || !findLineTool.HasValidInput())
+            try
             {
-                UpdateRunStatus("请先运行上游图像工具", false, 0);
-                return;
+                if (findLineTool == null || !findLineTool.HasValidInput())
+                {
+                    UpdateRunStatus(Project.Instance.configuration.language == Language.English 
+                        ? "Please run upstream image tool first" 
+                        : "请先运行上游图像工具", false, 0);
+                    return;
+                }
+                findLineTool.EditCaliper();
+                UpdateRunStatus(Project.Instance.configuration.language == Language.English 
+                    ? "Entered ROI editing mode" 
+                    : "已进入 ROI 编辑", true, 0);
             }
-            findLineTool.EditCaliper();
-            UpdateRunStatus("已进入 ROI 编辑", true, 0);
+            catch (Exception ex)
+            {
+                Log.SaveErrorAndShow(ex, Project.Instance.configuration.language == Language.English 
+                    ? "Failed to edit caliper" 
+                    : "卡尺编辑失败", "btn_editRoi_Click");
+            }
         }
 
         private void btn_resetRoi_Click(object sender, EventArgs e)
         {
-            if (findLineTool == null) return;
-            findLineTool.ResetRoiToImage();
-            regions = findLineTool.L_regions;
-            lbl_roiSummary.Text = findLineTool.GetRoiSummary();
-            if (findLineTool.HasValidInput())
+            try
             {
-                hWindow_Final1.HobjectToHimage(findLineTool.toolPar.InputPar.图像);
-                hWindow_Final1.viewWindow.displayInteractiveROI(findLineTool.L_regions);
-                QueuePreview();
+                if (findLineTool == null) return;
+                findLineTool.ResetRoiToImage();
+                regions = findLineTool.L_regions;
+                lbl_roiSummary.Text = findLineTool.GetRoiSummary();
+                if (findLineTool.HasValidInput())
+                {
+                    hWindow_Final1.HobjectToHimage(findLineTool.toolPar.InputPar.图像);
+                    hWindow_Final1.viewWindow.displayInteractiveROI(findLineTool.L_regions);
+                    QueuePreview();
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.SaveErrorAndShow(ex, Project.Instance.configuration.language == Language.English 
+                    ? "Failed to reset ROI" 
+                    : "重置 ROI 失败", "btn_resetRoi_Click");
             }
         }
 

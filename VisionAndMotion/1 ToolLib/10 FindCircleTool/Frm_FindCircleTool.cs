@@ -209,31 +209,58 @@ namespace VMPro
 
         private void RoiControllerChanged(int eventType)
         {
-            if (eventType != ROIController.EVENT_MOVING_ROI || IsBoundJobExecuting()) return;
-            FindCircleTool tool = GetBoundTool();
-            if (tool != null && tool.SyncDisplayedRoi(false))
+            try
             {
-                lbl_roiSummary.Text = tool.GetRoiSummary();
-                tool.ShowDraggingPreview();
+                if (eventType != ROIController.EVENT_MOVING_ROI || IsBoundJobExecuting()) return;
+                FindCircleTool tool = GetBoundTool();
+                if (tool != null && tool.SyncDisplayedRoi(false))
+                {
+                    lbl_roiSummary.Text = tool.GetRoiSummary();
+                    tool.ShowDraggingPreview();
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.SaveErrorAndShow(ex, Project.Instance.configuration.language == Language.English 
+                    ? "Error updating ROI" 
+                    : "ROI 更新出错", "RoiControllerChanged");
             }
         }
 
         private void PolarityChanged()
         {
-            if (bindingUi) return;
-            FindCircleTool tool = GetBoundTool();
-            if (tool == null) return;
-            tool.polarity = cbx_polarity.SelectedIndex == 1 ? "negative" : cbx_polarity.SelectedIndex == 2 ? "all" : "positive";
-            QueuePreview();
+            try
+            {
+                if (bindingUi) return;
+                FindCircleTool tool = GetBoundTool();
+                if (tool == null) return;
+                tool.polarity = cbx_polarity.SelectedIndex == 1 ? "negative" : cbx_polarity.SelectedIndex == 2 ? "all" : "positive";
+                QueuePreview();
+            }
+            catch (Exception ex)
+            {
+                Log.SaveErrorAndShow(ex, Project.Instance.configuration.language == Language.English 
+                    ? "Error changing polarity" 
+                    : "极性修改出错", "PolarityChanged");
+            }
         }
 
         private void EdgeSelectChanged()
         {
-            if (bindingUi) return;
-            FindCircleTool tool = GetBoundTool();
-            if (tool == null) return;
-            tool.edgeSelect = comboBox1.SelectedIndex == 0 ? "first" : comboBox1.SelectedIndex == 1 ? "last" : "all";
-            QueuePreview();
+            try
+            {
+                if (bindingUi) return;
+                FindCircleTool tool = GetBoundTool();
+                if (tool == null) return;
+                tool.edgeSelect = comboBox1.SelectedIndex == 0 ? "first" : comboBox1.SelectedIndex == 1 ? "last" : "all";
+                QueuePreview();
+            }
+            catch (Exception ex)
+            {
+                Log.SaveErrorAndShow(ex, Project.Instance.configuration.language == Language.English 
+                    ? "Error changing edge selection" 
+                    : "边缘选择出错", "EdgeSelectChanged");
+            }
         }
 
         private void ThresholdChanged(double value) { SetNumeric(delegate(FindCircleTool t) { t.threshold = (int)value; }); }
@@ -269,21 +296,39 @@ namespace VMPro
 
         private void DisplayChanged(object sender, EventArgs e)
         {
-            if (bindingUi) return;
-            FindCircleTool tool = GetBoundTool();
-            if (tool == null) return;
-            tool.displayCaliper = ckb_displayCaliper.Checked;
-            tool.displayFeature = ckb_displayFeature.Checked;
-            tool.displayCircle = ckb_displayCircle.Checked;
-            tool.displayCircleCenter = checkBox1.Checked;
-            QueuePreview();
+            try
+            {
+                if (bindingUi) return;
+                FindCircleTool tool = GetBoundTool();
+                if (tool == null) return;
+                tool.displayCaliper = ckb_displayCaliper.Checked;
+                tool.displayFeature = ckb_displayFeature.Checked;
+                tool.displayCircle = ckb_displayCircle.Checked;
+                tool.displayCircleCenter = checkBox1.Checked;
+                QueuePreview();
+            }
+            catch (Exception ex)
+            {
+                Log.SaveErrorAndShow(ex, Project.Instance.configuration.language == Language.English 
+                    ? "Error updating display settings" 
+                    : "显示设置更新出错", "DisplayChanged");
+            }
         }
 
         private void btn_preview_Click(object sender, EventArgs e)
         {
-            previewTimer.Stop();
-            previewPending = false;
-            RefreshPreviewNow();
+            try
+            {
+                previewTimer.Stop();
+                previewPending = false;
+                RefreshPreviewNow();
+            }
+            catch (Exception ex)
+            {
+                Log.SaveErrorAndShow(ex, Project.Instance.configuration.language == Language.English 
+                    ? "Preview failed" 
+                    : "预览失败", "btn_preview_Click");
+            }
         }
 
         internal void btn_runFindCircleTool_Click(object sender, EventArgs e) { btn_runTool_Click(sender, e); }
@@ -303,8 +348,12 @@ namespace VMPro
             }
             catch (Exception ex)
             {
-                Log.SaveError(ex);
-                UpdateRunStatus("运行异常：" + ex.Message, false, 0);
+                Log.SaveErrorAndShow(ex, Project.Instance.configuration.language == Language.English 
+                    ? "Tool execution failed: " + ex.Message 
+                    : "工具运行异常：" + ex.Message, "btn_runTool_Click");
+                UpdateRunStatus(Project.Instance.configuration.language == Language.English 
+                    ? "Execution error: " + ex.Message 
+                    : "运行异常：" + ex.Message, false, 0);
             }
             finally { btn_runTool.Enabled = true; }
         }
@@ -320,45 +369,80 @@ namespace VMPro
             }
             catch (Exception ex)
             {
-                Log.SaveError(ex);
-                UpdateRunStatus("流程运行异常：" + ex.Message, false, 0);
+                Log.SaveErrorAndShow(ex, Project.Instance.configuration.language == Language.English 
+                    ? "Job execution failed: " + ex.Message 
+                    : "流程运行异常：" + ex.Message, "btn_confirm_Click");
+                UpdateRunStatus(Project.Instance.configuration.language == Language.English 
+                    ? "Job error: " + ex.Message 
+                    : "流程运行异常：" + ex.Message, false, 0);
             }
         }
 
         private void btn_editRoi_Click(object sender, EventArgs e)
         {
-            FindCircleTool tool = GetBoundTool();
-            if (tool == null || !tool.HasValidInput())
+            try
             {
-                UpdateRunStatus("请先运行上游图像工具", false, 0);
-                return;
+                FindCircleTool tool = GetBoundTool();
+                if (tool == null || !tool.HasValidInput())
+                {
+                    UpdateRunStatus(Project.Instance.configuration.language == Language.English 
+                        ? "Please run upstream image tool first" 
+                        : "请先运行上游图像工具", false, 0);
+                    return;
+                }
+                tool.DrawExpectCircle(jobName);
+                UpdateRunStatus(Project.Instance.configuration.language == Language.English 
+                    ? "Entered ROI editing mode" 
+                    : "已进入 ROI 编辑", true, 0);
             }
-            tool.DrawExpectCircle(jobName);
-            UpdateRunStatus("已进入 ROI 编辑", true, 0);
+            catch (Exception ex)
+            {
+                Log.SaveErrorAndShow(ex, Project.Instance.configuration.language == Language.English 
+                    ? "Failed to edit caliper" 
+                    : "卡尺编辑失败", "btn_editRoi_Click");
+            }
         }
 
         private void btn_resetRoi_Click(object sender, EventArgs e)
         {
-            FindCircleTool tool = GetBoundTool();
-            if (tool == null) return;
-            tool.ResetRoiToImage();
-            regions = tool.L_regions;
-            lbl_roiSummary.Text = tool.GetRoiSummary();
-            if (tool.HasValidInput())
+            try
             {
-                hWindow_Final1.HobjectToHimage(tool.toolPar.InputPar.图像);
-                hWindow_Final1.viewWindow.displayInteractiveROI(tool.L_regions);
-                QueuePreview();
+                FindCircleTool tool = GetBoundTool();
+                if (tool == null) return;
+                tool.ResetRoiToImage();
+                regions = tool.L_regions;
+                lbl_roiSummary.Text = tool.GetRoiSummary();
+                if (tool.HasValidInput())
+                {
+                    hWindow_Final1.HobjectToHimage(tool.toolPar.InputPar.图像);
+                    hWindow_Final1.viewWindow.displayInteractiveROI(tool.L_regions);
+                    QueuePreview();
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.SaveErrorAndShow(ex, Project.Instance.configuration.language == Language.English 
+                    ? "Failed to reset ROI" 
+                    : "重置 ROI 失败", "btn_resetRoi_Click");
             }
         }
 
         private void btn_clearMask_Click(object sender, EventArgs e)
         {
-            FindCircleTool tool = GetBoundTool();
-            if (tool == null) return;
-            tool.ClearMask();
-            lbl_maskSummary.Text = tool.GetMaskSummary();
-            QueuePreview();
+            try
+            {
+                FindCircleTool tool = GetBoundTool();
+                if (tool == null) return;
+                tool.ClearMask();
+                lbl_maskSummary.Text = tool.GetMaskSummary();
+                QueuePreview();
+            }
+            catch (Exception ex)
+            {
+                Log.SaveErrorAndShow(ex, Project.Instance.configuration.language == Language.English 
+                    ? "Failed to clear mask" 
+                    : "清除掩码失败", "btn_clearMask_Click");
+            }
         }
 
         private void btn_cancel_Click(object sender, EventArgs e) { Close(); }
