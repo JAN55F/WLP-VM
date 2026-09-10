@@ -186,6 +186,17 @@ namespace ViewWindow.Model
 			return activeHandleIdx;
 		}
 
+		/// <summary>Repairs stale handle state (e.g. loaded from an older project file) by resetting
+		/// NumHandles/activeHandleIdx when they don't match the expected values.</summary>
+		public void RepairHandles(int expectedNumHandles, int defaultActiveHandleIdx)
+		{
+			if (NumHandles != expectedNumHandles || activeHandleIdx < 0)
+			{
+				NumHandles = expectedNumHandles;
+				activeHandleIdx = defaultActiveHandleIdx;
+			}
+		}
+
 		/// <summary>
 		/// Gets the sign of the ROI object, being either 
 		/// 'positive' or 'negative'. This sign is used when creating a model

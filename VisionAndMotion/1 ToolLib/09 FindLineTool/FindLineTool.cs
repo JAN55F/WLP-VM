@@ -73,6 +73,14 @@ namespace VMPro
             templatePose = new List<XYU> { new XYU() };
         }
 
+        private void RepairROIHandlesFromOldProject()
+        {
+            if (L_regions?.Count > 0 && L_regions[0] is ROIRectangle2 rect)
+            {
+                rect.RepairHandles(10, 4);
+            }
+        }
+
         private HObject TryGetInputImage()
         {
             try
@@ -457,6 +465,7 @@ namespace VMPro
         {
             try
             {
+                RepairROIHandlesFromOldProject();
                 EnableLineRoiEditing();
                 Frm_FindLineTool.Instance.hWindow_Final1.HobjectToHimage(toolPar.InputPar.图像);
 
