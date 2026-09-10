@@ -24,7 +24,7 @@ namespace Start
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "WLP VM - HALCON 启动检查", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show(ex.Message, HalconRuntime.DiagnosticTitle, MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
 

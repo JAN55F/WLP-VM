@@ -10,6 +10,8 @@ namespace Start
 {
     internal static class HalconRuntime
     {
+        internal const string DiagnosticTitle = "WLP VM - HALCON 启动检查 v3";
+
         // 保留到进程退出，后续 halcondotnet 的 P/Invoke 复用同一个原生模块。
         private static IntPtr module;
 
