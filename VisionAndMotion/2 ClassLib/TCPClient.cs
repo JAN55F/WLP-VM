@@ -43,9 +43,11 @@ namespace VMPro
         private static readonly Dictionary<string, Socket> L_socket = new Dictionary<string, Socket>();
         private static readonly Dictionary<string, TCPClient> RuntimeNameOwners = new Dictionary<string, TCPClient>();
         /// <summary>
-        /// 程序开启后自动连接服务器
+        /// 程序开启后自动连接服务器（默认不自动连接，由用户在设备界面勾选启用；
+        /// 此前默认 true，导致用户未勾选时下次启动也自动连服务器——服务器开着就“处于连接状态”，
+        /// 关着就弹“连接失败”，看起来像“关闭前自动断开”没生效）
         /// </summary>
-        public bool AutoConnectAfterStart = true;
+        public bool AutoConnectAfterStart = false;
         /// <summary>
         /// 程序关闭前自动断开服务器
         /// </summary>
