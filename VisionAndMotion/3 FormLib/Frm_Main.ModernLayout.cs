@@ -809,16 +809,7 @@ namespace VMPro
                 return;
             }
 
-            if (IsFactoryDockLayout(ResolveDockLayoutPath(Project.Instance.configuration.layoutFilePath)) &&
-                Frm_Job.Instance.Pane != null)
-            {
-                toolbox.Show(Frm_Job.Instance.Pane, null);
-            }
-            else
-            {
-                toolbox.Show(dockPanel, Frm_ToolBox.lastDockState);
-            }
-
+            toolbox.Show(dockPanel, DockState.Document);
             toolbox.Activate();
         }
 

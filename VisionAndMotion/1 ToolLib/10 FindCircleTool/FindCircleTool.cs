@@ -189,12 +189,21 @@ namespace VMPro
             CaptureTemplatePoseFromCurrentInput();
         }
 
+        private void RepairROIHandlesFromOldProject()
+        {
+            if (L_regions?.Count > 0 && L_regions[0] is ROICircle circle)
+            {
+                circle.RepairHandles(2, 1);
+            }
+        }
+
         internal void UpdateImage(string ignoredJobName) { ShowImage(toolPar.InputPar.图像); }
 
         public void DrawExpectCircle(string ignoredJobName)
         {
             try
             {
+                RepairROIHandlesFromOldProject();
                 if (!Frm_FindCircleTool.IsOpen || !HasValidInput()) return;
                 if (L_regions == null || L_regions.Count == 0) ResetRoiToImage();
                 CaptureTemplatePoseFromCurrentInput();

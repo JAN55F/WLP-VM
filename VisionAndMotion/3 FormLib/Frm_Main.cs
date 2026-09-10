@@ -1346,6 +1346,9 @@ namespace VMPro
         {
             try
             {
+                // 添加左中右布局菜单项
+                InitializeLayoutMenu();
+
                 Machine.curFormMode = FormMode.None;
                 switch (Project.Instance.configuration.defaultForm)
                 {
@@ -4085,6 +4088,55 @@ namespace VMPro
             if (!Permission.CheckPermission(PermissionLevel.Admin))
                 return;
             Frm_LayoutManage.Instance.Show();
+        }
+
+        private void InitializeLayoutMenu()
+        {
+            try
+            {
+                // 添加左中右布局菜单项
+                ToolStripMenuItem leftCenterRightLayout = new ToolStripMenuItem();
+                leftCenterRightLayout.BackColor = System.Drawing.Color.White;
+                leftCenterRightLayout.CheckOnClick = true;
+                leftCenterRightLayout.Name = "切换到左中右布局ToolStripMenuItem";
+                leftCenterRightLayout.Padding = new System.Windows.Forms.Padding(0, 0, 0, 1);
+                leftCenterRightLayout.Size = new System.Drawing.Size(200, 27);
+                leftCenterRightLayout.Text = "左中右布局（图像-工具箱-流程）";
+                leftCenterRightLayout.Click += 切换到左中右布局_Click;
+
+                // 在"切换到经典布局2"后面插入
+                int insertIndex = 布局ToolStripMenuItem.DropDownItems.IndexOf(切换到经典布局2ToolStripMenuItem);
+                if (insertIndex >= 0)
+                    布局ToolStripMenuItem.DropDownItems.Insert(insertIndex + 1, leftCenterRightLayout);
+                else
+                    布局ToolStripMenuItem.DropDownItems.Add(leftCenterRightLayout);
+            }
+            catch (Exception ex)
+            {
+                Log.SaveError(ex);
+            }
+        }
+
+        private void 切换到左中右布局_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                ToolStripMenuItem menuItem = sender as ToolStripMenuItem;
+                if (menuItem != null && menuItem.Checked)
+                {
+                    切换到经典布局1ToolStripMenuItem.Checked = false;
+                    切换到经典布局2ToolStripMenuItem.Checked = false;
+                    Project.Instance.configuration.layoutFilePath = "Config\\Resources\\Layout\\" + "左中右布局.config";
+                }
+                else
+                {
+                    Project.Instance.configuration.layoutFilePath = "dockPanel.config";
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.SaveError(ex);
+            }
         }
 
         private void 切换到经典布局1ToolStripMenuItem_Click(object sender, EventArgs e)

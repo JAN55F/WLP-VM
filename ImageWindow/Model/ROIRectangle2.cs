@@ -100,6 +100,8 @@ namespace ViewWindow.Model
 
         public ROIRectangle2(double row, double col, double phi, double length1, double length2)
         {
+            NumHandles = 10;
+            activeHandleIdx = 4;
             createRectangle2(row, col, phi, length1, length2);
         }
 

@@ -49,8 +49,15 @@ namespace VMPro
                     Thread.Sleep(1);
                     System.Windows.Forms.Application.DoEvents();
                 }
-                Frm_Welcome.Instance.Hide();
-                frm.ShowDialog();
+                if (Machine.initSucceed)
+                {
+                    Frm_Welcome.Instance.Hide();
+                    frm.ShowDialog();
+                }
+                else
+                {
+                    Frm_Welcome.Instance.ShowDialog();
+                }
             }
             catch (Exception ex)
             {

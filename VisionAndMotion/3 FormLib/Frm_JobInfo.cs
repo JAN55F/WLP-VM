@@ -128,6 +128,7 @@ namespace VMPro
 
                 Job.FindJobByName(tbx_jobName.TextStr.Trim()).imageWindowName = cbx_imageWindowList.TextStr;
                 Job.FindJobByName(tbx_jobName.TextStr.Trim()).debugImageWindow = comboBox1.TextStr;
+                Project.SaveProject();
                 this.Close();
             }
             catch (Exception ex)
