@@ -1040,7 +1040,9 @@ namespace VMPro
             }
             catch (Exception ex)
             {
-                Log.SaveError(ex);
+                Log.SaveErrorAndShow(ex, Project.Instance.configuration.language == Language.English 
+                    ? "Keyboard shortcut processing failed" 
+                    : "快捷键处理失败", "ProcessCmdKey");
                 return false;
             }
         }
@@ -1070,8 +1072,10 @@ namespace VMPro
             }
             catch (Exception ex)
             {
-                Log.SaveError(ex);
-                return null;
+                Log.SaveErrorAndShow(ex, Project.Instance.configuration.language == Language.English 
+                    ? "Failed to get image window" 
+                    : "获取图像窗体失败", "GetImageWindowControl");
+                return Frm_ImageWindow.Instance;
             }
         }
         private void Main_FormClosed(object sender, FormClosedEventArgs e)

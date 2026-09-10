@@ -192,7 +192,9 @@ namespace VMPro
             }
             catch (Exception ex)
             {
-                Log.SaveError(ex);
+                Log.SaveErrorAndShow(ex, Project.Instance.configuration.language == Language.English 
+                    ? "Failed to fold job" 
+                    : "折叠流程失败", "tsb_foldJob_Click");
             }
         }
         internal void tsb_deleteJob_Click(object sender, EventArgs e)
@@ -212,7 +214,7 @@ namespace VMPro
                     return;
                 if (Frm_Job.Instance.tbc_jobs.TabPages.Count == 0)
                 {
-                    Frm_Main.Instance.OutputMsg("当前无可用流程，不可打开流程属性页面", Color.Black);
+                    Frm_Main.Instance.OutputMsg("当前无可用流程，不可打开流程属性页面", System.Drawing.Color.Black);
                     return;
                 }
                 Frm_JobInfo.Instance.tbx_jobName.TextStr = tbc_jobs.SelectedTab.Text;
@@ -220,7 +222,9 @@ namespace VMPro
             }
             catch (Exception ex)
             {
-                Log.SaveError(ex);
+                Log.SaveErrorAndShow(ex, Project.Instance.configuration.language == Language.English 
+                    ? "Failed to show job info" 
+                    : "显示流程属性失败", "tsb_jobInfo_Click");
             }
         }
 
