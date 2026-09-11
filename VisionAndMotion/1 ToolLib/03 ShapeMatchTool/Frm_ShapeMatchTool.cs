@@ -346,7 +346,7 @@ namespace VMPro
                 if (job == null)
                     return;
 
-                IFormatter formatter = new BinaryFormatter();
+                IFormatter formatter = HalconSerializationGuard.CreateFormatter();
                 Stream stream = new FileStream(
                     Application.StartupPath + "\\Config\\Project\\Vision\\Job\\" + job.jobName + ".job",
                     FileMode.OpenOrCreate, FileAccess.Write, FileShare.None);

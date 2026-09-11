@@ -1676,7 +1676,7 @@ namespace VMPro
                     return null;
                 }
 
-                IFormatter formatter = new BinaryFormatter();
+                IFormatter formatter = HalconSerializationGuard.CreateFormatter();
                 using (Stream stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
                     job = (Job)formatter.Deserialize(stream);
 
@@ -2049,7 +2049,7 @@ namespace VMPro
                     dig_saveFileDialog.InitialDirectory = path;
                     if (dig_saveFileDialog.ShowDialog() == DialogResult.OK)
                     {
-                        IFormatter formatter = new BinaryFormatter();
+                        IFormatter formatter = HalconSerializationGuard.CreateFormatter();
                         Stream stream = new FileStream(dig_saveFileDialog.FileName, FileMode.OpenOrCreate, FileAccess.Write, FileShare.None);
                         formatter.Serialize(stream, Project.Instance.curEngine.FindJobByName(jobName));
                         stream.Close();
@@ -2127,7 +2127,7 @@ namespace VMPro
                     return default(Job);
                 }
 
-                IFormatter formatter = new BinaryFormatter();
+                IFormatter formatter = HalconSerializationGuard.CreateFormatter();
                 Stream stream = new MemoryStream();
                 using (stream)
                 {
@@ -3499,7 +3499,7 @@ namespace VMPro
                     return default(ToolInfo);
                 }
 
-                IFormatter formatter = new BinaryFormatter();
+                IFormatter formatter = HalconSerializationGuard.CreateFormatter();
                 Stream stream = new MemoryStream();
                 using (stream)
                 {
@@ -3925,7 +3925,7 @@ namespace VMPro
                 if (job == null)
                     return;
 
-                IFormatter formatter = new BinaryFormatter();
+                IFormatter formatter = HalconSerializationGuard.CreateFormatter();
                 Stream stream = new FileStream(Application.StartupPath + "\\Config\\Project\\Vision\\Job\\" + job.jobName + ".job", FileMode.OpenOrCreate, FileAccess.Write, FileShare.None);
                 formatter.Serialize(stream, job);
                 stream.Close();

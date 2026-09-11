@@ -97,7 +97,7 @@ namespace VMPro
                 Job.isDrawing = true;
                 Job temp = new Job();       //new一下，就会在构造函数中初始化空白处右击菜单，否则流程编辑器空白处右击将没有菜单
 
-                IFormatter formatter = new BinaryFormatter();
+                IFormatter formatter = HalconSerializationGuard.CreateFormatter();
                 Project loadedProject;
                 using (Stream stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
                 {
@@ -459,7 +459,7 @@ namespace VMPro
 
             try
             {
-                IFormatter formatter = new BinaryFormatter();
+                IFormatter formatter = HalconSerializationGuard.CreateFormatter();
                 using (FileStream stream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None))
                 {
                     formatter.Serialize(stream, Project.Instance);

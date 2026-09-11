@@ -136,7 +136,7 @@ namespace VMPro
                 //反序列化各工具
                 for (int i = 0; i < job.L_toolList.Count; i++)
                 {
-                    IFormatter formatter = new BinaryFormatter();
+                    IFormatter formatter = HalconSerializationGuard.CreateFormatter();
                     Stream stream = new FileStream(pathWithoutName + job.L_toolList[i].toolName + ".Tool", FileMode.Open, FileAccess.Read, FileShare.None);
                     job.L_toolList[i].tool = (ToolBase)formatter.Deserialize(stream);
                     stream.Close();
@@ -164,7 +164,7 @@ namespace VMPro
                     return null;
                 }
 
-                IFormatter formatter = new BinaryFormatter();
+                IFormatter formatter = HalconSerializationGuard.CreateFormatter();
                 Stream stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None);
                 Job job = (Job)formatter.Deserialize(stream);
                 stream.Close();

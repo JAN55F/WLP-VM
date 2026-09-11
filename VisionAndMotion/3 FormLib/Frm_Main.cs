@@ -400,7 +400,7 @@ namespace VMPro
                 string jobName = Frm_Job.Instance.tbc_jobs.SelectedTab.Text;
                 Job job = Job.FindJobByName(jobName);
 
-                IFormatter formatter = new BinaryFormatter();
+                IFormatter formatter = HalconSerializationGuard.CreateFormatter();
                 Stream stream = new FileStream(Application.StartupPath + "\\Config\\Project\\Vision\\Job\\" + job.jobName + ".job", FileMode.OpenOrCreate, FileAccess.Write, FileShare.None);
                 formatter.Serialize(stream, job);
                 stream.Close();

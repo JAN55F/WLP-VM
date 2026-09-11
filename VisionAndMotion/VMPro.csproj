@@ -451,6 +451,7 @@
     </Compile>
     <Compile Include="1 ToolLib\51 AngleSSTool\AngleLLTool.cs" />
     <Compile Include="2 ClassLib\Scaner.cs" />
+    <Compile Include="2 ClassLib\HalconSerializationGuard.cs" />
     <Compile Include="2 ClassLib\TCPClient.cs" />
     <Compile Include="2 ClassLib\TCPSever.cs" />
     <Compile Include="3 FormLib\Frm_AcqDevice.cs">

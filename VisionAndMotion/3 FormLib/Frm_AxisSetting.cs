@@ -121,7 +121,7 @@ namespace VMPro
                     break;
             }
 
-            IFormatter formatter = new BinaryFormatter();
+            IFormatter formatter = HalconSerializationGuard.CreateFormatter();
             Stream stream = new FileStream(Application.StartupPath + "\\Config\\Project\\Motion\\AxisPar.cfg", FileMode.OpenOrCreate, FileAccess.Write, FileShare.None);
             formatter.Serialize(stream, Axis_Config.Instance);
             stream.Close();
