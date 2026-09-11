@@ -8207,53 +8207,15 @@ namespace VMPro
                             case ToolType.Label:
                                 Frm_LabelTool.Instance.pictureBox1.Image = Resources.LabelTool;
                                 Frm_LabelTool.Instance.lbl_title.Text = string.Format("数据显示    [ {0} . {1} ]", this.jobName, L_toolList[i].toolName);
-                                //Frm_LabelTool.Instance.StartPosition = FormStartPosition.Manual;
-                                //Frm_LabelTool.Instance.Location = new System.Drawing.Point(System.Windows.Forms.SystemInformation.VirtualScreen.Width - Frm_LabelTool.Instance.Width - 20, 200);        //让其显示在右上方，防止挡住图像窗口
-                                //Frm_LabelTool.Instance.TopMost = true;
                                 Frm_LabelTool.Instance.Activate();
-                                Frm_LabelTool.Instance.jobName = this.jobName;
-                                Frm_LabelTool.Instance.toolName = L_toolList[i].toolName; ;
+                                LabelTool labelTool = (LabelTool)(L_toolList[i].tool);
+                                itemCount = labelTool.L_label.Count;
+                                // 打开即绑定工具实例并回填单表（链接显示文本由 input 条目推导）；
+                                // 表格变更在窗体内写回 input 条目并刷新连线。
+                                Frm_LabelTool.Instance.LoadPar(this.jobName, L_toolList[i].toolName, labelTool);
                                 Frm_LabelTool.Instance.Show();
                                 Frm_LabelTool.Instance.WindowState = FormWindowState.Normal;
-                                //Frm_LabelTool.Instance.btn_runTool.Focus();
-                                LabelTool labelTool = (LabelTool)(L_toolList[i].tool);
-                                Frm_LabelTool.labelTool = labelTool;
                                 Application.DoEvents();
-
-                                itemCount = ((LabelTool)L_toolList[i].tool).L_label.Count;
-                                Frm_LabelTool.Instance.dgv_outputItem.Rows.Clear();
-                                Frm_LabelTool.Instance.dgv_outputItem2.Rows.Clear();
-                                for (int j = 0; j < itemCount; j++)
-                                {
-                                    if (((LabelTool)L_toolList[i].tool).L_label[j].ValueType == "Value")
-                                    {
-                                        int index = Frm_LabelTool.Instance.dgv_outputItem.Rows.Add();
-                                        Frm_LabelTool.Instance.dgv_outputItem.Rows[index].Cells[0].Value = ((LabelTool)L_toolList[i].tool).L_label[j].OutputItem.ToString();
-                                        Frm_LabelTool.Instance.dgv_outputItem.Rows[index].Cells[1].Value = ((LabelTool)L_toolList[i].tool).L_label[j].PreAddStr.ToString() == "" ? null : ((LabelTool)L_toolList[i].tool).L_label[j].PreAddStr.ToString();
-                                        Frm_LabelTool.Instance.dgv_outputItem.Rows[index].Cells[2].Value = ((LabelTool)L_toolList[i].tool).L_label[j].Row.ToString();
-                                        Frm_LabelTool.Instance.dgv_outputItem.Rows[index].Cells[3].Value = ((LabelTool)L_toolList[i].tool).L_label[j].Col.ToString();
-                                        Frm_LabelTool.Instance.dgv_outputItem.Rows[index].Cells[4].Value = ((LabelTool)L_toolList[i].tool).L_label[j].DownLimit;
-                                        Frm_LabelTool.Instance.dgv_outputItem.Rows[index].Cells[5].Value = ((LabelTool)L_toolList[i].tool).L_label[j].UpLimit;
-                                        Frm_LabelTool.Instance.dgv_outputItem.Rows[index].Cells[6].Value = ((LabelTool)L_toolList[i].tool).L_label[j].Incolor.ToString();
-                                        Frm_LabelTool.Instance.dgv_outputItem.Rows[index].Cells[7].Value = ((LabelTool)L_toolList[i].tool).L_label[j].OutColor.ToString();
-                                        Frm_LabelTool.Instance.dgv_outputItem.Rows[index].Cells[8].Value = ((LabelTool)L_toolList[i].tool).L_label[j].Size.ToString();
-                                    }
-                                    else
-                                    {
-                                        int index = Frm_LabelTool.Instance.dgv_outputItem2.Rows.Add();
-                                        Frm_LabelTool.Instance.dgv_outputItem2.Rows[index].Cells[0].Value = ((LabelTool)L_toolList[i].tool).L_label[j].OutputItem.ToString();
-                                        Frm_LabelTool.Instance.dgv_outputItem2.Rows[index].Cells[1].Value = ((LabelTool)L_toolList[i].tool).L_label[j].PreAddStr.ToString() == "" ? null : ((LabelTool)L_toolList[i].tool).L_label[j].PreAddStr.ToString();
-                                        Frm_LabelTool.Instance.dgv_outputItem2.Rows[index].Cells[2].Value = ((LabelTool)L_toolList[i].tool).L_label[j].Row.ToString();
-                                        Frm_LabelTool.Instance.dgv_outputItem2.Rows[index].Cells[3].Value = ((LabelTool)L_toolList[i].tool).L_label[j].Col.ToString();
-                                        Frm_LabelTool.Instance.dgv_outputItem2.Rows[index].Cells[4].Value = ((LabelTool)L_toolList[i].tool).L_label[j].ExpectValue.ToString();
-                                        Frm_LabelTool.Instance.dgv_outputItem2.Rows[index].Cells[5].Value = ((LabelTool)L_toolList[i].tool).L_label[j].Incolor.ToString();
-                                        Frm_LabelTool.Instance.dgv_outputItem2.Rows[index].Cells[6].Value = ((LabelTool)L_toolList[i].tool).L_label[j].OutColor.ToString();
-                                        Frm_LabelTool.Instance.dgv_outputItem2.Rows[index].Cells[7].Value = ((LabelTool)L_toolList[i].tool).L_label[j].Size.ToString();
-
-                                    }
-                                }
-
-                                //Frm_LabelTool.Instance.ckb_toolEnable.Checked = ((ToolInfo)L_toolList[i]).enable;
                                 break;
                             #endregion
 

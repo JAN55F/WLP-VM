@@ -162,6 +162,11 @@ namespace VMPro
         internal string DownLimit;
         internal string UpLimit;
         internal string OutColor;
+        /// <summary>
+        /// 条件判定方式（新版数据显示）：None=无判定（字符串）/Range=范围判定（数值，DownLimit/UpLimit 允许留空=单边不限）/Bool=布尔判定（true=OK、false=NG）。
+        /// 旧工程此字段为 null，加载时按旧 ValueType 迁移（Value→Range、Str→None）。
+        /// </summary>
+        internal string JudgeMode;
     }
     public enum JobRunMode
     {
