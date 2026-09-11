@@ -1817,48 +1817,8 @@ namespace VMPro
                             toolNode = Job.GetJobTree(jobName).Nodes.Insert(insertIdx, "", toolName, 60, 60);
                         }
 
-                        //添加常用项
-                        itemNode = toolNode.Nodes.Add("", Project.Instance.configuration.language == Language.English ? "<--OutputImage" : "<--输入项1", 34, 34);
-                        itemNode.ForeColor = Color.DarkMagenta;
-                        itemNode.Tag = DataType.String;
-                        if (toolInfo1 == null)
-                        {
-                            toolInfo.input.Add(new ToolIO(Project.Instance.configuration.language == Language.English ? "OutputImage" : "输入项1", "", DataType.String));
-                        }
-                        //自动链接输入项
-                        AutoConnectSource(jobName, itemNode);
-
-                        itemNode = toolNode.Nodes.Add("", Project.Instance.configuration.language == Language.English ? "<--OutputImage" : "<--输入项2", 34, 34);
-                        itemNode.ForeColor = Color.DarkMagenta;
-                        itemNode.Tag = DataType.String;
-                        if (toolInfo1 == null)
-                        {
-                            toolInfo.input.Add(new ToolIO(Project.Instance.configuration.language == Language.English ? "OutputImage" : "输入项2", "", DataType.String));
-                        }
-
-                        itemNode = toolNode.Nodes.Add("", Project.Instance.configuration.language == Language.English ? "<--OutputImage" : "<--输入项3", 34, 34);
-                        itemNode.ForeColor = Color.DarkMagenta;
-                        itemNode.Tag = DataType.String;
-                        if (toolInfo1 == null)
-                        {
-                            toolInfo.input.Add(new ToolIO(Project.Instance.configuration.language == Language.English ? "OutputImage" : "输入项3", "", DataType.String));
-                        }
-
-                        itemNode = toolNode.Nodes.Add("", Project.Instance.configuration.language == Language.English ? "<--OutputImage" : "<--输入项4", 34, 34);
-                        itemNode.ForeColor = Color.DarkMagenta;
-                        itemNode.Tag = DataType.String;
-                        if (toolInfo1 == null)
-                        {
-                            toolInfo.input.Add(new ToolIO(Project.Instance.configuration.language == Language.English ? "OutputImage" : "输入项4", "", DataType.String));
-                        }
-
-                        itemNode = toolNode.Nodes.Add("", Project.Instance.configuration.language == Language.English ? "<--OutputImage" : "<--输入项5", 34, 34);
-                        itemNode.ForeColor = Color.DarkMagenta;
-                        itemNode.Tag = DataType.String;
-                        if (toolInfo1 == null)
-                        {
-                            toolInfo.input.Add(new ToolIO(Project.Instance.configuration.language == Language.English ? "OutputImage" : "输入项5", "", DataType.String));
-                        }
+                        // 新版数据显示：拖入时不再预建输入项1~5 节点/条目，
+                        // 输入分支为空，由工具窗体里的“链接”按钮按需创建（每行一个）。
                         break;
                     #endregion
 

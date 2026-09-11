@@ -39,6 +39,20 @@ namespace VMPro
         private Func<bool> connectionVisibilityProvider;
         private readonly ConnectionLayer connectionLayer;
         private int refreshPending;
+        private int lastDoubleClickTick = int.MinValue;
+
+        /// <summary>
+        /// 抑制双击引发的被动收起：双击已展开节点的第二击会让 TreeView 收起分支，
+        /// 但流程编辑器里双击有专门语义（打开工具编辑页），被动收起会让后续命中坐标漂移、
+        /// 且表现为“展开状态被意外收起”。仅拦截紧跟双击的收起，用户点 +/- 折叠不受影响。
+        /// </summary>
+        protected override void OnBeforeCollapse(TreeViewCancelEventArgs e)
+        {
+            int delta = unchecked(Environment.TickCount - lastDoubleClickTick);
+            if (delta >= 0 && delta < 500)
+                e.Cancel = true;
+            base.OnBeforeCollapse(e);
+        }
 
         internal FlowEditorTreeView()
             : this(null, null)
@@ -234,6 +248,9 @@ namespace VMPro
 
         protected override void WndProc(ref Message m)
         {
+            const int WM_LBUTTONDBLCLK = 0x0203;
+            if (m.Msg == WM_LBUTTONDBLCLK)
+                lastDoubleClickTick = Environment.TickCount;
             base.WndProc(ref m);
             if (m.Msg == WmHScroll || m.Msg == WmVScroll)
                 InvalidateConnectionLayer();

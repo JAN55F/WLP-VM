@@ -301,8 +301,11 @@ namespace VMPro
                 if (toolNode != null)
                 {
                     foreach (TreeNode node in toolNode.Nodes)
-                        if (node.Name != null && node.Name.StartsWith("<--输入项"))
+                    {
+                        // 旧版拖入时预建的输入项节点 Name 为空串、文本为“<--输入项N”，按文本前缀清理才能扫到残留
+                        if (node.Text != null && node.Text.StartsWith("<--输入项"))
                             staleNodes.Add(node);
+                    }
                     foreach (TreeNode node in staleNodes)
                     {
                         job.D_itemAndSource.Remove(node);
