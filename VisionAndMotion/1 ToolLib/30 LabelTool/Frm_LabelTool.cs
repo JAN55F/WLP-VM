@@ -64,7 +64,12 @@ namespace VMPro
             dgv_items.Rows.Clear();
             List<LabelTool.LabelRowData> rows = labelTool.ExportRows();
             foreach (LabelTool.LabelRowData row in rows)
-                dgv_items.Rows.Add(row.LinkDisplay, string.Empty, row.Row, row.Col, row.OkColor, row.NgColor, row.FontSize, ToJudgeModeText(row.JudgeMode), row.Down, row.Up);
+            {
+                int index = dgv_items.Rows.Add(row.LinkDisplay, string.Empty, row.Row, row.Col, row.OkColor, row.NgColor, row.FontSize, ToJudgeModeText(row.JudgeMode), row.Down, row.Up);
+                // 关键：行 Tag 携带链接来源（SourceTool/SourceOutput），后续编辑保存时依赖它恢复链接；
+                // 缺失会导致改行列时把已链接的行当成“未链接”写回，链接失效、流程运行到本工具被终止。
+                dgv_items.Rows[index].Tag = row;
+            }
         }
 
         private static string ToJudgeModeText(string judgeMode)
@@ -97,8 +102,14 @@ namespace VMPro
                     continue;
 
                 LabelTool.LabelRowData row = new LabelTool.LabelRowData();
-                // 链接来源优先取上一次应用的结果（由 ApplyRowLink 保持在 Tag 里），避免只读显示列被改坏
+                // 来源双保险：行 Tag 优先，缺失时从工具现有链接推导，避免既有链接被误清
                 LabelTool.LabelRowData previous = gridRow.Tag as LabelTool.LabelRowData;
+                if (previous == null)
+                {
+                    List<LabelTool.LabelRowData> existing = labelTool.ExportRows();
+                    if (i < existing.Count)
+                        previous = existing[i];
+                }
                 if (previous != null)
                 {
                     row.SourceTool = previous.SourceTool;

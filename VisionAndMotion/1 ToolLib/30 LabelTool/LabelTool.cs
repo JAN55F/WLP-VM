@@ -197,6 +197,11 @@ namespace VMPro
                         if (!D_inputItemAndVlaue.TryGetValue(label.OutputItem, out raw))
                             raw = string.Empty;
 
+                        // 行/列未填或非数字时跳过该行显示，不中断整个工具
+                        int displayRow, displayCol;
+                        if (!int.TryParse(label.Row, out displayRow) || !int.TryParse(label.Col, out displayCol))
+                            continue;
+
                         bool isOk = Judge(EffectiveJudgeMode(label), raw, label.DownLimit, label.UpLimit);
                         string color = isOk ? label.Incolor : label.OutColor;
 
@@ -204,8 +209,8 @@ namespace VMPro
                         Frm_Main.Instance.disp_message(window.hwc_imageWindow.HWindowHalconID,
                             raw,
                             new HTuple("image"),
-                            new HTuple(Convert.ToInt32(label.Row)),
-                            new HTuple(Convert.ToInt32(label.Col)),
+                            new HTuple(displayRow),
+                            new HTuple(displayCol),
                             new HTuple(color),
                             new HTuple("false"));
                     }
