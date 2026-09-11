@@ -9,11 +9,18 @@ namespace VMPro
 {
     internal partial class Frm_ToolBox
     {
+        // Three compact shortcut cards need 242 px; this leaves only the host
+        // padding and a vertical scrollbar margin, so the outer toolbox is just
+        // slightly wider than one full row of three cards.
+        private const int ModernToolboxMinimumWidth = 286;
+        private const int ModernToolboxMinimumHeight = 180;
         private TableLayoutPanel modernToolboxLayout;
         private ModernToolboxSearchBox modernToolSearch;
         private System.Windows.Forms.Label modernToolCount;
         private System.Windows.Forms.Label modernEmptyState;
+        private ModernToolboxGrid modernToolGrid;
         private readonly List<TreeNode> modernToolCatalog = new List<TreeNode>();
+        private readonly HashSet<string> modernExpandedToolCategories = new HashSet<string>(StringComparer.Ordinal);
         private int modernToolTotal;
         private bool rebuildingModernToolTree;
 
@@ -46,7 +53,7 @@ namespace VMPro
                 modernToolboxLayout.ColumnCount = 1;
                 modernToolboxLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
                 modernToolboxLayout.RowCount = 2;
-                modernToolboxLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 60F));
+                modernToolboxLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 54F));
                 modernToolboxLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
                 modernToolboxLayout.BackColor = ModernUiTheme.Page;
 
@@ -60,7 +67,7 @@ namespace VMPro
                 BackColor = ModernUiTheme.Page;
                 Font = ModernUiTheme.UiFont;
                 Text = english ? "Toolbox" : "工具箱";
-                MinimumSize = new Size(230, 240);
+                MinimumSize = new Size(ModernToolboxMinimumWidth, ModernToolboxMinimumHeight);
             }
             finally
             {
@@ -74,12 +81,12 @@ namespace VMPro
             header.Name = "modernToolboxHeader";
             header.Dock = DockStyle.Fill;
             header.Margin = Padding.Empty;
-            header.Padding = new Padding(8, 5, 8, 3);
+            header.Padding = new Padding(6, 4, 6, 2);
             header.ColumnCount = 1;
             header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             header.RowCount = 2;
-            header.RowStyles.Add(new RowStyle(SizeType.Absolute, 26F));
-            header.RowStyles.Add(new RowStyle(SizeType.Absolute, 26F));
+            header.RowStyles.Add(new RowStyle(SizeType.Absolute, 24F));
+            header.RowStyles.Add(new RowStyle(SizeType.Absolute, 24F));
             header.BackColor = ModernUiTheme.Surface;
 
             modernToolSearch = new ModernToolboxSearchBox(english);
@@ -110,14 +117,14 @@ namespace VMPro
                 "modernCollapseAll", ModernVectorIconFactory.Glyph.Collapse,
                 english ? "Collapse all" : "全部折叠");
             collapse.Dock = DockStyle.Right;
-            collapse.Click += delegate { tvw_tools.CollapseAll(); };
+            collapse.Click += delegate { SetAllToolCategoriesExpanded(false); };
             commands.Controls.Add(collapse);
 
             Button expand = CreateToolboxCommandButton(
                 "modernExpandAll", ModernVectorIconFactory.Glyph.Expand,
                 english ? "Expand all" : "全部展开");
             expand.Dock = DockStyle.Right;
-            expand.Click += delegate { tvw_tools.ExpandAll(); };
+            expand.Click += delegate { SetAllToolCategoriesExpanded(true); };
             commands.Controls.Add(expand);
 
             header.Controls.Add(commands, 0, 1);
@@ -133,9 +140,21 @@ namespace VMPro
             host.Padding = new Padding(4, 2, 4, 2);
             host.BackColor = ModernUiTheme.Surface;
 
+            // TreeView remains in the visual tree as the interaction source.  The shortcut
+            // grid sits above it, but forwards drag operations back to this control so its
+            // established drag-and-drop contract remains intact.
+            tvw_tools.Visible = false;
             tvw_tools.Dock = DockStyle.Fill;
-            tvw_tools.Margin = Padding.Empty;
             host.Controls.Add(tvw_tools);
+            modernToolGrid = new ModernToolboxGrid();
+            modernToolGrid.Name = "modernToolGrid";
+            modernToolGrid.Dock = DockStyle.Fill;
+            modernToolGrid.MinimumSize = new Size(262, 0);
+            modernToolGrid.ImageList = tvw_tools.ImageList;
+            modernToolGrid.ToolClicked += ModernToolGrid_ToolClicked;
+            modernToolGrid.ToolDragStarted += ModernToolGrid_ToolDragStarted;
+            modernToolGrid.CategoryExpandedChanged += ModernToolGrid_CategoryExpandedChanged;
+            host.Controls.Add(modernToolGrid);
 
             modernEmptyState = new System.Windows.Forms.Label();
             modernEmptyState.Name = "modernToolboxEmptyState";
@@ -154,8 +173,8 @@ namespace VMPro
         {
             Button button = new Button();
             button.Name = name;
-            button.Width = 30;
-            button.Height = 28;
+            button.Width = 28;
+            button.Height = 24;
             button.Margin = Padding.Empty;
             button.Padding = Padding.Empty;
             button.FlatStyle = FlatStyle.Flat;
@@ -180,8 +199,13 @@ namespace VMPro
         private void FinalizeModernToolboxUi()
         {
             modernToolCatalog.Clear();
+            modernExpandedToolCategories.Clear();
             foreach (TreeNode root in tvw_tools.Nodes)
+            {
                 modernToolCatalog.Add((TreeNode)root.Clone());
+                if (root.IsExpanded)
+                    modernExpandedToolCategories.Add(root.Text);
+            }
 
             modernToolTotal = modernToolCatalog.Sum(CountLeafTools);
             ApplyModernToolFilter();
@@ -220,13 +244,11 @@ namespace VMPro
                         if (targetRoot.Nodes.Count > 0)
                         {
                             tvw_tools.Nodes.Add(targetRoot);
-                            if (query.Length > 0)
+                            if (query.Length > 0 || modernExpandedToolCategories.Contains(sourceRoot.Text))
                                 targetRoot.Expand();
                         }
                     }
 
-                    if (query.Length == 0 && tvw_tools.Nodes.Count > 0)
-                        tvw_tools.Nodes[0].Expand();
                 }
                 finally
                 {
@@ -234,6 +256,8 @@ namespace VMPro
                 }
 
                 int visibleCount = tvw_tools.Nodes.Cast<TreeNode>().Sum(CountLeafTools);
+                if (modernToolGrid != null)
+                    modernToolGrid.SetCategories(tvw_tools.Nodes.Cast<TreeNode>());
                 bool english = Project.Instance.configuration.language == Language.English;
                 modernToolCount.Text = query.Length == 0
                     ? (english ? string.Format("All tools  {0}", modernToolTotal) : string.Format("全部工具  {0}", modernToolTotal))
@@ -245,7 +269,7 @@ namespace VMPro
                 if (modernEmptyState.Visible)
                     modernEmptyState.BringToFront();
                 else
-                    tvw_tools.BringToFront();
+                    modernToolGrid.BringToFront();
 
                 if (query.Length > 0)
                 {
@@ -253,7 +277,8 @@ namespace VMPro
                     if (firstTool != null)
                         tvw_tools.SelectedNode = firstTool;
                 }
-                tvw_tools.Invalidate();
+                if (modernToolGrid != null)
+                    modernToolGrid.Invalidate();
             }
             finally
             {
@@ -321,6 +346,57 @@ namespace VMPro
                 return;
             tvw_tools.SelectedNode = e.Node;
             tvw_job_DoubleClick(tvw_tools, EventArgs.Empty);
+        }
+
+        private void ModernToolGrid_ToolClicked(object sender, ToolboxAddRequestedEventArgs e)
+        {
+            if (e.Node == null)
+                return;
+            tvw_tools.SelectedNode = e.Node;
+            tvw_job_DoubleClick(tvw_tools, EventArgs.Empty);
+        }
+
+        private void ModernToolGrid_ToolDragStarted(object sender, ToolboxAddRequestedEventArgs e)
+        {
+            if (e.Node == null || e.Node.Level == 0)
+                return;
+
+            tvw_tools.SelectedNode = e.Node;
+            tvw_tools_ItemDrag(tvw_tools, new ItemDragEventArgs(MouseButtons.Left, e.Node));
+        }
+
+        private void ModernToolGrid_CategoryExpandedChanged(object sender, ToolboxCategoryExpandedEventArgs e)
+        {
+            if (e.Category == null)
+                return;
+            SetCategoryExpanded(e.Category, e.Expanded);
+            ApplyModernToolFilter();
+        }
+
+        private void SetAllToolCategoriesExpanded(bool expanded)
+        {
+            modernExpandedToolCategories.Clear();
+            if (expanded)
+            {
+                foreach (TreeNode category in modernToolCatalog)
+                    modernExpandedToolCategories.Add(category.Text);
+            }
+            foreach (TreeNode category in tvw_tools.Nodes)
+            {
+                if (expanded)
+                    category.Expand();
+                else
+                    category.Collapse();
+            }
+            ApplyModernToolFilter();
+        }
+
+        private void SetCategoryExpanded(TreeNode visibleCategory, bool expanded)
+        {
+            if (expanded)
+                modernExpandedToolCategories.Add(visibleCategory.Text);
+            else
+                modernExpandedToolCategories.Remove(visibleCategory.Text);
         }
 
         protected override bool ProcessCmdKey(ref Message msg, Keys keyData)

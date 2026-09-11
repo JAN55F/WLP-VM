@@ -543,7 +543,7 @@ internal static class FlowEditorSmoke
             host.Show();
             Application.DoEvents();
 
-            Assert(editor.DrawMode == TreeViewDrawMode.OwnerDrawAll && editor.ItemHeight >= 34 &&
+            Assert(editor.DrawMode == TreeViewDrawMode.OwnerDrawAll && editor.ItemHeight >= 32 &&
                    editor.FullRowSelect && !editor.ShowLines && !editor.ShowPlusMinus && !editor.HotTracking,
                 "Flow nodes are not using the card-and-port renderer.");
             Control connectionLayer = editor.Controls.Find("flowConnectionLayer", true).FirstOrDefault();

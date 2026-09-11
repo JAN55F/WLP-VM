@@ -24,6 +24,10 @@ namespace VMPro
         private bool refreshTickBusy;
         private int nextClockRefreshTick;
         private int nextIoRefreshTick;
+        // A restored docking layout already has panes, but it has not yet been
+        // normalized to the initial three-column widths for this session.
+        private DockPane initializedVisionJobPane;
+        private DockPane initializedVisionToolboxPane;
 
         internal void ApplyModernMainLayout()
         {
@@ -810,22 +814,56 @@ namespace VMPro
         {
             Frm_Job job = Frm_Job.Instance;
             Frm_ToolBox toolbox = Frm_ToolBox.Instance;
-            // 已经并排时保留用户拖动后的列宽，反复打开工具箱不重复创建 Pane。
-            if (job.DockState == DockState.DockRight && toolbox.DockState == DockState.DockRight &&
+            bool alreadySideBySide = job.DockState == DockState.DockRight && toolbox.DockState == DockState.DockRight &&
                 job.Pane != null && toolbox.Pane != null && job.Pane != toolbox.Pane &&
                 toolbox.Pane.NestedDockingStatus.PreviousPane == job.Pane &&
-                toolbox.Pane.NestedDockingStatus.Alignment == DockAlignment.Right)
+                toolbox.Pane.NestedDockingStatus.Alignment == DockAlignment.Right;
+            if (alreadySideBySide)
+            {
+                // A saved layout reaches this branch on application startup.  Apply
+                // the reference widths once for its newly loaded pane pair, then
+                // keep all later user splitter adjustments untouched.
+                if (job.Pane != initializedVisionJobPane || toolbox.Pane != initializedVisionToolboxPane)
+                {
+                    dockPanel.SuspendLayout();
+                    try
+                    {
+                        ApplyInitialVisionEditorWidths(job, toolbox);
+                        initializedVisionJobPane = job.Pane;
+                        initializedVisionToolboxPane = toolbox.Pane;
+                    }
+                    finally { dockPanel.ResumeLayout(true); }
+                }
                 return;
+            }
 
             dockPanel.SuspendLayout();
             try
             {
                 job.Show(dockPanel, DockState.DockRight);
                 toolbox.Show(job.Pane, DockAlignment.Right, 0.38D);
-                dockPanel.DockRightPortion = 0.50D;
+                ApplyInitialVisionEditorWidths(job, toolbox);
+                initializedVisionJobPane = job.Pane;
+                initializedVisionToolboxPane = toolbox.Pane;
                 dockPanel.UpdateDockWindowZOrder(DockStyle.Right, true);
             }
             finally { dockPanel.ResumeLayout(true); }
+        }
+
+        private void ApplyInitialVisionEditorWidths(Frm_Job job, Frm_ToolBox toolbox)
+        {
+            // The workflow and toolbox start at their usable minimums.  Do not
+            // consume half of a wide workspace here: that made the initial
+            // columns wider than the reference layout and left too little room
+            // for the image document.
+            int requiredRightWidth = job.MinimumSize.Width + toolbox.MinimumSize.Width + 4;
+            dockPanel.DockRightPortion = requiredRightWidth;
+
+            if (toolbox.Pane != null)
+            {
+                double toolboxProportion = (double)(toolbox.MinimumSize.Width + 2) / requiredRightWidth;
+                toolbox.Pane.SetNestedDockingProportion(Math.Max(0.01D, Math.Min(0.99D, toolboxProportion)));
+            }
         }
 
         internal void ShowOutputInVisionBottomPanel()

@@ -93,19 +93,76 @@ namespace WeifenLuo.WinFormsUI.Docking
                 {
                     NestedDockingStatus status = DockPane.NestedDockingStatus;
                     Rectangle rectLimit = Parent.RectangleToScreen(status.LogicalBounds);
+                    int minimumThisPane = GetMinimumPaneDimension(
+                        DockPane, ((ISplitterDragSource)this).IsVertical, null);
+                    int minimumRemainingArea = GetMinimumPaneDimension(
+                        status.DisplayingPreviousPane, ((ISplitterDragSource)this).IsVertical, DockPane);
                     if (((ISplitterDragSource)this).IsVertical)
                     {
-                        rectLimit.X += MeasurePane.MinSize;
-                        rectLimit.Width -= 2 * MeasurePane.MinSize;
+                        if (status.DisplayingAlignment == DockAlignment.Left)
+                        {
+                            rectLimit.X += minimumThisPane;
+                            rectLimit.Width -= minimumThisPane + minimumRemainingArea;
+                        }
+                        else
+                        {
+                            rectLimit.X += minimumRemainingArea;
+                            rectLimit.Width -= minimumRemainingArea + minimumThisPane;
+                        }
                     }
                     else
                     {
-                        rectLimit.Y += MeasurePane.MinSize;
-                        rectLimit.Height -= 2 * MeasurePane.MinSize;
+                        if (status.DisplayingAlignment == DockAlignment.Top)
+                        {
+                            rectLimit.Y += minimumThisPane;
+                            rectLimit.Height -= minimumThisPane + minimumRemainingArea;
+                        }
+                        else
+                        {
+                            rectLimit.Y += minimumRemainingArea;
+                            rectLimit.Height -= minimumRemainingArea + minimumThisPane;
+                        }
                     }
 
                     return rectLimit;
                 }
+            }
+
+            private static int GetMinimumPaneDimension(DockPane pane, bool vertical, DockPane excludedPane)
+            {
+                if (pane == null || pane.ActiveContent == null)
+                    return MeasurePane.MinSize;
+
+                Form form = pane.ActiveContent.DockHandler.Form;
+                if (form == null)
+                    return MeasurePane.MinSize;
+
+                int minimum = Math.Max(MeasurePane.MinSize,
+                    vertical ? form.MinimumSize.Width : form.MinimumSize.Height);
+                NestedPaneCollection nestedPanes = pane.NestedDockingStatus.NestedPanes;
+                if (nestedPanes == null)
+                    return minimum;
+
+                foreach (DockPane childPane in nestedPanes)
+                {
+                    if (childPane == excludedPane)
+                        continue;
+
+                    NestedDockingStatus childStatus = childPane.NestedDockingStatus;
+                    if (childStatus.DisplayingPreviousPane != pane)
+                        continue;
+
+                    int childMinimum = GetMinimumPaneDimension(childPane, vertical, null);
+                    bool splitsAlongDimension = vertical
+                        ? (childStatus.DisplayingAlignment == DockAlignment.Left ||
+                           childStatus.DisplayingAlignment == DockAlignment.Right)
+                        : (childStatus.DisplayingAlignment == DockAlignment.Top ||
+                           childStatus.DisplayingAlignment == DockAlignment.Bottom);
+                    minimum = splitsAlongDimension
+                        ? minimum + Measures.SplitterSize + childMinimum
+                        : Math.Max(minimum, childMinimum);
+                }
+                return minimum;
             }
 
             void ISplitterDragSource.MoveSplitter(int offset)
