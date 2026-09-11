@@ -123,7 +123,7 @@ namespace VMPro
         /// <summary>
         /// 是否允许改变主窗体大小
         /// </summary>
-        public bool allowResizeForm = false ;
+        public bool allowResizeForm = true;
         /// <summary>
         /// 通讯方式
         /// </summary>

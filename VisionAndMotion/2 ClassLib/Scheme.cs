@@ -117,7 +117,7 @@ namespace VMPro
         {
             try
             {
-                IFormatter formatter = new BinaryFormatter();
+                IFormatter formatter = HalconSerializationGuard.CreateFormatter();
                 Scheme loadedScheme;
                 using (Stream stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
                 {
@@ -274,7 +274,7 @@ namespace VMPro
                     dig_saveFileDialog.InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
                     if (dig_saveFileDialog.ShowDialog() == DialogResult.OK)
                     {
-                        IFormatter formatter = new BinaryFormatter();
+                        IFormatter formatter = HalconSerializationGuard.CreateFormatter();
                         Stream stream = new FileStream(dig_saveFileDialog.FileName, FileMode.Create, FileAccess.Write, FileShare.None);
                         formatter.Serialize(stream, Project.Instance.curEngine);
                         stream.Close();
@@ -311,7 +311,7 @@ namespace VMPro
                     return default(Engine);
                 }
 
-                IFormatter formatter = new BinaryFormatter();
+                IFormatter formatter = HalconSerializationGuard.CreateFormatter();
                 Stream stream = new MemoryStream();
                 using (stream)
                 {

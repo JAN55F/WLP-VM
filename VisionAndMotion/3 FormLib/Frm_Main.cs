@@ -400,7 +400,7 @@ namespace VMPro
                 string jobName = Frm_Job.Instance.tbc_jobs.SelectedTab.Text;
                 Job job = Job.FindJobByName(jobName);
 
-                IFormatter formatter = new BinaryFormatter();
+                IFormatter formatter = HalconSerializationGuard.CreateFormatter();
                 Stream stream = new FileStream(Application.StartupPath + "\\Config\\Project\\Vision\\Job\\" + job.jobName + ".job", FileMode.OpenOrCreate, FileAccess.Write, FileShare.None);
                 formatter.Serialize(stream, job);
                 stream.Close();
@@ -2961,12 +2961,11 @@ namespace VMPro
 
         private void button2_Click(object sender, EventArgs e)
         {
-            if (!Project.Instance.configuration.allowResizeForm)
-            {
-                button2.Enabled = false;
-                return;
-            }
-
+            // 主窗体最大化/还原：不再受 allowResizeForm 门禁限制。
+            // 新版 UI 为无边框窗体（FormBorderStyle.None），本就没有拖拽改变大小，
+            // 若再因 allowResizeForm=false 禁用最大化，窗口就永远无法全屏。
+            // “允许改变窗体大小”仅由系统设置→启动设置的勾选框（Frm_StartSettings）
+            // 实时锁定/解锁生效，主窗体的最大化按钮始终可用。
             if (this.WindowState == FormWindowState.Normal)
             {
                 UpdateMaximizedBoundsForCurrentScreen();
