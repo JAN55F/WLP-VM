@@ -62,7 +62,7 @@ namespace VMPro
             // 连线若直接补画在同一 HWND 上就会被反复擦除，表现为闪烁。
             HotTracking = false;
             Indent = 24;
-            ItemHeight = 34;
+            ItemHeight = 32;
             ShowLines = false;
             ShowPlusMinus = false;
             ShowRootLines = false;

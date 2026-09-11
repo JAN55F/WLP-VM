@@ -19,6 +19,7 @@ namespace WeifenLuo.WinFormsUI.Docking
         private DockState m_dockState;
         private SplitterControl m_splitter;
         private NestedPaneCollection m_nestedPanes;
+        private System.Collections.Hashtable m_splitterDragPaneDimensions;
 
         internal DockWindow(DockPanel dockPanel, DockState dockState)
         {
@@ -157,12 +158,19 @@ namespace WeifenLuo.WinFormsUI.Docking
 
         void ISplitterDragSource.BeginDrag(Rectangle rectSplitter)
         {
+            m_splitterDragPaneDimensions = new System.Collections.Hashtable();
+            bool vertical = ((ISplitterDragSource)this).IsVertical;
+            foreach (DockPane pane in VisibleNestedPanes)
+            {
+                if (pane.NestedDockingStatus.DisplayingPreviousPane != null)
+                    m_splitterDragPaneDimensions[pane] = vertical ? pane.Width : pane.Height;
+            }
         }
 
         void ISplitterDragSource.EndDrag()
         {
+            m_splitterDragPaneDimensions = null;
         }
-
         bool ISplitterDragSource.IsVertical
         {
             get { return (DockState == DockState.DockLeft || DockState == DockState.DockRight); }
@@ -173,24 +181,43 @@ namespace WeifenLuo.WinFormsUI.Docking
             get
             {
                 Rectangle rectLimit = DockPanel.DockArea;
+                bool vertical = ((ISplitterDragSource)this).IsVertical;
+                int minimumThisWindow = GetMinimumWindowDimension(vertical);
+                int minimumRemainingArea = GetMinimumDocumentDimension(vertical);
                 Point location;
                 if ((Control.ModifierKeys & Keys.Shift) == 0)
                     location = Location;
                 else
                     location = DockPanel.DockArea.Location;
 
-                if (((ISplitterDragSource)this).IsVertical)
+                if (vertical)
                 {
-                    rectLimit.X += MeasurePane.MinSize;
-                    rectLimit.Width -= 2 * MeasurePane.MinSize;
+                    if (DockState == DockState.DockLeft)
+                    {
+                        rectLimit.X += minimumThisWindow;
+                        rectLimit.Width -= minimumThisWindow + minimumRemainingArea;
+                    }
+                    else
+                    {
+                        rectLimit.X += minimumRemainingArea;
+                        rectLimit.Width -= minimumRemainingArea + minimumThisWindow;
+                    }
                     rectLimit.Y = location.Y;
                     if ((Control.ModifierKeys & Keys.Shift) == 0)
                         rectLimit.Height = Height;
                 }
                 else
                 {
-                    rectLimit.Y += MeasurePane.MinSize;
-                    rectLimit.Height -= 2 * MeasurePane.MinSize;
+                    if (DockState == DockState.DockTop)
+                    {
+                        rectLimit.Y += minimumThisWindow;
+                        rectLimit.Height -= minimumThisWindow + minimumRemainingArea;
+                    }
+                    else
+                    {
+                        rectLimit.Y += minimumRemainingArea;
+                        rectLimit.Height -= minimumRemainingArea + minimumThisWindow;
+                    }
                     rectLimit.X = location.X;
                     if ((Control.ModifierKeys & Keys.Shift) == 0)
                         rectLimit.Width = Width;
@@ -200,6 +227,76 @@ namespace WeifenLuo.WinFormsUI.Docking
             }
         }
 
+        private int GetMinimumDocumentDimension(bool vertical)
+        {
+            DockWindow documentWindow = DockPanel.DockWindows[DockState.Document];
+            return documentWindow == this ? MeasurePane.MinSize : documentWindow.GetMinimumWindowDimension(vertical);
+        }
+
+        private int GetMinimumWindowDimension(bool vertical)
+        {
+            foreach (DockPane pane in VisibleNestedPanes)
+            {
+                if (pane.NestedDockingStatus.DisplayingPreviousPane == null)
+                    return GetMinimumPaneDimension(pane, vertical, null);
+            }
+            return MeasurePane.MinSize;
+        }
+
+        private static int GetMinimumPaneDimension(DockPane pane, bool vertical, DockPane excludedPane)
+        {
+            if (pane == null || pane.ActiveContent == null)
+                return MeasurePane.MinSize;
+
+            Form form = pane.ActiveContent.DockHandler.Form;
+            int minimum = form == null ? MeasurePane.MinSize : Math.Max(MeasurePane.MinSize,
+                vertical ? form.MinimumSize.Width : form.MinimumSize.Height);
+            NestedPaneCollection nestedPanes = pane.NestedDockingStatus.NestedPanes;
+            if (nestedPanes == null)
+                return minimum;
+
+            foreach (DockPane childPane in nestedPanes)
+            {
+                if (childPane == excludedPane)
+                    continue;
+                NestedDockingStatus childStatus = childPane.NestedDockingStatus;
+                if (childStatus.DisplayingPreviousPane != pane)
+                    continue;
+
+                int childMinimum = GetMinimumPaneDimension(childPane, vertical, null);
+                bool splitsAlongDimension = vertical
+                    ? (childStatus.DisplayingAlignment == DockAlignment.Left || childStatus.DisplayingAlignment == DockAlignment.Right)
+                    : (childStatus.DisplayingAlignment == DockAlignment.Top || childStatus.DisplayingAlignment == DockAlignment.Bottom);
+                minimum = splitsAlongDimension
+                    ? minimum + Measures.SplitterSize + childMinimum
+                    : Math.Max(minimum, childMinimum);
+            }
+            return minimum;
+        }
+
+        private void PreserveNestedPaneDimensions()
+        {
+            if (m_splitterDragPaneDimensions == null || m_splitterDragPaneDimensions.Count == 0)
+                return;
+
+            bool vertical = ((ISplitterDragSource)this).IsVertical;
+            foreach (System.Collections.DictionaryEntry entry in m_splitterDragPaneDimensions)
+            {
+                DockPane pane = entry.Key as DockPane;
+                if (pane == null || pane.IsDisposed)
+                    continue;
+
+                NestedDockingStatus status = pane.NestedDockingStatus;
+                int logicalDimension = vertical ? status.LogicalBounds.Width : status.LogicalBounds.Height;
+                if (logicalDimension <= 0)
+                    continue;
+
+                int savedDimension = (int)entry.Value;
+                double proportion = (double)(savedDimension + Measures.SplitterSize / 2) / logicalDimension;
+                proportion = Math.Max(0.01D, Math.Min(0.99D, proportion));
+                pane.SetNestedDockingProportion(proportion);
+            }
+        }
         void ISplitterDragSource.MoveSplitter(int offset)
         {
             if ((Control.ModifierKeys & Keys.Shift) != 0)
@@ -234,8 +331,9 @@ namespace WeifenLuo.WinFormsUI.Docking
                 else
                     DockPanel.DockTopPortion += ((double)offset) / (double)rectDockArea.Height;
             }
-        }
 
+            PreserveNestedPaneDimensions();
+        }
         #region IDragSource Members
 
         Control IDragSource.DragControl

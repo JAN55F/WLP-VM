@@ -7,6 +7,10 @@ namespace VMPro
 {
     internal partial class Frm_Job
     {
+        // Keep the workflow selector, tool nodes, and command bar usable when this
+        // pane shares a horizontal splitter with the toolbox.
+        private const int ModernWorkflowEditorMinimumWidth = 300;
+        private const int ModernWorkflowEditorMinimumHeight = 240;
         private TableLayoutPanel modernEditorCommandBar;
         private TableLayoutPanel modernWorkflowSelectorHost;
         private System.Windows.Forms.Label modernWorkflowSelectorLabel;
@@ -24,6 +28,7 @@ namespace VMPro
                 BackColor = ModernUiTheme.Page;
                 Font = ModernUiTheme.UiFont;
                 HideOnClose = true;
+                MinimumSize = new Size(ModernWorkflowEditorMinimumWidth, ModernWorkflowEditorMinimumHeight);
 
                 label1.BackColor = ModernUiTheme.Border;
                 label1.Height = 1;
@@ -74,11 +79,11 @@ namespace VMPro
             modernWorkflowSelectorHost = new TableLayoutPanel();
             modernWorkflowSelectorHost.Name = "modernWorkflowSelectorHost";
             modernWorkflowSelectorHost.Dock = DockStyle.Top;
-            modernWorkflowSelectorHost.Height = 44;
+            modernWorkflowSelectorHost.Height = 40;
             modernWorkflowSelectorHost.Margin = Padding.Empty;
-            modernWorkflowSelectorHost.Padding = new Padding(8, 6, 8, 5);
+            modernWorkflowSelectorHost.Padding = new Padding(6, 4, 6, 4);
             modernWorkflowSelectorHost.ColumnCount = 2;
-            modernWorkflowSelectorHost.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 76F));
+            modernWorkflowSelectorHost.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 72F));
             modernWorkflowSelectorHost.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             modernWorkflowSelectorHost.RowCount = 1;
             modernWorkflowSelectorHost.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
@@ -101,9 +106,9 @@ namespace VMPro
             modernWorkflowSelector.DropDownStyle = ComboBoxStyle.DropDownList;
             modernWorkflowSelector.FlatStyle = FlatStyle.Flat;
             modernWorkflowSelector.DrawMode = DrawMode.OwnerDrawFixed;
-            modernWorkflowSelector.ItemHeight = 26;
+            modernWorkflowSelector.ItemHeight = 24;
             modernWorkflowSelector.IntegralHeight = false;
-            modernWorkflowSelector.DropDownHeight = 286;
+            modernWorkflowSelector.DropDownHeight = 240;
             modernWorkflowSelector.MaxDropDownItems = 10;
             modernWorkflowSelector.Font = ModernUiTheme.UiFont;
             modernWorkflowSelector.BackColor = ModernUiTheme.SurfaceRaised;
@@ -325,8 +330,8 @@ namespace VMPro
         private void ConfigureEditorCommandBar()
         {
             panel1.BackColor = ModernUiTheme.Surface;
-            panel1.Height = 54;
-            panel1.Padding = new Padding(8, 6, 8, 6);
+            panel1.Height = 44;
+            panel1.Padding = new Padding(6, 4, 6, 4);
 
             button1.Visible = false;
             label2.Visible = false;
@@ -353,7 +358,7 @@ namespace VMPro
             toolStrip1.GripStyle = ToolStripGripStyle.Hidden;
             toolStrip1.LayoutStyle = ToolStripLayoutStyle.HorizontalStackWithOverflow;
             toolStrip1.Padding = new Padding(2, 0, 2, 0);
-            toolStrip1.ImageScalingSize = new Size(20, 20);
+            toolStrip1.ImageScalingSize = new Size(18, 18);
             toolStrip1.ShowItemToolTips = true;
 
             modernShowAllConnectionsButton = new ToolStripButton();
@@ -368,8 +373,8 @@ namespace VMPro
             foreach (ToolStripItem item in toolStrip1.Items)
             {
                 item.AutoSize = false;
-                item.Size = new Size(38, 38);
-                item.Margin = new Padding(1, 2, 1, 2);
+                item.Size = new Size(32, 32);
+                item.Margin = new Padding(1, 0, 1, 0);
                 item.DisplayStyle = ToolStripItemDisplayStyle.Image;
             }
 
@@ -383,7 +388,7 @@ namespace VMPro
 
         private void ConfigureEditorIcons()
         {
-            int commandSize = ModernVectorIconFactory.GetPixelSize(toolStrip1, 20);
+            int commandSize = ModernVectorIconFactory.GetPixelSize(toolStrip1, 18);
             tsb_createJob.Image = ModernVectorIconFactory.Get(
                 ModernVectorIconFactory.Glyph.Add, commandSize, ModernUiTheme.Accent);
             tsb_expandJob.Image = ModernVectorIconFactory.Get(
