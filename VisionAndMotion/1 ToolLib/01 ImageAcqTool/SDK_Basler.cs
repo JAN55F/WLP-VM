@@ -174,25 +174,29 @@ namespace VMPro
         /// <param name="exposure">曝光时间</param>
         internal override void SetExposure(double exposure)
         {
-            try
+            // 与 GrabOneImage 的 obj 锁共用，避免拖动曝光时 SetExposure 与采图并发进入原生 SDK 崩溃
+            lock (obj)
             {
-                foreach (KeyValuePair<string, Basler.Pylon.Camera> item in D_cameras)
+                try
                 {
-                    if (item.Key == CameraInfoStr)
+                    foreach (KeyValuePair<string, Basler.Pylon.Camera> item in D_cameras)
                     {
-                        if (item.Value.Parameters.Contains(PLCamera.ExposureAuto))
-                            item.Value.Parameters[PLCamera.ExposureAuto].TrySetValue(PLCamera.ExposureAuto.Off);
-                        if (item.Value.Parameters.Contains(PLCamera.ExposureTimeAbs))
-                            item.Value.Parameters[PLCamera.ExposureTimeAbs].TrySetValue(exposure * 1000);
-                        else
-                            item.Value.Parameters[PLCamera.ExposureTime].TrySetValue(exposure * 1000);
-                        break;
+                        if (item.Key == CameraInfoStr)
+                        {
+                            if (item.Value.Parameters.Contains(PLCamera.ExposureAuto))
+                                item.Value.Parameters[PLCamera.ExposureAuto].TrySetValue(PLCamera.ExposureAuto.Off);
+                            if (item.Value.Parameters.Contains(PLCamera.ExposureTimeAbs))
+                                item.Value.Parameters[PLCamera.ExposureTimeAbs].TrySetValue(exposure * 1000);
+                            else
+                                item.Value.Parameters[PLCamera.ExposureTime].TrySetValue(exposure * 1000);
+                            break;
+                        }
                     }
                 }
-            }
-            catch (Exception ex)
-            {
-                Log.SaveError(ex);
+                catch (Exception ex)
+                {
+                    Log.SaveError(ex);
+                }
             }
         }
         internal override bool CheckCamExist()

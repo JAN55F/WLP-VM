@@ -411,22 +411,29 @@ namespace VMPro
         /// <param name="exposure">曝光时间</param>
         internal override void SetExposure(double exposure)
         {
-            try
+            // 与 GrabOneImage 的 obj 锁共用：拖动曝光时每个刻度都会触发一次采集 Run，
+            // 若 SetExposure（含 200ms 生效等待）与 GrabOneImage 并发进入原生 SDK
+            //（海康 MVCAMSDK 非线程安全），会直接在原生层访问冲突崩溃（无托管异常、进程闪退）。
+            // 串行化后，超时被遗弃的工作线程也只会在锁上排队，不再叠加并发调用。
+            lock (obj)
             {
-                foreach (KeyValuePair<string, MyCamera> item in D_cameras)
+                try
                 {
-                    if (item.Key == CameraInfoStr)
+                    foreach (KeyValuePair<string, MyCamera> item in D_cameras)
                     {
-                        item.Value.MV_CC_SetEnumValue_NET("ExposureAuto", 0);
-                        item.Value.MV_CC_SetFloatValue_NET("ExposureTime", (float)exposure * 1000);
-                        Thread.Sleep(200);      //海康威视相机，实测发现设置完曝光后200毫秒以后才能生效，所以如此，当然这会影响CT
-                        break;
+                        if (item.Key == CameraInfoStr)
+                        {
+                            item.Value.MV_CC_SetEnumValue_NET("ExposureAuto", 0);
+                            item.Value.MV_CC_SetFloatValue_NET("ExposureTime", (float)exposure * 1000);
+                            Thread.Sleep(200);      //海康威视相机，实测发现设置完曝光后200毫秒以后才能生效，所以如此，当然这会影响CT
+                            break;
+                        }
                     }
                 }
-            }
-            catch (Exception ex)
-            {
-                Log.SaveError(ex);
+                catch (Exception ex)
+                {
+                    Log.SaveError(ex);
+                }
             }
         }
         internal override bool CheckCamExist()
