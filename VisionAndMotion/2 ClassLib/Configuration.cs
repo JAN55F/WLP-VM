@@ -297,11 +297,11 @@ namespace VMPro
         internal static string BuildApplicationTitle(string projectTitle)
         {
             string normalized = NormalizeProgramTitle(projectTitle);
-            string productTitle = string.Format(“{0} - {1} [Debug: {2}]”, DefaultCompanyName, ProductDisplayName, ProductUpdateTime);
+            string productTitle = string.Format("{0} - {1} [Debug: {2}]", DefaultCompanyName, ProductDisplayName, ProductUpdateTime);
             if (string.Equals(normalized, DefaultProgramTitle, StringComparison.OrdinalIgnoreCase))
                 return productTitle;
 
-            return string.Format(“{0} · {1}”, productTitle, normalized);
+            return string.Format("{0} · {1}", productTitle, normalized);
         }
 
 
