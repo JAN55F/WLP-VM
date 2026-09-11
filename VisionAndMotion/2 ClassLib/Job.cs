@@ -12968,7 +12968,9 @@ namespace VMPro
                 //////    }
                 //////}
 
-                GetJobTree().SelectedNode = null;
+                // 连续运行/自动运行时本方法运行在工作线程，直接给 TreeView 赋 SelectedNode
+                // 会触发跨线程检查抛“线程间操作无效”（见错误日志 2026-09-10）——封送回 UI 线程执行。
+                ResetJobTreeSelectionOnUi();
                 jobElapsedTime.Stop();
                 double time = jobElapsedTime.ElapsedMilliseconds;
                 //自动运行状态下结果不显示
@@ -12999,6 +13001,30 @@ namespace VMPro
             finally
             {
                 Interlocked.Decrement(ref activeRunCount);
+            }
+        }
+
+        /// <summary>
+        /// 把流程树的选中态复位封送回 UI 线程执行。
+        /// 单次运行（UI 线程）直接执行；连续运行（工作线程）经主窗体 BeginInvoke 封送。
+        /// </summary>
+        private void ResetJobTreeSelectionOnUi()
+        {
+            try
+            {
+                Frm_Main mainForm = Frm_Main.Instance;
+                if (mainForm == null || mainForm.IsDisposed || mainForm.Disposing || !mainForm.IsHandleCreated)
+                    return;
+
+                if (mainForm.InvokeRequired)
+                    mainForm.BeginInvoke((MethodInvoker)delegate { GetJobTree().SelectedNode = null; });
+                else
+                    GetJobTree().SelectedNode = null;
+            }
+            catch (Exception ex)
+            {
+                // 退出阶段窗体句柄可能已释放，复位失败不影响流程运行结果
+                Log.SaveError(ex);
             }
         }
 

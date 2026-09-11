@@ -804,21 +804,18 @@ namespace VMPro
         /// <returns></returns>
         internal Frm_ImageWindow GetImageWindowControl()
         {
+            // 工具 Run 可能来自连续运行/自动运行的工作线程；
+            // 本方法要读 dockPanel/tbc_jobs 等 UI 状态，必须封送回 UI 线程计算，
+            // 否则触发跨线程检查抛“线程间操作无效”（见错误日志 2026-09-10）。
             try
             {
-                foreach (KeyValuePair<string, Frm_ImageWindow> item in Frm_ImageWindow.D_imageWindow)
+                if (IsUiThreadRequired())
                 {
-                    if (item.Key == Job.FindJobByName(jobName).debugImageWindow)
-                    {
-                        IDockContent temp = Frm_Main.Instance.dockPanel.ActiveDocument;
-                        Frm_ImageWindow ff = temp as Frm_ImageWindow;
-                        if ((Machine.machineRunStatu != MachineRunStatu.Running && !Job.FindJobByName(jobName).isRunLoop && ff.Text != Job.FindJobByName(jobName).debugImageWindow)
-                      || (Machine.machineRunStatu != MachineRunStatu.Running && Job.FindJobByName(jobName).isRunLoop) && Job.FindJobByName(jobName).jobName == Frm_Job.Instance.tbc_jobs.SelectedTab.Text)
-                            item.Value.Show();              //切换到当前图像窗体
-                        return item.Value;
-                    }
+                    Frm_ImageWindow window = null;
+                    Frm_Main.Instance.Invoke((MethodInvoker)delegate { window = GetImageWindowControlCore(); });
+                    return window;
                 }
-                return Frm_ImageWindow.Instance;
+                return GetImageWindowControlCore();
             }
             catch (Exception ex)
             {
@@ -826,12 +823,55 @@ namespace VMPro
                 return null;
             }
         }
+
+        private static bool IsUiThreadRequired()
+        {
+            Frm_Main mainForm = Frm_Main.Instance;
+            return mainForm != null && !mainForm.IsDisposed && mainForm.IsHandleCreated && mainForm.InvokeRequired;
+        }
+
+        private Frm_ImageWindow GetImageWindowControlCore()
+        {
+            foreach (KeyValuePair<string, Frm_ImageWindow> item in Frm_ImageWindow.D_imageWindow)
+            {
+                if (item.Key == Job.FindJobByName(jobName).debugImageWindow)
+                {
+                    IDockContent temp = Frm_Main.Instance.dockPanel.ActiveDocument;
+                    Frm_ImageWindow ff = temp as Frm_ImageWindow;
+                    if ((Machine.machineRunStatu != MachineRunStatu.Running && !Job.FindJobByName(jobName).isRunLoop && ff.Text != Job.FindJobByName(jobName).debugImageWindow)
+                  || (Machine.machineRunStatu != MachineRunStatu.Running && Job.FindJobByName(jobName).isRunLoop) && Job.FindJobByName(jobName).jobName == Frm_Job.Instance.tbc_jobs.SelectedTab.Text)
+                        item.Value.Show();              //切换到当前图像窗体
+                    return item.Value;
+                }
+            }
+            return Frm_ImageWindow.Instance;
+        }
         /// <summary>
         /// 通过流程名获取窗体句柄，与上一个函数的使用场合不同，此函数用于工具构造函数里面，因为创建工具时还没有流程名，所以只能用这个函数
         /// </summary>
         /// <param name="jobName"></param>
         /// <returns></returns>
         internal Frm_ImageWindow GetImageWindowControl(string jobName)
+        {
+            // 与无参重载同理：可能从工作线程调用，读取 UI 状态前先封送。
+            try
+            {
+                if (IsUiThreadRequired())
+                {
+                    Frm_ImageWindow window = null;
+                    Frm_Main.Instance.Invoke((MethodInvoker)delegate { window = GetImageWindowControlCore(jobName); });
+                    return window;
+                }
+                return GetImageWindowControlCore(jobName);
+            }
+            catch (Exception ex)
+            {
+                Log.SaveError(ex);
+                return null;
+            }
+        }
+
+        private Frm_ImageWindow GetImageWindowControlCore(string jobName)
         {
             try
             {
