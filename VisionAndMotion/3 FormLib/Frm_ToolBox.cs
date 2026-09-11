@@ -2198,12 +2198,8 @@ namespace VMPro
                             toolNode = Job.GetJobTree(jobName).Nodes.Insert(insertIdx, "", toolName, 26, 26);
                         }
 
-                        //添加常用项
-                        itemNode = toolNode.Nodes.Add("", Project.Instance.configuration.language == Language.English ? "<--OutputImage" : "<--输入项1", 34, 34);
-                        itemNode.ForeColor = Color.DarkMagenta;
-                        itemNode.Tag = DataType.String;
-                        toolInfo.input.Add(new ToolIO(Project.Instance.configuration.language == Language.English ? "OutputImage" : "输入项1", "", DataType.String));
-
+                        //添加常用项：新版数据分析不再预建输入节点/条目（由工具窗体“链接”按需创建）；
+                        //输出项1 对应默认首行，保留。
                         itemNode = (toolNode.Nodes.Add("", Project.Instance.configuration.language == Language.English ? "-->OutputImage" : "-->输出项1", 34, 34));
                         itemNode.ForeColor = Color.Blue;
                         itemNode.Tag = DataType.String;

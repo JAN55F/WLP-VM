@@ -7836,33 +7836,15 @@ namespace VMPro
                             #region DataAnalyse
                             case ToolType.DataAnalyse:
                                 Frm_DataAnalyseTool.Instance.pictureBox1.Image = Resources.LabelTool;
-                                Frm_DataAnalyseTool.Instance.lbl_title.Text = string.Format("数据显示    [ {0} . {1} ]", this.jobName, L_toolList[i].toolName);
-                                //Frm_LabelTool.Instance.StartPosition = FormStartPosition.Manual;
-                                //Frm_LabelTool.Instance.Location = new System.Drawing.Point(System.Windows.Forms.SystemInformation.VirtualScreen.Width - Frm_LabelTool.Instance.Width - 20, 200);        //让其显示在右上方，防止挡住图像窗口
-                                //Frm_LabelTool.Instance.TopMost = true;
+                                Frm_DataAnalyseTool.Instance.lbl_title.Text = string.Format("数据分析    [ {0} . {1} ]", this.jobName, L_toolList[i].toolName);
                                 Frm_DataAnalyseTool.Instance.Activate();
-                                Frm_DataAnalyseTool.Instance.jobName = this.jobName;
-                                Frm_DataAnalyseTool.Instance.toolName = L_toolList[i].toolName; ;
+                                DataAnalyseTool dataAnalyseTool = (DataAnalyseTool)(L_toolList[i].tool);
+                                // 打开即绑定工具实例并回填单表（链接显示文本由 input 条目推导）；
+                                // 表格变更在窗体内写回 input/output 条目并刷新连线。
+                                Frm_DataAnalyseTool.Instance.LoadPar(this.jobName, L_toolList[i].toolName, dataAnalyseTool);
                                 Frm_DataAnalyseTool.Instance.Show();
                                 Frm_DataAnalyseTool.Instance.WindowState = FormWindowState.Normal;
-                                //Frm_LabelTool.Instance.btn_runTool.Focus();
-                                DataAnalyseTool dataAnalyseTool = (DataAnalyseTool)(L_toolList[i].tool);
-                                Frm_DataAnalyseTool.dataAnalyseTool = dataAnalyseTool;
                                 Application.DoEvents();
-
-                                int itemCount = ((DataAnalyseTool)L_toolList[i].tool).L_items.Count;
-                                Frm_DataAnalyseTool.Instance.dgv_outputItem.Rows.Clear();
-                                for (int j = 0; j < itemCount; j++)
-                                {
-                                    int index = Frm_DataAnalyseTool.Instance.dgv_outputItem.Rows.Add();
-                                    Frm_DataAnalyseTool.Instance.dgv_outputItem.Rows[index].Cells[0].Value = dataAnalyseTool.L_items[j].inputItem;
-                                    Frm_DataAnalyseTool.Instance.dgv_outputItem.Rows[index].Cells[1].Value = dataAnalyseTool.L_items[j].downLimit.ToString().ToString();
-                                    Frm_DataAnalyseTool.Instance.dgv_outputItem.Rows[index].Cells[2].Value = dataAnalyseTool.L_items[j].upLimit.ToString();
-                                    Frm_DataAnalyseTool.Instance.dgv_outputItem.Rows[index].Cells[3].Value = dataAnalyseTool.L_items[j].inResult;
-                                    Frm_DataAnalyseTool.Instance.dgv_outputItem.Rows[index].Cells[4].Value = dataAnalyseTool.L_items[j].outResult;
-                                }
-
-                                //Frm_LabelTool.Instance.ckb_toolEnable.Checked = ((ToolInfo)L_toolList[i]).enable;
                                 break;
                             #endregion
 
@@ -8209,7 +8191,7 @@ namespace VMPro
                                 Frm_LabelTool.Instance.lbl_title.Text = string.Format("数据显示    [ {0} . {1} ]", this.jobName, L_toolList[i].toolName);
                                 Frm_LabelTool.Instance.Activate();
                                 LabelTool labelTool = (LabelTool)(L_toolList[i].tool);
-                                itemCount = labelTool.L_label.Count;
+                                int itemCount = labelTool.L_label.Count;
                                 // 打开即绑定工具实例并回填单表（链接显示文本由 input 条目推导）；
                                 // 表格变更在窗体内写回 input 条目并刷新连线。
                                 Frm_LabelTool.Instance.LoadPar(this.jobName, L_toolList[i].toolName, labelTool);
