@@ -26,6 +26,8 @@ internal static class ToolboxUiSmoke
 
             Assembly assembly = Assembly.LoadFrom(args[0]);
             InitializeToolImages(assembly);
+            VerifyWorkflowEditorMinimumSize(assembly);
+            VerifyImageWindowMinimumSize(assembly);
             VerifyAndRenderToolbox(assembly, args[1]);
             Console.WriteLine("Toolbox UI smoke checks passed: {0} assertions.", assertionCount);
             return 0;
@@ -47,7 +49,7 @@ internal static class ToolboxUiSmoke
         initialize.Invoke(null, null);
     }
 
-    private static void VerifyAndRenderToolbox(Assembly assembly, string previewPath)
+        private static void VerifyAndRenderToolbox(Assembly assembly, string previewPath)
     {
         Type toolboxType = assembly.GetType("VMPro.Frm_ToolBox", true);
         using (Form toolbox = (Form)Activator.CreateInstance(toolboxType, true))
@@ -60,8 +62,8 @@ internal static class ToolboxUiSmoke
             TableLayoutPanel layout = FindControl<TableLayoutPanel>(toolbox, "modernToolboxLayout");
             Assert(layout.RowCount == 2 && layout.Dock == DockStyle.Fill,
                 "Toolbox must use a compact header/tree layout.");
-            Assert(toolbox.MinimumSize.Width >= 230,
-                "Toolbox minimum width is too small for readable tool names.");
+            Assert(toolbox.MinimumSize.Width == 286 && toolbox.MinimumSize.Height == 180,
+                "Toolbox minimum size must protect its three-column layout without crowding other modules.");
 
             Control searchBox = FindControl<Control>(toolbox, "modernToolSearch");
             TextBox searchInput = FindControl<TextBox>(toolbox, "modernToolSearchInput");
@@ -79,7 +81,16 @@ internal static class ToolboxUiSmoke
             Assert(tree.GetType().Name == "ModernToolboxTreeView" &&
                    tree.DrawMode == TreeViewDrawMode.OwnerDrawAll &&
                    tree.ItemHeight >= 38 && !tree.ShowLines && !tree.ShowPlusMinus,
-                "Tool categories and tool rows are not using the modern owner-drawn tree.");
+                "Toolbox catalogue is not using the modern owner-drawn tree.");
+            Control grid = FindControl<Control>(toolbox, "modernToolGrid");
+            Assert(!tree.Visible && tree.Parent != null && grid.Dock == DockStyle.Fill && grid.AutoScroll,
+                "Tool shortcuts must be rendered in the scrollable grid while retaining the tree drag source.");
+            FieldInfo cardHeight = grid.GetType().GetField("CardHeight", BindingFlags.Static | BindingFlags.NonPublic);
+            FieldInfo cardWidth = grid.GetType().GetField("CardWidth", BindingFlags.Static | BindingFlags.NonPublic);
+            Assert(cardHeight != null && cardWidth != null &&
+                   (int)cardHeight.GetRawConstantValue() == 76 &&
+                   (int)cardWidth.GetRawConstantValue() == 78,
+                "Tool shortcut cards must use the compact proportional dimensions.");
 
             string categories = string.Join(",", tree.Nodes.Cast<TreeNode>().Select(node => node.Text).ToArray());
             Assert(tree.Nodes.Count == 7 &&
@@ -93,6 +104,23 @@ internal static class ToolboxUiSmoke
             Button collapse = FindControl<Button>(toolbox, "modernCollapseAll");
             Assert(toolCount.Text.Contains("57") && expand.Image != null && collapse.Image != null,
                 "Tool count or expand/collapse vector actions are missing.");
+            collapse.PerformClick();
+            Application.DoEvents();
+            Assert(tree.Nodes.Cast<TreeNode>().All(node => !node.IsExpanded),
+                "Collapse all must keep every category collapsed in the grid.");
+            expand.PerformClick();
+            Application.DoEvents();
+            Assert(tree.Nodes.Cast<TreeNode>().All(node => node.IsExpanded),
+                "Expand all must expand every category in the grid.");
+            collapse.PerformClick();
+            Application.DoEvents();
+            MethodInfo setCategoryExpanded = toolboxType.GetMethod("SetCategoryExpanded", BindingFlags.Instance | BindingFlags.NonPublic);
+            MethodInfo applyFilter = toolboxType.GetMethod("ApplyModernToolFilter", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert(setCategoryExpanded != null && applyFilter != null, "Missing toolbox category-state refresh methods.");
+            setCategoryExpanded.Invoke(toolbox, new object[] { tree.Nodes[0], true });
+            applyFilter.Invoke(toolbox, null);
+            Assert(tree.Nodes[0].IsExpanded && tree.Nodes.Skip(1).All(node => !node.IsExpanded),
+                "A category must retain its individual expanded state after a grid refresh.");
 
             Label infoText = GetField<Label>(toolboxType, toolbox, "lbl_toolInfo");
             Assert(toolbox.Controls.Find("modernToolboxInfoCard", true).Length == 0 &&
@@ -125,6 +153,32 @@ internal static class ToolboxUiSmoke
             }
 
             toolbox.Hide();
+        }
+
+        private static void VerifyWorkflowEditorMinimumSize(Assembly assembly)
+        {
+            Type workflowEditorType = assembly.GetType("VMPro.Frm_Job", true);
+            FieldInfo minimumWidth = workflowEditorType.GetField(
+                "ModernWorkflowEditorMinimumWidth", BindingFlags.Static | BindingFlags.NonPublic);
+            FieldInfo minimumHeight = workflowEditorType.GetField(
+                "ModernWorkflowEditorMinimumHeight", BindingFlags.Static | BindingFlags.NonPublic);
+            Assert(minimumWidth != null && minimumHeight != null &&
+                   (int)minimumWidth.GetRawConstantValue() == 300 &&
+                   (int)minimumHeight.GetRawConstantValue() == 240,
+                "Workflow editor must expose a usable minimum size beside the toolbox.");
+        }
+
+        private static void VerifyImageWindowMinimumSize(Assembly assembly)
+        {
+            Type imageWindowType = assembly.GetType("VMPro.Frm_ImageWindow", true);
+            FieldInfo minimumWidth = imageWindowType.GetField(
+                "ImageWindowMinimumWidth", BindingFlags.Static | BindingFlags.NonPublic);
+            FieldInfo minimumHeight = imageWindowType.GetField(
+                "ImageWindowMinimumHeight", BindingFlags.Static | BindingFlags.NonPublic);
+            Assert(minimumWidth != null && minimumHeight != null &&
+                   (int)minimumWidth.GetRawConstantValue() == 300 &&
+                   (int)minimumHeight.GetRawConstantValue() == 220,
+                "Image window must expose a usable minimum size beside the workflow editor.");
         }
     }
 

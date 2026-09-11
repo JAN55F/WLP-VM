@@ -1394,7 +1394,7 @@ namespace VMPro
 
                 TreeView tvw_job = new FlowEditorTreeView(job.GetConnectionSnapshot, job.ShouldDisplayConnections);
                 tvw_job.Scrollable = true;
-                tvw_job.ItemHeight = 34;
+                tvw_job.ItemHeight = 32;
                 tvw_job.ShowLines = false;
                 tvw_job.AllowDrop = true;
                 tvw_job.ImageList = Job.imageList;
@@ -1472,7 +1472,7 @@ namespace VMPro
 
             FlowEditorTreeView tvw_job = new FlowEditorTreeView(job.GetConnectionSnapshot, job.ShouldDisplayConnections);
             tvw_job.Scrollable = true;
-            tvw_job.ItemHeight = 34;
+            tvw_job.ItemHeight = 32;
             tvw_job.ShowLines = false;
             tvw_job.AllowDrop = true;
             tvw_job.ImageList = Job.imageList;

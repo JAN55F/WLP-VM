@@ -18,9 +18,15 @@ namespace VMPro
 {
     public partial class Frm_ImageWindow : DockContent
     {
+        // Preserve a usable image canvas when this pane shares horizontal space with
+        // the workflow editor and toolbox.
+        private const int ImageWindowMinimumWidth = 300;
+        private const int ImageWindowMinimumHeight = 220;
+
         public Frm_ImageWindow()
         {
             InitializeComponent();
+            MinimumSize = new System.Drawing.Size(ImageWindowMinimumWidth, ImageWindowMinimumHeight);
             hwc_imageWindow.doubleClick += hwc_imageWindow_doubleClick;
             Init_Language();
         }

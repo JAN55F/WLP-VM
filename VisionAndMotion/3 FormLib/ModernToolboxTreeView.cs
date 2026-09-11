@@ -2,6 +2,8 @@ using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Runtime.InteropServices;
+using System.Collections.Generic;
+using System.Linq;
 using System.Windows.Forms;
 
 namespace VMPro
@@ -371,5 +373,304 @@ namespace VMPro
         }
 
         internal TreeNode Node { get; private set; }
+    }
+
+    internal sealed class ToolboxCategoryExpandedEventArgs : EventArgs
+    {
+        internal ToolboxCategoryExpandedEventArgs(TreeNode category, bool expanded)
+        {
+            Category = category;
+            Expanded = expanded;
+        }
+
+        internal TreeNode Category { get; private set; }
+        internal bool Expanded { get; private set; }
+    }
+
+    /// <summary>
+    /// 工具箱的快捷方式视图。它有意不承载工具创建业务，所有项目仍对应原 TreeView
+    /// 中的 TreeNode，因此搜索、权限校验和 AddTool 的既有分派保持不变。
+    /// </summary>
+    internal sealed class ModernToolboxGrid : Panel
+    {
+        private const int ColumnCount = 3;
+        private const int HeaderHeight = 30;
+        // Keep cards compact even if the toolbox itself is widened.  Their
+        // dimensions are reduced together from the previous 95 x 87 layout,
+        // so the shortcut keeps its visual proportion at the narrowest width.
+        private const int CardWidth = 78;
+        private const int CardHeight = 76;
+        private const int CardGap = 4;
+        private const int ContentLeft = 8;
+        private readonly List<TreeNode> categories = new List<TreeNode>();
+        private readonly List<GridItem> hitItems = new List<GridItem>();
+        private TreeNode hotTool;
+        private TreeNode dragCandidate;
+        private Point dragStart;
+        private bool dragStarted;
+
+        internal ModernToolboxGrid()
+        {
+            AutoScroll = true;
+            BackColor = ModernUiTheme.Surface;
+            Cursor = Cursors.Default;
+            SetStyle(ControlStyles.AllPaintingInWmPaint |
+                     ControlStyles.OptimizedDoubleBuffer |
+                     ControlStyles.ResizeRedraw |
+                     ControlStyles.UserPaint, true);
+        }
+
+        internal ImageList ImageList { get; set; }
+        internal event EventHandler<ToolboxAddRequestedEventArgs> ToolClicked;
+        internal event EventHandler<ToolboxAddRequestedEventArgs> ToolDragStarted;
+        internal event EventHandler<ToolboxCategoryExpandedEventArgs> CategoryExpandedChanged;
+
+        internal void SetCategories(IEnumerable<TreeNode> source)
+        {
+            categories.Clear();
+            if (source != null)
+                categories.AddRange(source);
+            RebuildLayout();
+            Invalidate();
+        }
+
+        protected override void OnSizeChanged(EventArgs e)
+        {
+            base.OnSizeChanged(e);
+            RebuildLayout();
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            base.OnPaint(e);
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            foreach (GridItem item in hitItems)
+            {
+                // TextRenderer does not apply Graphics.Transform, while DrawImage does.
+                // Translate the whole card before drawing so icons and labels use the same
+                // coordinate space after scrolling.
+                GridItem visibleItem = new GridItem(item.Node, OffsetForScroll(item.Bounds), item.IsCategory);
+                if (visibleItem.IsCategory)
+                    DrawCategory(e.Graphics, visibleItem);
+                else
+                    DrawTool(e.Graphics, visibleItem);
+            }
+        }
+
+        protected override void OnMouseMove(MouseEventArgs e)
+        {
+            base.OnMouseMove(e);
+            if (dragCandidate != null && e.Button == MouseButtons.Left && HasMovedBeyondDragThreshold(e.Location))
+            {
+                TreeNode node = dragCandidate;
+                dragCandidate = null;
+                dragStarted = true;
+                EventHandler<ToolboxAddRequestedEventArgs> dragHandler = ToolDragStarted;
+                if (dragHandler != null)
+                    dragHandler(this, new ToolboxAddRequestedEventArgs(node));
+                return;
+            }
+
+            GridItem item = FindItem(e.Location);
+            TreeNode newHot = item == null || item.IsCategory ? null : item.Node;
+            if (newHot != hotTool)
+            {
+                hotTool = newHot;
+                Invalidate();
+            }
+            Cursor = item == null ? Cursors.Default : Cursors.Hand;
+        }
+
+        protected override void OnMouseLeave(EventArgs e)
+        {
+            base.OnMouseLeave(e);
+            hotTool = null;
+            Cursor = Cursors.Default;
+            Invalidate();
+        }
+
+        protected override void OnMouseDown(MouseEventArgs e)
+        {
+            dragCandidate = null;
+            dragStarted = false;
+            if (e.Button == MouseButtons.Left)
+            {
+                GridItem item = FindItem(e.Location);
+                if (item != null && !item.IsCategory)
+                {
+                    dragCandidate = item.Node;
+                    dragStart = e.Location;
+                }
+            }
+            base.OnMouseDown(e);
+        }
+
+        protected override void OnMouseUp(MouseEventArgs e)
+        {
+            dragCandidate = null;
+            base.OnMouseUp(e);
+        }
+
+        protected override void OnMouseClick(MouseEventArgs e)
+        {
+            base.OnMouseClick(e);
+            if (dragStarted)
+            {
+                dragStarted = false;
+                return;
+            }
+            if (e.Button != MouseButtons.Left)
+                return;
+            GridItem item = FindItem(e.Location);
+            if (item == null)
+                return;
+            if (item.IsCategory)
+            {
+                EventHandler<ToolboxCategoryExpandedEventArgs> categoryHandler = CategoryExpandedChanged;
+                if (categoryHandler != null)
+                    categoryHandler(this, new ToolboxCategoryExpandedEventArgs(item.Node, !item.Node.IsExpanded));
+                return;
+            }
+            EventHandler<ToolboxAddRequestedEventArgs> toolHandler = ToolClicked;
+            if (toolHandler != null)
+                toolHandler(this, new ToolboxAddRequestedEventArgs(item.Node));
+        }
+
+        private bool HasMovedBeyondDragThreshold(Point location)
+        {
+            Size dragSize = SystemInformation.DragSize;
+            Rectangle threshold = new Rectangle(
+                dragStart.X - dragSize.Width / 2,
+                dragStart.Y - dragSize.Height / 2,
+                dragSize.Width,
+                dragSize.Height);
+            return !threshold.Contains(location);
+        }
+
+        private void RebuildLayout()
+        {
+            hitItems.Clear();
+            int contentWidth = ColumnCount * CardWidth + (ColumnCount - 1) * CardGap;
+            int y = 6;
+            foreach (TreeNode category in categories)
+            {
+                // Category bars are exactly as wide as a row of three shortcut
+                // cards instead of stretching across unused toolbox space.
+                hitItems.Add(new GridItem(category, new Rectangle(ContentLeft, y, contentWidth, HeaderHeight), true));
+                y += HeaderHeight + 4;
+                if (category.IsExpanded)
+                {
+                    for (int index = 0; index < category.Nodes.Count; index++)
+                    {
+                        int column = index % ColumnCount;
+                        int row = index / ColumnCount;
+                        Rectangle card = new Rectangle(ContentLeft + column * (CardWidth + CardGap),
+                            y + row * CardHeight, CardWidth, CardHeight - 5);
+                        hitItems.Add(new GridItem(category.Nodes[index], card, false));
+                    }
+                    y += ((category.Nodes.Count + ColumnCount - 1) / ColumnCount) * CardHeight;
+                }
+                y += 4;
+            }
+            AutoScrollMinSize = new Size(contentWidth + ContentLeft * 2, Math.Max(0, y));
+        }
+
+        private GridItem FindItem(Point location)
+        {
+            Point documentPoint = new Point(location.X - AutoScrollPosition.X, location.Y - AutoScrollPosition.Y);
+            return hitItems.FirstOrDefault(item => item.Bounds.Contains(documentPoint));
+        }
+
+        private Rectangle OffsetForScroll(Rectangle bounds)
+        {
+            return new Rectangle(
+                bounds.X + AutoScrollPosition.X,
+                bounds.Y + AutoScrollPosition.Y,
+                bounds.Width,
+                bounds.Height);
+        }
+
+        private static void DrawCategory(Graphics graphics, GridItem item)
+        {
+            Color accent = GetCategoryColor(item.Node.Index);
+            using (SolidBrush fill = new SolidBrush(Color.FromArgb(244, 248, 251)))
+            using (Pen border = new Pen(ModernUiTheme.Border))
+            using (GraphicsPath path = CreateRoundedPath(item.Bounds, 7))
+            {
+                graphics.FillPath(fill, path);
+                graphics.DrawPath(border, path);
+            }
+            using (SolidBrush bar = new SolidBrush(accent))
+                graphics.FillRectangle(bar, item.Bounds.Left, item.Bounds.Top + 5, 3, item.Bounds.Height - 10);
+            string chevron = item.Node.IsExpanded ? "⌄" : "›";
+            TextRenderer.DrawText(graphics, chevron, ModernUiTheme.UiFontBold,
+                new Rectangle(item.Bounds.Left + 13, item.Bounds.Top, 16, item.Bounds.Height), accent,
+                TextFormatFlags.VerticalCenter | TextFormatFlags.HorizontalCenter | TextFormatFlags.NoPadding);
+            TextRenderer.DrawText(graphics, item.Node.Text, ModernUiTheme.UiFontBold,
+                new Rectangle(item.Bounds.Left + 34, item.Bounds.Top, item.Bounds.Width - 78, item.Bounds.Height),
+                ModernUiTheme.PrimaryText, TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
+            TextRenderer.DrawText(graphics, item.Node.Nodes.Count.ToString(), ModernUiTheme.UiFont,
+                new Rectangle(item.Bounds.Right - 32, item.Bounds.Top, 25, item.Bounds.Height),
+                ModernUiTheme.SecondaryText, TextFormatFlags.VerticalCenter | TextFormatFlags.HorizontalCenter | TextFormatFlags.NoPadding);
+        }
+
+        private void DrawTool(Graphics graphics, GridItem item)
+        {
+            bool hot = item.Node == hotTool;
+            Rectangle card = item.Bounds;
+            using (GraphicsPath path = CreateRoundedPath(card, 6))
+            using (SolidBrush fill = new SolidBrush(hot ? ModernUiTheme.Selection : ModernUiTheme.Surface))
+            using (Pen border = new Pen(hot ? Color.FromArgb(166, 207, 239) : Color.FromArgb(232, 238, 243)))
+            {
+                graphics.FillPath(fill, path);
+                graphics.DrawPath(border, path);
+            }
+            Rectangle icon = new Rectangle(card.Left + (card.Width - 24) / 2, card.Top + 7, 24, 24);
+            Image image = ImageList != null && item.Node.ImageIndex >= 0 && item.Node.ImageIndex < ImageList.Images.Count
+                ? ImageList.Images[item.Node.ImageIndex] : null;
+            if (image != null)
+                graphics.DrawImage(image, icon);
+            else
+            {
+                using (SolidBrush brush = new SolidBrush(ModernUiTheme.AccentSoft))
+                using (Pen pen = new Pen(ModernUiTheme.Accent, 1.2F))
+                {
+                    graphics.FillEllipse(brush, icon);
+                    graphics.DrawEllipse(pen, icon);
+                }
+            }
+            TextRenderer.DrawText(graphics, item.Node.Text, ModernUiTheme.UiFont,
+                new Rectangle(card.Left + 3, icon.Bottom + 3, card.Width - 6, card.Bottom - icon.Bottom - 6),
+                ModernUiTheme.PrimaryText,
+                TextFormatFlags.HorizontalCenter | TextFormatFlags.WordBreak | TextFormatFlags.EndEllipsis |
+                TextFormatFlags.TextBoxControl | TextFormatFlags.NoPrefix);
+        }
+
+        private static Color GetCategoryColor(int index)
+        {
+            Color[] colors = { Color.FromArgb(76, 148, 210), Color.FromArgb(45, 166, 154), Color.FromArgb(125, 108, 190), Color.FromArgb(221, 145, 56), Color.FromArgb(72, 132, 190), Color.FromArgb(83, 150, 113), Color.FromArgb(194, 104, 116) };
+            return colors[Math.Abs(index) % colors.Length];
+        }
+
+        private static GraphicsPath CreateRoundedPath(Rectangle bounds, int radius)
+        {
+            GraphicsPath path = new GraphicsPath();
+            int diameter = Math.Min(Math.Min(radius * 2, bounds.Width), bounds.Height);
+            Rectangle arc = new Rectangle(bounds.Left, bounds.Top, diameter, diameter);
+            path.AddArc(arc, 180, 90); arc.X = bounds.Right - diameter;
+            path.AddArc(arc, 270, 90); arc.Y = bounds.Bottom - diameter;
+            path.AddArc(arc, 0, 90); arc.X = bounds.Left;
+            path.AddArc(arc, 90, 90); path.CloseFigure();
+            return path;
+        }
+
+        private sealed class GridItem
+        {
+            internal GridItem(TreeNode node, Rectangle bounds, bool isCategory)
+            { Node = node; Bounds = bounds; IsCategory = isCategory; }
+            internal TreeNode Node;
+            internal Rectangle Bounds;
+            internal bool IsCategory;
+        }
     }
 }
