@@ -105,12 +105,28 @@ namespace VMPro
                             return;
                         lock (obj)
                         {
-                            imageAcqTool.Run(true, true, toolName);
+                            if (string.IsNullOrEmpty(jobName) || string.IsNullOrEmpty(toolName))
+                            {
+                                // 设备窗口从视觉界面菜单独立打开（无工具上下文）：
+                                // 只下发曝光并刷新设备窗口预览；若走工具 Run，会以空流程名查流程，
+                                // 弹“未找到名为的流程（错误代码：00001）”（ToolBase.GetImageWindowControlCore→Job.FindJobByName）。
+                                Frm_AcqDevice.Instance.Run(true, false);
+                            }
+                            else
+                            {
+                                imageAcqTool.Run(true, true, toolName);
+                            }
                         }
                     }
                     catch (Exception ex)
                     {
-                        Log.SaveError(ex);
+                        // 文件日志留全栈；日志区同步给一条摘要，避免“看不到异常信息”
+                        Log.SaveError(ex, "图像采集设备窗口应用曝光");
+                        try
+                        {
+                            Frm_Main.Instance.OutputMsg("图像采集设备应用曝光异常：" + ex.Message, Color.Red);
+                        }
+                        catch { }
                     }
                 };
             }
