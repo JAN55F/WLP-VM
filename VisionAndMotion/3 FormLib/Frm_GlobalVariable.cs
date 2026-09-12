@@ -24,6 +24,9 @@ namespace VMPro
             InitializeComponent();
             this.dataGridView1.CellValueChanged += new System.Windows.Forms.DataGridViewCellEventHandler(this.dataGridView1_CellValueChanged);
             this.dataGridView1.CurrentCellDirtyStateChanged += new System.EventHandler(this.dataGridView1_CurrentCellDirtyStateChanged);
+            // 类型列改为下拉框后，旧数据的类型值若不在选项内会触发 DataError；
+            // 吞掉单元格级异常避免弹窗，单元格显示为空但不影响窗口。
+            this.dataGridView1.DataError += new System.Windows.Forms.DataGridViewDataErrorEventHandler(this.dataGridView1_DataError);
         }
         internal List<ViewWindow.Model.ROI> regions = new List<ViewWindow.Model.ROI>();
         bool enable = false;
@@ -343,8 +346,14 @@ namespace VMPro
 
         private void dataGridView1_CurrentCellDirtyStateChanged(object sender, EventArgs e)
         {
-            if (dataGridView1.IsCurrentCellDirty && dataGridView1.CurrentCell is DataGridViewCheckBoxCell)
+            if (dataGridView1.IsCurrentCellDirty &&
+                (dataGridView1.CurrentCell is DataGridViewCheckBoxCell || dataGridView1.CurrentCell is DataGridViewComboBoxCell))
                 dataGridView1.CommitEdit(DataGridViewDataErrorContexts.Commit);
+        }
+
+        private void dataGridView1_DataError(object sender, DataGridViewDataErrorEventArgs e)
+        {
+            e.ThrowException = false;
         }
 
         private void Frm_GlobalVariable_Shown(object sender, EventArgs e)

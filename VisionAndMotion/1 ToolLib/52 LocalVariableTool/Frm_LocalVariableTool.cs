@@ -26,7 +26,6 @@ namespace VMPro
         }
 
         private DataGridView dgvVariable = new DataGridView();
-        private Button btnAddVariable = new Button();
         private bool loadingData;
         /// <summary>右键待删除的行索引；菜单点击时使用。</summary>
         private int pendingDeleteRowIndex = -1;
@@ -42,22 +41,22 @@ namespace VMPro
         private void InitializeComponent()
         {
             Text = "局部变量";
-            Size = new Size(660, 500);
-            MinimumSize = new Size(520, 360);
+            lbl_title.Text = "局部变量";
+            ClientSize = new Size(720, 468);
+            MinimumSize = new Size(580, 360);
             StartPosition = FormStartPosition.CenterScreen;
 
+            // 内容区避开 Frm_FormBase 标题栏（panel1 高 25px），
+            // 与设计器窗体一致：Location(8,32)，四向锚定随窗口缩放。
             TableLayoutPanel panel = new TableLayoutPanel();
-            panel.Dock = DockStyle.Fill;
-            panel.ColumnCount = 1;
-            panel.RowCount = 2;
-            panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 34F));
-            panel.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            panel.Location = new Point(8, 32);
+            panel.Size = new Size(ClientSize.Width - 16, ClientSize.Height - 40);
+            panel.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            panel.ColumnCount = 2;
+            panel.RowCount = 1;
+            panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 140F));
             Controls.Add(panel);
-
-            btnAddVariable.Text = "添加变量";
-            btnAddVariable.Dock = DockStyle.Fill;
-            btnAddVariable.Click += btnAddVariable_Click;
-            panel.Controls.Add(btnAddVariable, 0, 0);
 
             dgvVariable.Dock = DockStyle.Fill;
             dgvVariable.AllowUserToAddRows = false;
@@ -95,7 +94,33 @@ namespace VMPro
             remarkColumn.FillWeight = 32;
             dgvVariable.Columns.Add(remarkColumn);
 
-            panel.Controls.Add(dgvVariable, 0, 1);
+            panel.Controls.Add(dgvVariable, 0, 0);
+            panel.Controls.Add(BuildAddButtonPanel(), 1, 0);
+        }
+
+        /// <summary>
+        /// 右侧四个基础类型添加按钮（与全局变量窗口一致的添加方式）。
+        /// </summary>
+        private Panel BuildAddButtonPanel()
+        {
+            Panel buttonPanel = new Panel();
+            buttonPanel.Dock = DockStyle.Fill;
+            buttonPanel.Padding = new Padding(10, 8, 10, 8);
+
+            string[] labels = new string[] { "添加 Bool", "添加 String", "添加 Double", "添加 Int" };
+            string[] types = new string[] { "Bool", "String", "Double", "Int" };
+            for (int i = 0; i < labels.Length; i++)
+            {
+                Button button = new Button();
+                button.Text = labels[i];
+                button.Tag = types[i];
+                button.Dock = DockStyle.Top;
+                button.Height = 40;
+                button.Margin = new Padding(0, 0, 0, 8);
+                button.Click += addTypedVariable_Click;
+                buttonPanel.Controls.Add(button);
+            }
+            return buttonPanel;
         }
 
         /// <summary>
@@ -147,7 +172,10 @@ namespace VMPro
             return null;
         }
 
-        private void btnAddVariable_Click(object sender, EventArgs e)
+        /// <summary>
+        /// 按按钮指定的基础类型新增变量（名称自动 变量N 不重复）。
+        /// </summary>
+        private void addTypedVariable_Click(object sender, EventArgs e)
         {
             Job job = FindBoundJob();
             if (job == null)
@@ -156,8 +184,8 @@ namespace VMPro
                 return;
             }
 
-            string name = GetUniqueName();
-            job.EnsureLocalVariable(name, "Int");
+            string valueType = Convert.ToString(((Button)sender).Tag);
+            job.EnsureLocalVariable(GetUniqueName(), valueType);
             LoadToolData();
         }
 

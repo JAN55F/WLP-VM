@@ -416,8 +416,8 @@ PLC 当前重点：
 
 | 功能 | 入口文件 | 关键位置 |
 | --- | --- | --- |
-| 全局变量窗口 | `VisionAndMotion/3 FormLib/Frm_GlobalVariable.cs` | `LoadVariable()` 加载表格；`AddCustomVariable()` 添加自定义变量；`ReindexCustomVariables()` 删除/加载后重排自定义变量编号。 |
-| 局部变量工具 | `VisionAndMotion/1 ToolLib/52 LocalVariableTool/Frm_LocalVariableTool.cs` | 表格编辑当前流程局部变量（变量名/类型/当前值/备注），支持添加与右键删除；数据存在 `Job.localVariables`，工具只是编辑入口。 |
+| 全局变量窗口 | `VisionAndMotion/3 FormLib/Frm_GlobalVariable.cs` | `LoadVariable()` 加载表格；`AddCustomVariable()` 添加自定义变量（右侧 添加 Int/Double/String/Bool 四按钮）；类型列 `Column7` 为下拉框（Int/Double/String/Bool，DataError 已吞掉旧值不在选项内的异常）；`ReindexCustomVariables()` 删除/加载后重排自定义变量编号。 |
+| 局部变量工具 | `VisionAndMotion/1 ToolLib/52 LocalVariableTool/Frm_LocalVariableTool.cs` | 表格编辑当前流程局部变量（变量名/类型下拉/当前值/备注），右侧 添加 Int/Double/String/Bool 四按钮 + 右键删除行；数据存在 `Job.localVariables`，工具只是编辑入口。窗体继承 Frm_FormBase：标题用 `lbl_title`（打开分支赋“局部变量 [ 流程 . 工具 ]”），内容区绝对定位 Location(8,32)+四向锚避开标题栏。 |
 | 局部变量数据结构 | `VisionAndMotion/2 ClassLib/DataStrct.cs`、`VisionAndMotion/2 ClassLib/Job.cs` | `LocalVariableItem`（name/valueType/value/remark）；`Job.localVariables` 与 `LocalVariableSync` 锁；`EnsureLocalVariable()`/`SetLocalVariableValue()`/`RemoveLocalVariable()`/`RenameLocalVariable()` 按名维护。 |
 | 全局变量数据结构 | `VisionAndMotion/2 ClassLib/DataStrct.cs` | `GlobelVariable.L_variable` 保存变量；`Variable.index/type/name/value/info/variableType` 保存单项。`variableType=0` 为系统变量，`1` 为自定义变量。 |
 | 编辑终端窗口 | `VisionAndMotion/3 FormLib/Frm_IOConfig.cs` | `Load()` 根据 `Frm_IOConfig.result1` 刷新树；空参数对象应显示为空树并隐藏添加按钮。 |
@@ -431,7 +431,9 @@ PLC 当前重点：
 - 当前流程源项要排除当前工具自身输出；其他流程不要按同名工具过滤，因为不同流程里可能有同名工具。
 - `ShowIOEdit()` 需要在工具没有可显示参数时刷新为空，不能沿用上一次 `Frm_IOConfig.result1`。
 - 自定义全局变量删除后要重排 `Variable.index`，添加时从当前自定义变量数量继续编号。
-- 局部变量作用域限当前流程，随项目持久化；来源串为 `《- 局部变量->变量名`。本轮仅脚本编辑输入支持引用（流程树“源于”菜单与脚本窗体“链接”菜单均只在脚本编辑上展示局部变量）；其他工具运行分支不解析。`TryParseLoadedConnection()` 把局部变量视为非本地来源，`ConnectSource()` 与 `RebuildCodeEditSourceLines()` 不为其登记连线。
+- 局部变量作用域限当前流程，随项目持久化；来源串为 `《- 局部变量->变量名`。已接入运行解析的工具：脚本编辑（四类类型，含类型识别）、数据分析（`DataAnalyseTool.Run` 自解析与 `Job.Run` 喂入分支均支持）、数据显示（Label 分支全部输入行支持，经 `Frm_LinkPicker` 或流程树“源于”菜单链接）；其他工具需逐个接入运行解析后再开放菜单（`Job.IsLocalVariableSourceSupported()` 控制菜单展示）。`TryParseLoadedConnection()` 把局部变量视为非本地来源，`ConnectSource()` 与 `RebuildCodeEditSourceLines()` 不为其登记连线。
+- 删除“局部变量”工具模块会同时清空该流程的局部变量（`RemoveWorkflowNode`）：之后仍链接局部变量的输入视为失效链接，流程每次运行前会在日志提醒（`CollectDeadLocalVariableLinkToolNames()`），运行到对应工具时立即停止流程（`Job.Run` 的 `FindDeadLocalVariableLink()` 校验，置 Fail 并 break）。变量行被删除同样触发失效。
+- 数据显示（Label）输入行数不限：`Job.Run` 的 Label 分支已通用化，遍历全部 `输入项N` 条目按 `InputItemN` 喂入 `D_inputItemAndVlaue`（此前硬编码只喂前 5 项，第 6 行起运行时拿不到链接值）；未链接的行显示为空不中断流程。局部变量来源在该分支与 `DataAnalyseTool.Run` 自解析、脚本编辑一样可用。
 
 ## 10. 工具目录快速索引
 

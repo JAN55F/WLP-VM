@@ -850,6 +850,42 @@ namespace VMPro
             }
         }
         /// <summary>
+        /// 查找工具输入中第一个已失效的局部变量链接（局部变量工具被删除或变量已不存在）；
+        /// 没有失效链接时返回空串。
+        /// </summary>
+        private string FindDeadLocalVariableLink(ToolInfo toolInfo)
+        {
+            if (toolInfo == null || toolInfo.input == null)
+                return string.Empty;
+            for (int i = 0; i < toolInfo.input.Count; i++)
+            {
+                ToolIO entry = toolInfo.input[i];
+                string source = entry == null || entry.value == null ? string.Empty : entry.value.ToString();
+                if (!source.StartsWith("《- 局部变量->", StringComparison.Ordinal))
+                    continue;
+                string[] parts = source.Split(new string[] { "->" }, StringSplitOptions.None);
+                string name = parts.Length >= 2 ? parts[1].Trim() : string.Empty;
+                if (FindLocalVariable(name) == null)
+                    return name;
+            }
+            return string.Empty;
+        }
+        /// <summary>
+        /// 汇总本流程中链接了失效局部变量的工具名（顿号分隔）；没有时返回空串。
+        /// </summary>
+        private string CollectDeadLocalVariableLinkToolNames()
+        {
+            List<string> names = new List<string>();
+            for (int i = 0; i < L_toolList.Count; i++)
+            {
+                if (L_toolList[i] == null)
+                    continue;
+                if (!string.IsNullOrEmpty(FindDeadLocalVariableLink(L_toolList[i])))
+                    names.Add(L_toolList[i].toolName);
+            }
+            return names.Count == 0 ? string.Empty : string.Join(",", names.ToArray());
+        }
+        /// <summary>
         /// 判断TreeView是否已经包含某节点
         /// </summary>
         /// <param name="key">节点文本</param>
@@ -3086,6 +3122,16 @@ namespace VMPro
                 if (deletingTool)
                 {
                     L_toolList.Remove(toolInfo);
+
+                    // 局部变量工具被删除后，其中的局部变量一并失效（不可再被引用）；
+                    // 仍链接局部变量的工具会在下次运行时被提醒并停止。
+                    if (toolInfo.toolType == ToolType.LocalVariable)
+                    {
+                        lock (LocalVariableSync)
+                        {
+                            localVariables.Clear();
+                        }
+                    }
                 }
                 else
                 {
@@ -3384,6 +3430,16 @@ namespace VMPro
                 displayText = displayText.Substring(displayText.IndexOf("]") + 1);
 
             return displayText;
+        }
+
+        /// <summary>
+        /// 这些工具的运行分支已支持“局部变量”输入来源；其他工具需逐个接入运行解析后再开放菜单。
+        /// </summary>
+        private bool IsLocalVariableSourceSupported(ToolType toolType)
+        {
+            return toolType == ToolType.CodeEdit ||
+                   toolType == ToolType.DataAnalyse ||
+                   toolType == ToolType.Label;
         }
 
         private bool CanConnectSourceType(string targetToolName, string targetType, string sourceType)
@@ -6059,9 +6115,10 @@ namespace VMPro
                             }
                         }
 
-                        //局部变量可源项：本轮仅脚本编辑输入支持，其他工具运行分支不解析局部变量
+                        //局部变量可源项：仅限运行分支已支持解析的工具（脚本编辑/数据分析/数据显示），
+                        //其他工具需逐个接入后再开放，避免菜单可连但运行时读不到值。
                         ToolInfo localTargetTool = FindToolInfoByName(fatherNodeText);
-                        if (localTargetTool != null && localTargetTool.toolType == ToolType.CodeEdit)
+                        if (localTargetTool != null && IsLocalVariableSourceSupported(localTargetTool.toolType))
                         {
                             ToolStripMenuItem localSourceMenu = AddSourceCategory(item111, Project.Instance.configuration.language == Language.English ? "Local Variables" : "局部变量");
                             lock (LocalVariableSync)
@@ -8019,7 +8076,7 @@ namespace VMPro
 
                             #region LocalVariable
                             case ToolType.LocalVariable:
-                                Frm_LocalVariableTool.Instance.Text = string.Format("局部变量    [ {0} . {1} ]", this.jobName, L_toolList[i].toolName);
+                                Frm_LocalVariableTool.Instance.lbl_title.Text = string.Format("局部变量    [ {0} . {1} ]", this.jobName, L_toolList[i].toolName);
                                 Frm_LocalVariableTool.Instance.Activate();
                                 Frm_LocalVariableTool.Instance.jobName = this.jobName;
                                 Frm_LocalVariableTool.Instance.toolName = L_toolList[i].toolName;
@@ -8520,6 +8577,9 @@ namespace VMPro
             if (sourceToolName == "全局变量" || sourceToolName == "Global")
                 return Project.Instance.curEngine.globelVariable.GetGlobalVariableValue(toolItem);
 
+            if (sourceToolName == "局部变量")
+                return GetLocalVariableValue(toolItem);
+
             string sourceJobName = jobName;
             Match match = Regex.Match(sourceToolName, @"^\[(?<job>.+?)\](?<tool>.+)$");
             if (match.Success)
@@ -8613,6 +8673,17 @@ namespace VMPro
                 // 后续工具在同一背景上叠加，避免前一个结果被清掉或显示属性相互串扰。
                 bool blobMainImagePrepared = false;
                 ProcessRunUiEvents();
+
+                // 运行前提醒：仍链接了已失效局部变量的工具（局部变量工具或变量被删除后不可再引用）。
+                if (!Configuration.SpeedMode)
+                {
+                    string deadLinkToolNames = CollectDeadLocalVariableLinkToolNames();
+                    if (!string.IsNullOrEmpty(deadLinkToolNames))
+                        Frm_Main.Instance.OutputMsg(string.Format(
+                            "提醒：工具 [{0}] 链接的局部变量已失效（局部变量工具或变量已被删除），流程运行到对应工具时将停止",
+                            deadLinkToolNames), Color.DarkOrange);
+                }
+
                 for (int i = 0; i < L_toolList.Count && (runToToolIndex < 0 || i <= runToToolIndex); i++)
                 {
                     if (IsStopRequested)
@@ -8639,6 +8710,26 @@ namespace VMPro
                             string.Format("Tool [{0}] is disabled, skipped", L_toolList[i].toolName) :
                             string.Format("工具 [{0}] 已禁用，已跳过", L_toolList[i].toolName);
                         Frm_Main.Instance.OutputMsg(disabledTip, Color.DarkGray);
+                    }
+
+                    // 局部变量链接校验：局部变量工具或变量被删除后，局部变量不可再被引用；
+                    // 运行到仍链接失效局部变量的工具时在日志提醒并停止流程。
+                    if (L_toolList[i].enable)
+                    {
+                        string deadLocalVariable = FindDeadLocalVariableLink(L_toolList[i]);
+                        if (!string.IsNullOrEmpty(deadLocalVariable))
+                        {
+                            if (!Configuration.SpeedMode)
+                            {
+                                Frm_Main.Instance.OutputMsg(string.Format(
+                                    "流程 [{0}] 运行失败，原因：工具 [{1}] 链接的局部变量 [{2}] 不存在（局部变量工具或变量已被删除），请重新检查链接",
+                                    jobName, L_toolList[i].toolName, deadLocalVariable), Color.Red);
+                            }
+                            treeNode.ToolTipText = "链接的局部变量不存在：" + deadLocalVariable;
+                            treeNode.ForeColor = Color.Red;
+                            jobRunStatu = JobRunStatu.Fail;
+                            break;
+                        }
                     }
 
                     #region ImageAcq
@@ -12340,7 +12431,12 @@ namespace VMPro
                                 string sourceToolName = Regex.Split(sourceFrom, "->")[0];
                                 sourceToolName = sourceToolName.Substring(3, Regex.Split(sourceFrom, "->")[0].Length - 3);
                                 string toolItem = Regex.Split(sourceFrom, "->")[1];
-                                dataAnalyseTool.toolPar.InputPar.输入项1 = FindToolInfoByName(sourceToolName).GetOutput(toolItem).value.ToString();
+                                if (sourceToolName == "全局变量")
+                                    dataAnalyseTool.toolPar.InputPar.输入项1 = Convert.ToString(Project.Instance.curEngine.globelVariable.GetGlobalVariableValue(toolItem));
+                                else if (sourceToolName == "局部变量")
+                                    dataAnalyseTool.toolPar.InputPar.输入项1 = Convert.ToString(GetLocalVariableValue(toolItem));
+                                else
+                                    dataAnalyseTool.toolPar.InputPar.输入项1 = Convert.ToString(FindToolInfoByName(sourceToolName).GetOutput(toolItem).value);
                                 GetToolNodeByNodeText(inputItem + sourceFrom).ToolTipText = FormatShowTip(dataAnalyseTool.toolPar.InputPar.输入项1);
                                 if (dataAnalyseTool.toolPar.InputPar.输入项1 == null)
                                 {
@@ -12957,76 +13053,38 @@ namespace VMPro
                             treeNode.ForeColor = Color.DarkGray;
                             continue;
                         }
+
+                        // 喂入输入值：遍历全部“输入项N”条目（行数不限），支持全局变量/局部变量/工具输出三种来源；
+                        // 未链接的行运行时显示为空，不中断流程。
                         labelTool.D_inputItemAndVlaue.Clear();
                         for (int j = 0; j < inputItemNum; j++)
                         {
                             string inputItem = L_toolList[i].input[j].IOName;
-                            string sourceFrom = L_toolList[i].GetInput(inputItem).value.ToString();
-                            if (sourceFrom == string.Empty)
-                            {
-                                ((LabelTool)(L_toolList[i].tool)).toolRunStatu = Project.Instance.configuration.language == Language.English ? ToolRunStatu.Not_Assign_Input_Source : ToolRunStatu.输入项未链接源;
-                                treeNode.ToolTipText = labelTool.toolRunStatu.ToString();
-                                treeNode.ForeColor = Color.Red;
-                                Frm_Main.Instance.OutputMsg(string.Format("工具 [{0}] 运行失败，原因： {1}", L_toolList[i].toolName, labelTool.toolRunStatu.ToString()), Color.Red);
-                                return L_result;
-                            }
-
-                            if (inputItem == "输入项1" || inputItem == "InputItem1")
-                            {
-                                string sourceToolName = Regex.Split(sourceFrom, "->")[0];
-                                sourceToolName = sourceToolName.Substring(3, Regex.Split(sourceFrom, "->")[0].Length - 3);
-                                if (sourceToolName == "全局变量")
-                                {
-                                    string toolItem = Regex.Split(sourceFrom, "->")[1];
-                                    labelTool.D_inputItemAndVlaue.Add("InputItem1", Project.Instance.curEngine.globelVariable.GetGlobalVariableValue(toolItem).ToString());
-                                }
-                                else
-                                {
-                                    string toolItem = Regex.Split(sourceFrom, "->")[1];
-                                    labelTool.D_inputItemAndVlaue.Add("InputItem1", FindToolInfoByName(sourceToolName).GetOutput(toolItem).value.ToString());
-                                }
-                                GetToolIONodeByNodeText(L_toolList[i].toolName, "<--" + inputItem + sourceFrom).ToolTipText = FormatShowTip(labelTool.D_inputItemAndVlaue["InputItem1"]);
-                            }
-                            else if (inputItem == "输入项2" || inputItem == "InputItem2")
-                            {
-                                string sourceToolName = Regex.Split(sourceFrom, "->")[0];
-                                sourceToolName = sourceToolName.Substring(3, Regex.Split(sourceFrom, "->")[0].Length - 3);
-                                if (sourceToolName == "全局变量")
-                                {
-                                    string toolItem = Regex.Split(sourceFrom, "->")[1];
-                                    labelTool.D_inputItemAndVlaue.Add("InputItem2", Project.Instance.curEngine.globelVariable.GetGlobalVariableValue(toolItem).ToString());
-                                }
-                                else
-                                {
-                                    string toolItem = Regex.Split(sourceFrom, "->")[1];
-                                    labelTool.D_inputItemAndVlaue.Add("InputItem2", FindToolInfoByName(sourceToolName).GetOutput(toolItem).value.ToString());
-                                }
-                                GetToolIONodeByNodeText(L_toolList[i].toolName, "<--" + inputItem + sourceFrom).ToolTipText = FormatShowTip(labelTool.D_inputItemAndVlaue["InputItem2"]);
-                            }
-                            else if (inputItem == "输入项3" || inputItem == "InputItem3")
-                            {
-                                string sourceToolName = Regex.Split(sourceFrom, "->")[0];
-                                sourceToolName = sourceToolName.Substring(3, Regex.Split(sourceFrom, "->")[0].Length - 3);
-                                string toolItem = Regex.Split(sourceFrom, "->")[1];
-                                labelTool.D_inputItemAndVlaue.Add("InputItem3", FindToolInfoByName(sourceToolName).GetOutput(toolItem).value.ToString());
-                                GetToolIONodeByNodeText(L_toolList[i].toolName, "<--" + inputItem + sourceFrom).ToolTipText = FormatShowTip(labelTool.D_inputItemAndVlaue["InputItem3"]);
-                            }
-                            else if (inputItem == "输入项4" || inputItem == "InputItem4")
-                            {
-                                string sourceToolName = Regex.Split(sourceFrom, "->")[0];
-                                sourceToolName = sourceToolName.Substring(3, Regex.Split(sourceFrom, "->")[0].Length - 3);
-                                string toolItem = Regex.Split(sourceFrom, "->")[1];
-                                labelTool.D_inputItemAndVlaue.Add("InputItem4", FindToolInfoByName(sourceToolName).GetOutput(toolItem).value.ToString());
-                                GetToolIONodeByNodeText(L_toolList[i].toolName, "<--" + inputItem + sourceFrom).ToolTipText = FormatShowTip(labelTool.D_inputItemAndVlaue["InputItem4"]);
-                            }
-                            else if (inputItem == "输入项5" || inputItem == "InputItem5")
-                            {
-                                string sourceToolName = Regex.Split(sourceFrom, "->")[0];
-                                sourceToolName = sourceToolName.Substring(3, Regex.Split(sourceFrom, "->")[0].Length - 3);
-                                string toolItem = Regex.Split(sourceFrom, "->")[1];
-                                labelTool.D_inputItemAndVlaue.Add("InputItem5", FindToolInfoByName(sourceToolName).GetOutput(toolItem).value.ToString());
-                                GetToolIONodeByNodeText(L_toolList[i].toolName, "<--" + inputItem + sourceFrom).ToolTipText = FormatShowTip(labelTool.D_inputItemAndVlaue["InputItem5"]);
-                            }
+                            if (string.IsNullOrEmpty(inputItem) || !inputItem.StartsWith("输入项", StringComparison.Ordinal))
+                                continue;
+                            ToolIO labelInputEntry = L_toolList[i].input[j];
+                            string labelSourceFrom = labelInputEntry.value == null ? string.Empty : labelInputEntry.value.ToString();
+                            if (labelSourceFrom == string.Empty)
+                                continue;
+                            string[] labelSourceParts = Regex.Split(labelSourceFrom, "->");
+                            if (labelSourceParts.Length < 2)
+                                continue;
+                            string labelSourceTool = labelSourceParts[0];
+                            labelSourceTool = labelSourceTool.StartsWith("《-") ? labelSourceTool.Substring(3).Trim() : labelSourceTool.Trim();
+                            string labelSourceItem = labelSourceParts[1].Trim();
+                            // 输入项N → InputItemN
+                            string labelValueKey = "InputItem" + inputItem.Substring(3);
+                            string labelRawValue;
+                            if (labelSourceTool == "全局变量")
+                                labelRawValue = Convert.ToString(Project.Instance.curEngine.globelVariable.GetGlobalVariableValue(labelSourceItem));
+                            else if (labelSourceTool == "局部变量")
+                                labelRawValue = Convert.ToString(GetLocalVariableValue(labelSourceItem));
+                            else
+                                labelRawValue = Convert.ToString(FindToolInfoByName(labelSourceTool).GetOutput(labelSourceItem).value);
+                            labelTool.D_inputItemAndVlaue[labelValueKey] = labelRawValue;
+                            TreeNode labelInputNode = GetToolIONodeByNodeText(L_toolList[i].toolName, "<--" + inputItem + labelSourceFrom);
+                            if (labelInputNode != null)
+                                labelInputNode.ToolTipText = FormatShowTip(labelRawValue);
                         }
 
                         labelTool.Run(true, true, L_toolList[i].toolName);

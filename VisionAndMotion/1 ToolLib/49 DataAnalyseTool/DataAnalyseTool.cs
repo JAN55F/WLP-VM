@@ -152,6 +152,8 @@ namespace VMPro
                             {
                                 if (parts[0] == "全局变量")
                                     raw = Convert.ToString(Project.Instance.curEngine.globelVariable.GetGlobalVariableValue(parts[1]));
+                                else if (parts[0] == "局部变量")
+                                    raw = job == null ? string.Empty : Convert.ToString(job.GetLocalVariableValue(parts[1]));
                                 else
                                     raw = Convert.ToString(job.FindToolInfoByName(parts[0]).GetOutput(parts[1]).value);
                             }

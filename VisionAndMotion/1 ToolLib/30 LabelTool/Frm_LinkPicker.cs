@@ -115,6 +115,21 @@ namespace VMPro
                     child.Tag = "全局变量->" + variables[i].name;
                 }
 
+                // 局部变量分组：只能在当前流程内使用，供本工具输入引用
+                TreeNode localNode = tvw_items.Nodes.Add("局部变量");
+                localNode.ForeColor = Color.FromArgb(120, 120, 120);
+                lock (Job.LocalVariableSync)
+                {
+                    for (int i = 0; i < job.localVariables.Count; i++)
+                    {
+                        LocalVariableItem variable = job.localVariables[i];
+                        if (variable == null || string.IsNullOrEmpty(variable.name))
+                            continue;
+                        TreeNode localChild = localNode.Nodes.Add(variable.name);
+                        localChild.Tag = "局部变量->" + variable.name;
+                    }
+                }
+
                 bool pastTool = string.IsNullOrEmpty(toolName);
                 for (int i = 0; i < job.L_toolList.Count; i++)
                 {
@@ -135,6 +150,7 @@ namespace VMPro
                 }
 
                 globalNode.Expand();
+                localNode.Expand();
             }
             catch (Exception ex)
             {

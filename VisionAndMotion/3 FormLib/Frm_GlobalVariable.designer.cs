@@ -39,7 +39,7 @@
             this.dataGridView1 = new System.Windows.Forms.DataGridView();
             this.ColumnSelect = new System.Windows.Forms.DataGridViewCheckBoxColumn();
             this.Column6 = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.Column7 = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.Column7 = new System.Windows.Forms.DataGridViewComboBoxColumn();
             this.Column8 = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.Column9 = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.Column10 = new System.Windows.Forms.DataGridViewTextBoxColumn();
@@ -197,7 +197,7 @@
             this.dataGridView1.Name = "dataGridView1";
             this.dataGridView1.RowHeadersVisible = false;
             this.dataGridView1.RowTemplate.Height = 23;
-            this.dataGridView1.Size = new System.Drawing.Size(742, 423);
+            this.dataGridView1.Size = new System.Drawing.Size(724, 423);
             this.dataGridView1.TabIndex = 118;
             // 
             // ColumnSelect
@@ -218,7 +218,13 @@
             // 
             // Column7
             // 
+            this.Column7.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.Column7.HeaderText = "类型";
+            this.Column7.Items.AddRange(new object[] {
+            "Int",
+            "Double",
+            "String",
+            "Bool"});
             this.Column7.FillWeight = 13F;
             this.Column7.MinimumWidth = 85;
             this.Column7.Name = "Column7";
@@ -260,9 +266,9 @@
             this.button9.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.button9.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
             this.button9.ForeColor = System.Drawing.Color.White;
-            this.button9.Location = new System.Drawing.Point(764, 432);
+            this.button9.Location = new System.Drawing.Point(741, 432);
             this.button9.Name = "button9";
-            this.button9.Size = new System.Drawing.Size(87, 30);
+            this.button9.Size = new System.Drawing.Size(110, 30);
             this.button9.TabIndex = 116;
             this.button9.Text = "删除选中";
             this.button9.UseVisualStyleBackColor = true;
@@ -284,11 +290,11 @@
             this.button8.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.button8.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
             this.button8.ForeColor = System.Drawing.Color.White;
-            this.button8.Location = new System.Drawing.Point(764, 166);
+            this.button8.Location = new System.Drawing.Point(741, 166);
             this.button8.Name = "button8";
-            this.button8.Size = new System.Drawing.Size(87, 30);
+            this.button8.Size = new System.Drawing.Size(110, 30);
             this.button8.TabIndex = 115;
-            this.button8.Text = "添加 Bool   ";
+            this.button8.Text = "添加 Bool";
             this.button8.UseVisualStyleBackColor = true;
             this.button8.Click += new System.EventHandler(this.button8_Click);
             this.button8.MouseDown += new System.Windows.Forms.MouseEventHandler(this.Btn_MouseDown);
@@ -308,11 +314,11 @@
             this.button7.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.button7.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
             this.button7.ForeColor = System.Drawing.Color.White;
-            this.button7.Location = new System.Drawing.Point(764, 126);
+            this.button7.Location = new System.Drawing.Point(741, 126);
             this.button7.Name = "button7";
-            this.button7.Size = new System.Drawing.Size(87, 30);
+            this.button7.Size = new System.Drawing.Size(110, 30);
             this.button7.TabIndex = 114;
-            this.button7.Text = "添加 String  ";
+            this.button7.Text = "添加 String";
             this.button7.UseVisualStyleBackColor = true;
             this.button7.Click += new System.EventHandler(this.button7_Click);
             this.button7.MouseDown += new System.Windows.Forms.MouseEventHandler(this.Btn_MouseDown);
@@ -332,9 +338,9 @@
             this.button6.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.button6.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
             this.button6.ForeColor = System.Drawing.Color.White;
-            this.button6.Location = new System.Drawing.Point(764, 86);
+            this.button6.Location = new System.Drawing.Point(741, 86);
             this.button6.Name = "button6";
-            this.button6.Size = new System.Drawing.Size(87, 30);
+            this.button6.Size = new System.Drawing.Size(110, 30);
             this.button6.TabIndex = 113;
             this.button6.Text = "添加 Double";
             this.button6.UseVisualStyleBackColor = true;
@@ -356,11 +362,11 @@
             this.button5.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.button5.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
             this.button5.ForeColor = System.Drawing.Color.White;
-            this.button5.Location = new System.Drawing.Point(764, 46);
+            this.button5.Location = new System.Drawing.Point(741, 46);
             this.button5.Name = "button5";
-            this.button5.Size = new System.Drawing.Size(87, 30);
+            this.button5.Size = new System.Drawing.Size(110, 30);
             this.button5.TabIndex = 112;
-            this.button5.Text = "添加 Int       ";
+            this.button5.Text = "添加 Int";
             this.button5.UseVisualStyleBackColor = true;
             this.button5.Click += new System.EventHandler(this.button5_Click);
             this.button5.MouseDown += new System.Windows.Forms.MouseEventHandler(this.Btn_MouseDown);
@@ -409,7 +415,7 @@
         private System.Windows.Forms.DataGridView dataGridView1;
         private System.Windows.Forms.DataGridViewCheckBoxColumn ColumnSelect;
         private System.Windows.Forms.DataGridViewTextBoxColumn Column6;
-        private System.Windows.Forms.DataGridViewTextBoxColumn Column7;
+        private System.Windows.Forms.DataGridViewComboBoxColumn Column7;
         private System.Windows.Forms.DataGridViewTextBoxColumn Column8;
         private System.Windows.Forms.DataGridViewTextBoxColumn Column9;
         private System.Windows.Forms.DataGridViewTextBoxColumn Column10;
