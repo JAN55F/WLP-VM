@@ -599,6 +599,9 @@
     <Compile Include="1 ToolLib\11 BlobAnalyseTool\Frm_ProcessingItem1.Designer.cs">
       <DependentUpon>Frm_ProcessingItem1.cs</DependentUpon>
     </Compile>
+    <Compile Include="1 ToolLib\30 LabelTool\Frm_LinkPicker.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="1 ToolLib\30 LabelTool\Frm_LabelTool.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -787,6 +790,10 @@
     <Compile Include="2 ClassLib\Motion\Card_IOC0640.cs" />
     <Compile Include="1 ToolLib\30 CodeEditTool\CodeEditTool.cs" />
     <Compile Include="1 ToolLib\30 CodeEditTool\Frm_CodeEditTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="1 ToolLib\52 LocalVariableTool\LocalVariableTool.cs" />
+    <Compile Include="1 ToolLib\52 LocalVariableTool\Frm_LocalVariableTool.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="1 ToolLib\04 EyeHandCalibTool\Frm_EyeHandCalibTool.cs">

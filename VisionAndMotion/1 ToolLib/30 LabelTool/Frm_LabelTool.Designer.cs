@@ -10,7 +10,6 @@
         /// <summary>
         /// Clean up any resources being used.
         /// </summary>
-        /// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
         protected override void Dispose(bool disposing)
         {
             if (disposing && (components != null))
@@ -28,32 +27,13 @@
         /// </summary>
         private void InitializeComponent()
         {
+            this.components = new System.ComponentModel.Container();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Frm_LabelTool));
-            this.label2 = new System.Windows.Forms.Label();
-            this.label1 = new System.Windows.Forms.Label();
-            this.dgv_outputItem2 = new System.Windows.Forms.DataGridView();
-            this.dataGridViewComboBoxColumn1 = new System.Windows.Forms.DataGridViewComboBoxColumn();
-            this.dataGridViewTextBoxColumn1 = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.dataGridViewTextBoxColumn2 = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.dataGridViewTextBoxColumn3 = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.dataGridViewTextBoxColumn4 = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.dataGridViewTextBoxColumn5 = new System.Windows.Forms.DataGridViewComboBoxColumn();
-            this.dataGridViewComboBoxColumn2 = new System.Windows.Forms.DataGridViewComboBoxColumn();
-            this.dataGridViewComboBoxColumn4 = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.dgv_outputItem = new System.Windows.Forms.DataGridView();
-            this.Column1 = new System.Windows.Forms.DataGridViewComboBoxColumn();
-            this.Column6 = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.Column2 = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.Column3 = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.Column7 = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.Column8 = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.Column4 = new System.Windows.Forms.DataGridViewComboBoxColumn();
-            this.Column9 = new System.Windows.Forms.DataGridViewComboBoxColumn();
-            this.Column5 = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.panel3 = new System.Windows.Forms.Panel();
             this.tableLayoutPanel1 = new System.Windows.Forms.TableLayoutPanel();
             this.toolStrip2 = new System.Windows.Forms.ToolStrip();
             this.toolStripButton4 = new System.Windows.Forms.ToolStripButton();
+            this.tsb_addInput = new System.Windows.Forms.ToolStripButton();
             this.panel6 = new System.Windows.Forms.Panel();
             this.label4 = new System.Windows.Forms.Label();
             this.label9 = new System.Windows.Forms.Label();
@@ -63,15 +43,29 @@
             this.panel5 = new System.Windows.Forms.Panel();
             this.button4 = new System.Windows.Forms.Button();
             this.panel2 = new System.Windows.Forms.Panel();
+            this.lbl_caption = new System.Windows.Forms.Label();
+            this.dgv_items = new System.Windows.Forms.DataGridView();
+            this.colLinkDisplay = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.colLink = new System.Windows.Forms.DataGridViewButtonColumn();
+            this.colRow = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.colCol = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.colOkColor = new System.Windows.Forms.DataGridViewComboBoxColumn();
+            this.colNgColor = new System.Windows.Forms.DataGridViewComboBoxColumn();
+            this.colFontSize = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.colJudgeMode = new System.Windows.Forms.DataGridViewComboBoxColumn();
+            this.colDown = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.colUp = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.cms_row = new System.Windows.Forms.ContextMenuStrip(this.components);
+            this.menuDeleteRow = new System.Windows.Forms.ToolStripMenuItem();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.dgv_outputItem2)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.dgv_outputItem)).BeginInit();
             this.panel3.SuspendLayout();
             this.tableLayoutPanel1.SuspendLayout();
             this.toolStrip2.SuspendLayout();
             this.panel6.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox2)).BeginInit();
             this.panel2.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.dgv_items)).BeginInit();
+            this.cms_row.SuspendLayout();
             this.SuspendLayout();
             // 
             // button100
@@ -79,237 +73,15 @@
             this.button100.FlatAppearance.BorderSize = 0;
             this.button100.Location = new System.Drawing.Point(654, 0);
             // 
-            // label2
-            // 
-            this.label2.AutoSize = true;
-            this.label2.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.label2.Location = new System.Drawing.Point(7, 202);
-            this.label2.Name = "label2";
-            this.label2.Size = new System.Drawing.Size(92, 17);
-            this.label2.TabIndex = 76;
-            this.label2.Text = "字符串型输入：";
-            // 
-            // label1
-            // 
-            this.label1.AutoSize = true;
-            this.label1.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.label1.Location = new System.Drawing.Point(7, 7);
-            this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(80, 17);
-            this.label1.TabIndex = 74;
-            this.label1.Text = "数值型输入：";
-            // 
-            // dgv_outputItem2
-            // 
-            this.dgv_outputItem2.AllowUserToDeleteRows = false;
-            this.dgv_outputItem2.AllowUserToOrderColumns = true;
-            this.dgv_outputItem2.AllowUserToResizeRows = false;
-            this.dgv_outputItem2.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            this.dgv_outputItem2.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
-            this.dataGridViewComboBoxColumn1,
-            this.dataGridViewTextBoxColumn1,
-            this.dataGridViewTextBoxColumn2,
-            this.dataGridViewTextBoxColumn3,
-            this.dataGridViewTextBoxColumn4,
-            this.dataGridViewTextBoxColumn5,
-            this.dataGridViewComboBoxColumn2,
-            this.dataGridViewComboBoxColumn4});
-            this.dgv_outputItem2.ImeMode = System.Windows.Forms.ImeMode.NoControl;
-            this.dgv_outputItem2.Location = new System.Drawing.Point(10, 221);
-            this.dgv_outputItem2.Margin = new System.Windows.Forms.Padding(2);
-            this.dgv_outputItem2.Name = "dgv_outputItem2";
-            this.dgv_outputItem2.RowHeadersVisible = false;
-            this.dgv_outputItem2.RowTemplate.Height = 23;
-            this.dgv_outputItem2.Size = new System.Drawing.Size(728, 162);
-            this.dgv_outputItem2.TabIndex = 75;
-            this.dgv_outputItem2.CellValueChanged += new System.Windows.Forms.DataGridViewCellEventHandler(this.dgv_outputItem2_CellValueChanged);
-            this.dgv_outputItem2.RowsAdded += new System.Windows.Forms.DataGridViewRowsAddedEventHandler(this.dgv_outputItem2_RowsAdded);
-            // 
-            // dataGridViewComboBoxColumn1
-            // 
-            this.dataGridViewComboBoxColumn1.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.dataGridViewComboBoxColumn1.HeaderText = "输入项";
-            this.dataGridViewComboBoxColumn1.Items.AddRange(new object[] {
-            "",
-            "InputItem1",
-            "InputItem2",
-            "InputItem3",
-            "InputItem4",
-            "InputItem5"});
-            this.dataGridViewComboBoxColumn1.Name = "dataGridViewComboBoxColumn1";
-            this.dataGridViewComboBoxColumn1.Resizable = System.Windows.Forms.DataGridViewTriState.True;
-            this.dataGridViewComboBoxColumn1.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.Automatic;
-            this.dataGridViewComboBoxColumn1.Width = 115;
-            // 
-            // dataGridViewTextBoxColumn1
-            // 
-            this.dataGridViewTextBoxColumn1.HeaderText = "前缀";
-            this.dataGridViewTextBoxColumn1.Name = "dataGridViewTextBoxColumn1";
-            this.dataGridViewTextBoxColumn1.Width = 120;
-            // 
-            // dataGridViewTextBoxColumn2
-            // 
-            this.dataGridViewTextBoxColumn2.HeaderText = "行";
-            this.dataGridViewTextBoxColumn2.Name = "dataGridViewTextBoxColumn2";
-            this.dataGridViewTextBoxColumn2.Width = 70;
-            // 
-            // dataGridViewTextBoxColumn3
-            // 
-            this.dataGridViewTextBoxColumn3.HeaderText = "列";
-            this.dataGridViewTextBoxColumn3.Name = "dataGridViewTextBoxColumn3";
-            this.dataGridViewTextBoxColumn3.Width = 70;
-            // 
-            // dataGridViewTextBoxColumn4
-            // 
-            this.dataGridViewTextBoxColumn4.HeaderText = "预期值";
-            this.dataGridViewTextBoxColumn4.Name = "dataGridViewTextBoxColumn4";
-            // 
-            // dataGridViewTextBoxColumn5
-            // 
-            this.dataGridViewTextBoxColumn5.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.dataGridViewTextBoxColumn5.HeaderText = "OK颜色";
-            this.dataGridViewTextBoxColumn5.Items.AddRange(new object[] {
-            "green",
-            "red",
-            "yellow",
-            "blue"});
-            this.dataGridViewTextBoxColumn5.Name = "dataGridViewTextBoxColumn5";
-            this.dataGridViewTextBoxColumn5.Resizable = System.Windows.Forms.DataGridViewTriState.True;
-            this.dataGridViewTextBoxColumn5.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.Automatic;
-            this.dataGridViewTextBoxColumn5.Width = 85;
-            // 
-            // dataGridViewComboBoxColumn2
-            // 
-            this.dataGridViewComboBoxColumn2.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.dataGridViewComboBoxColumn2.HeaderText = "NG颜色";
-            this.dataGridViewComboBoxColumn2.Items.AddRange(new object[] {
-            "red",
-            "green",
-            "yellow",
-            "blue"});
-            this.dataGridViewComboBoxColumn2.Name = "dataGridViewComboBoxColumn2";
-            this.dataGridViewComboBoxColumn2.Resizable = System.Windows.Forms.DataGridViewTriState.True;
-            this.dataGridViewComboBoxColumn2.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.Automatic;
-            this.dataGridViewComboBoxColumn2.Width = 85;
-            // 
-            // dataGridViewComboBoxColumn4
-            // 
-            this.dataGridViewComboBoxColumn4.HeaderText = "字号";
-            this.dataGridViewComboBoxColumn4.Name = "dataGridViewComboBoxColumn4";
-            this.dataGridViewComboBoxColumn4.Resizable = System.Windows.Forms.DataGridViewTriState.True;
-            this.dataGridViewComboBoxColumn4.Width = 80;
-            // 
-            // dgv_outputItem
-            // 
-            this.dgv_outputItem.AllowUserToDeleteRows = false;
-            this.dgv_outputItem.AllowUserToOrderColumns = true;
-            this.dgv_outputItem.AllowUserToResizeRows = false;
-            this.dgv_outputItem.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            this.dgv_outputItem.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
-            this.Column1,
-            this.Column6,
-            this.Column2,
-            this.Column3,
-            this.Column7,
-            this.Column8,
-            this.Column4,
-            this.Column9,
-            this.Column5});
-            this.dgv_outputItem.ImeMode = System.Windows.Forms.ImeMode.NoControl;
-            this.dgv_outputItem.Location = new System.Drawing.Point(10, 26);
-            this.dgv_outputItem.Margin = new System.Windows.Forms.Padding(2);
-            this.dgv_outputItem.Name = "dgv_outputItem";
-            this.dgv_outputItem.RowHeadersVisible = false;
-            this.dgv_outputItem.RowTemplate.Height = 23;
-            this.dgv_outputItem.Size = new System.Drawing.Size(728, 162);
-            this.dgv_outputItem.TabIndex = 73;
-            this.dgv_outputItem.CellValueChanged += new System.Windows.Forms.DataGridViewCellEventHandler(this.dgv_outputItem_CellValueChanged);
-            // 
-            // Column1
-            // 
-            this.Column1.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.Column1.HeaderText = "输入项";
-            this.Column1.Items.AddRange(new object[] {
-            "",
-            "InputItem1",
-            "InputItem2",
-            "InputItem3",
-            "InputItem4",
-            "InputItem5"});
-            this.Column1.Name = "Column1";
-            this.Column1.Resizable = System.Windows.Forms.DataGridViewTriState.True;
-            this.Column1.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.Automatic;
-            this.Column1.Width = 120;
-            // 
-            // Column6
-            // 
-            this.Column6.HeaderText = "前缀";
-            this.Column6.Name = "Column6";
-            this.Column6.Width = 120;
-            // 
-            // Column2
-            // 
-            this.Column2.HeaderText = "行";
-            this.Column2.Name = "Column2";
-            this.Column2.Width = 70;
-            // 
-            // Column3
-            // 
-            this.Column3.HeaderText = "列";
-            this.Column3.Name = "Column3";
-            this.Column3.Width = 70;
-            // 
-            // Column7
-            // 
-            this.Column7.HeaderText = "值下限";
-            this.Column7.Name = "Column7";
-            // 
-            // Column8
-            // 
-            this.Column8.HeaderText = "值上限";
-            this.Column8.Name = "Column8";
-            // 
-            // Column4
-            // 
-            this.Column4.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.Column4.HeaderText = "OK颜色";
-            this.Column4.Items.AddRange(new object[] {
-            "green",
-            "red",
-            "blue"});
-            this.Column4.Name = "Column4";
-            this.Column4.Resizable = System.Windows.Forms.DataGridViewTriState.True;
-            this.Column4.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.Automatic;
-            this.Column4.Width = 80;
-            // 
-            // Column9
-            // 
-            this.Column9.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.Column9.HeaderText = "NG颜色";
-            this.Column9.Items.AddRange(new object[] {
-            "red",
-            "green",
-            "yellow"});
-            this.Column9.Name = "Column9";
-            this.Column9.Resizable = System.Windows.Forms.DataGridViewTriState.True;
-            this.Column9.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.Automatic;
-            this.Column9.Width = 80;
-            // 
-            // Column5
-            // 
-            this.Column5.HeaderText = "字号";
-            this.Column5.Name = "Column5";
-            this.Column5.Resizable = System.Windows.Forms.DataGridViewTriState.True;
-            this.Column5.Width = 80;
-            // 
             // panel3
             // 
-            this.panel3.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
-            | System.Windows.Forms.AnchorStyles.Left) 
+            this.panel3.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)
+            | System.Windows.Forms.AnchorStyles.Left)
             | System.Windows.Forms.AnchorStyles.Right)));
             this.panel3.BackColor = System.Drawing.Color.White;
             this.panel3.Controls.Add(this.tableLayoutPanel1);
             this.panel3.Location = new System.Drawing.Point(2, 26);
+            this.panel3.Margin = new System.Windows.Forms.Padding(2);
             this.panel3.Name = "panel3";
             this.panel3.Size = new System.Drawing.Size(754, 476);
             this.panel3.TabIndex = 117;
@@ -320,16 +92,17 @@
             this.tableLayoutPanel1.ColumnCount = 1;
             this.tableLayoutPanel1.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.tableLayoutPanel1.Controls.Add(this.toolStrip2, 0, 0);
-            this.tableLayoutPanel1.Controls.Add(this.panel6, 0, 2);
-            this.tableLayoutPanel1.Controls.Add(this.panel2, 0, 1);
+            this.tableLayoutPanel1.Controls.Add(this.lbl_caption, 0, 1);
+            this.tableLayoutPanel1.Controls.Add(this.panel2, 0, 2);
+            this.tableLayoutPanel1.Controls.Add(this.panel6, 0, 3);
             this.tableLayoutPanel1.Dock = System.Windows.Forms.DockStyle.Fill;
             this.tableLayoutPanel1.Location = new System.Drawing.Point(0, 0);
             this.tableLayoutPanel1.Name = "tableLayoutPanel1";
-            this.tableLayoutPanel1.RowCount = 3;
+            this.tableLayoutPanel1.RowCount = 4;
             this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 25F));
+            this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 24F));
             this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 55F));
-            this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 20F));
             this.tableLayoutPanel1.Size = new System.Drawing.Size(754, 476);
             this.tableLayoutPanel1.TabIndex = 115;
             // 
@@ -337,10 +110,12 @@
             // 
             this.toolStrip2.AutoSize = false;
             this.toolStrip2.BackColor = System.Drawing.Color.Transparent;
+            this.toolStrip2.GripStyle = System.Windows.Forms.ToolStripGripStyle.Hidden;
             this.toolStrip2.ImageScalingSize = new System.Drawing.Size(40, 17);
             this.toolStrip2.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.toolStripButton4});
-            this.toolStrip2.LayoutStyle = System.Windows.Forms.ToolStripLayoutStyle.Flow;
+            this.toolStripButton4,
+            this.tsb_addInput});
+            this.toolStrip2.LayoutStyle = System.Windows.Forms.ToolStripLayoutStyle.HorizontalStackWithOverflow;
             this.toolStrip2.Location = new System.Drawing.Point(0, 0);
             this.toolStrip2.Name = "toolStrip2";
             this.toolStrip2.Padding = new System.Windows.Forms.Padding(2, 0, 1, 0);
@@ -357,9 +132,15 @@
             this.toolStripButton4.ImageTransparentColor = System.Drawing.Color.Magenta;
             this.toolStripButton4.Name = "toolStripButton4";
             this.toolStripButton4.Size = new System.Drawing.Size(25, 22);
-            this.toolStripButton4.Text = "toolStripButton4";
-            this.toolStripButton4.TextImageRelation = System.Windows.Forms.TextImageRelation.TextBeforeImage;
             this.toolStripButton4.ToolTipText = "复位工具";
+            // 
+            // tsb_addInput
+            // 
+            this.tsb_addInput.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
+            this.tsb_addInput.Name = "tsb_addInput";
+            this.tsb_addInput.Size = new System.Drawing.Size(75, 22);
+            this.tsb_addInput.Text = "增加输入项";
+            this.tsb_addInput.Click += new System.EventHandler(this.tsb_addInput_Click);
             // 
             // panel6
             // 
@@ -411,11 +192,11 @@
             this.btn_confirm.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
             this.btn_confirm.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("btn_confirm.BackgroundImage")));
             this.btn_confirm.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Stretch;
+            this.btn_confirm.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btn_confirm.FlatAppearance.BorderSize = 0;
             this.btn_confirm.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Transparent;
             this.btn_confirm.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Transparent;
             this.btn_confirm.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btn_confirm.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
             this.btn_confirm.ForeColor = System.Drawing.Color.White;
             this.btn_confirm.Location = new System.Drawing.Point(570, 13);
             this.btn_confirm.Name = "btn_confirm";
@@ -424,21 +205,16 @@
             this.btn_confirm.Text = "运行流程";
             this.btn_confirm.UseVisualStyleBackColor = true;
             this.btn_confirm.Click += new System.EventHandler(this.btn_confirm_Click);
-            this.btn_confirm.MouseDown += new System.Windows.Forms.MouseEventHandler(this.Btn_MouseDown);
-            this.btn_confirm.MouseEnter += new System.EventHandler(this.Btn_MouseEnter);
-            this.btn_confirm.MouseLeave += new System.EventHandler(this.Btn_MouseLeave);
-            this.btn_confirm.MouseUp += new System.Windows.Forms.MouseEventHandler(this.Btn_MouseUp);
             // 
             // btn_cancel
             // 
             this.btn_cancel.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
             this.btn_cancel.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("btn_cancel.BackgroundImage")));
             this.btn_cancel.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Stretch;
+            this.btn_cancel.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btn_cancel.FlatAppearance.BorderSize = 0;
             this.btn_cancel.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Transparent;
-            this.btn_cancel.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Transparent;
             this.btn_cancel.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btn_cancel.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
             this.btn_cancel.ForeColor = System.Drawing.Color.White;
             this.btn_cancel.Location = new System.Drawing.Point(669, 13);
             this.btn_cancel.Name = "btn_cancel";
@@ -447,14 +223,10 @@
             this.btn_cancel.Text = "关闭";
             this.btn_cancel.UseVisualStyleBackColor = true;
             this.btn_cancel.Click += new System.EventHandler(this.btn_cancel_Click);
-            this.btn_cancel.MouseDown += new System.Windows.Forms.MouseEventHandler(this.Btn_MouseDown);
-            this.btn_cancel.MouseEnter += new System.EventHandler(this.Btn_MouseEnter);
-            this.btn_cancel.MouseLeave += new System.EventHandler(this.Btn_MouseLeave);
-            this.btn_cancel.MouseUp += new System.Windows.Forms.MouseEventHandler(this.Btn_MouseUp);
             // 
             // panel5
             // 
-            this.panel5.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left) 
+            this.panel5.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)
             | System.Windows.Forms.AnchorStyles.Right)));
             this.panel5.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(26)))), ((int)(((byte)(106)))), ((int)(((byte)(175)))));
             this.panel5.Location = new System.Drawing.Point(7, 4);
@@ -467,11 +239,11 @@
             this.button4.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
             this.button4.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("button4.BackgroundImage")));
             this.button4.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Stretch;
+            this.button4.Cursor = System.Windows.Forms.Cursors.Hand;
             this.button4.FlatAppearance.BorderSize = 0;
             this.button4.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Transparent;
             this.button4.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Transparent;
             this.button4.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.button4.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
             this.button4.ForeColor = System.Drawing.Color.White;
             this.button4.Location = new System.Drawing.Point(502, 13);
             this.button4.Name = "button4";
@@ -480,22 +252,152 @@
             this.button4.Text = "运行工具";
             this.button4.UseVisualStyleBackColor = true;
             this.button4.Click += new System.EventHandler(this.button4_Click);
-            this.button4.MouseDown += new System.Windows.Forms.MouseEventHandler(this.Btn_MouseDown);
-            this.button4.MouseEnter += new System.EventHandler(this.Btn_MouseEnter);
-            this.button4.MouseLeave += new System.EventHandler(this.Btn_MouseLeave);
-            this.button4.MouseUp += new System.Windows.Forms.MouseEventHandler(this.Btn_MouseUp);
             // 
             // panel2
             // 
-            this.panel2.Controls.Add(this.label2);
-            this.panel2.Controls.Add(this.dgv_outputItem2);
-            this.panel2.Controls.Add(this.label1);
-            this.panel2.Controls.Add(this.dgv_outputItem);
+            this.panel2.Controls.Add(this.dgv_items);
             this.panel2.Dock = System.Windows.Forms.DockStyle.Fill;
             this.panel2.Location = new System.Drawing.Point(3, 28);
             this.panel2.Name = "panel2";
             this.panel2.Size = new System.Drawing.Size(748, 390);
             this.panel2.TabIndex = 91;
+            // 
+            // lbl_caption
+            // 
+            this.lbl_caption.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lbl_caption.Padding = new System.Windows.Forms.Padding(10, 3, 0, 0);
+            this.lbl_caption.Location = new System.Drawing.Point(10, 4);
+            this.lbl_caption.Name = "lbl_caption";
+            this.lbl_caption.Size = new System.Drawing.Size(287, 17);
+            this.lbl_caption.TabIndex = 118;
+            this.lbl_caption.Text = "显示项（每行链接一个数据源；右键行可删除）";
+            // 
+            // dgv_items
+            // 
+            this.dgv_items.AllowUserToDeleteRows = false;
+            this.dgv_items.AllowUserToAddRows = false;
+            this.dgv_items.AllowUserToOrderColumns = false;
+            this.dgv_items.AllowUserToResizeRows = false;
+            this.dgv_items.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+            this.dgv_items.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
+            this.colLinkDisplay,
+            this.colLink,
+            this.colRow,
+            this.colCol,
+            this.colOkColor,
+            this.colNgColor,
+            this.colFontSize,
+            this.colJudgeMode,
+            this.colDown,
+            this.colUp});
+            this.dgv_items.ContextMenuStrip = this.cms_row;
+            this.dgv_items.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.dgv_items.ImeMode = System.Windows.Forms.ImeMode.NoControl;
+            this.dgv_items.Location = new System.Drawing.Point(10, 24);
+            this.dgv_items.Margin = new System.Windows.Forms.Padding(2);
+            this.dgv_items.Name = "dgv_items";
+            this.dgv_items.RowHeadersVisible = false;
+            this.dgv_items.RowTemplate.Height = 23;
+            this.dgv_items.Size = new System.Drawing.Size(728, 362);
+            this.dgv_items.TabIndex = 119;
+            this.dgv_items.CellContentClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.dgv_items_CellContentClick);
+            this.dgv_items.CellMouseDown += new System.Windows.Forms.DataGridViewCellMouseEventHandler(this.dgv_items_CellMouseDown);
+            this.dgv_items.CellValueChanged += new System.Windows.Forms.DataGridViewCellEventHandler(this.dgv_items_CellValueChanged);
+            this.dgv_items.CurrentCellDirtyStateChanged += new System.EventHandler(this.dgv_items_CurrentCellDirtyStateChanged);
+            // 
+            // colLinkDisplay
+            // 
+            this.colLinkDisplay.HeaderText = "输入项";
+            this.colLinkDisplay.Name = "colLinkDisplay";
+            this.colLinkDisplay.ReadOnly = true;
+            this.colLinkDisplay.Width = 190;
+            // 
+            // colLink
+            // 
+            this.colLink.HeaderText = "链接";
+            this.colLink.Name = "colLink";
+            this.colLink.Text = "链接…";
+            this.colLink.UseColumnTextForButtonValue = true;
+            this.colLink.Width = 60;
+            // 
+            // colRow
+            // 
+            this.colRow.HeaderText = "行";
+            this.colRow.Name = "colRow";
+            this.colRow.Width = 60;
+            // 
+            // colCol
+            // 
+            this.colCol.HeaderText = "列";
+            this.colCol.Name = "colCol";
+            this.colCol.Width = 60;
+            // 
+            // colOkColor
+            // 
+            this.colOkColor.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.colOkColor.HeaderText = "OK颜色";
+            this.colOkColor.Items.AddRange(new object[] {
+            "green",
+            "red",
+            "yellow",
+            "blue"});
+            this.colOkColor.Name = "colOkColor";
+            this.colOkColor.Width = 80;
+            // 
+            // colNgColor
+            // 
+            this.colNgColor.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.colNgColor.HeaderText = "NG颜色";
+            this.colNgColor.Items.AddRange(new object[] {
+            "red",
+            "green",
+            "yellow",
+            "blue"});
+            this.colNgColor.Name = "colNgColor";
+            this.colNgColor.Width = 80;
+            // 
+            // colFontSize
+            // 
+            this.colFontSize.HeaderText = "字号";
+            this.colFontSize.Name = "colFontSize";
+            this.colFontSize.Width = 60;
+            // 
+            // colJudgeMode
+            // 
+            this.colJudgeMode.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.colJudgeMode.HeaderText = "判定方式";
+            this.colJudgeMode.Items.AddRange(new object[] {
+            "无",
+            "范围",
+            "布尔"});
+            this.colJudgeMode.Name = "colJudgeMode";
+            this.colJudgeMode.Width = 75;
+            // 
+            // colDown
+            // 
+            this.colDown.HeaderText = "下限";
+            this.colDown.Name = "colDown";
+            this.colDown.Width = 70;
+            // 
+            // colUp
+            // 
+            this.colUp.HeaderText = "上限";
+            this.colUp.Name = "colUp";
+            this.colUp.Width = 70;
+            // 
+            // cms_row
+            // 
+            this.cms_row.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.menuDeleteRow});
+            this.cms_row.Name = "cms_row";
+            this.cms_row.Size = new System.Drawing.Size(125, 26);
+            // 
+            // menuDeleteRow
+            // 
+            this.menuDeleteRow.Name = "menuDeleteRow";
+            this.menuDeleteRow.Size = new System.Drawing.Size(124, 22);
+            this.menuDeleteRow.Text = "删除此行";
+            this.menuDeleteRow.Click += new System.EventHandler(this.menuDeleteRow_Click);
             // 
             // Frm_LabelTool
             // 
@@ -514,8 +416,6 @@
             this.Controls.SetChildIndex(this.button100, 0);
             this.Controls.SetChildIndex(this.panel3, 0);
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.dgv_outputItem2)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.dgv_outputItem)).EndInit();
             this.panel3.ResumeLayout(false);
             this.tableLayoutPanel1.ResumeLayout(false);
             this.toolStrip2.ResumeLayout(false);
@@ -525,20 +425,21 @@
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox2)).EndInit();
             this.panel2.ResumeLayout(false);
             this.panel2.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.dgv_items)).EndInit();
+            this.cms_row.ResumeLayout(false);
             this.ResumeLayout(false);
 
         }
 
         #endregion
 
-        public System.Windows.Forms.DataGridView dgv_outputItem;
-        public System.Windows.Forms.Label label2;
-        public System.Windows.Forms.DataGridView dgv_outputItem2;
-        public System.Windows.Forms.Label label1;
+        public System.Windows.Forms.DataGridView dgv_items;
+        public System.Windows.Forms.Label lbl_caption;
         private System.Windows.Forms.Panel panel3;
         private System.Windows.Forms.TableLayoutPanel tableLayoutPanel1;
         private System.Windows.Forms.ToolStrip toolStrip2;
         private System.Windows.Forms.ToolStripButton toolStripButton4;
+        private System.Windows.Forms.ToolStripButton tsb_addInput;
         private System.Windows.Forms.Panel panel6;
         private System.Windows.Forms.Label label4;
         public System.Windows.Forms.Label label9;
@@ -548,22 +449,17 @@
         private System.Windows.Forms.Panel panel5;
         internal System.Windows.Forms.Button button4;
         private System.Windows.Forms.Panel panel2;
-        private System.Windows.Forms.DataGridViewComboBoxColumn dataGridViewComboBoxColumn1;
-        private System.Windows.Forms.DataGridViewTextBoxColumn dataGridViewTextBoxColumn1;
-        private System.Windows.Forms.DataGridViewTextBoxColumn dataGridViewTextBoxColumn2;
-        private System.Windows.Forms.DataGridViewTextBoxColumn dataGridViewTextBoxColumn3;
-        private System.Windows.Forms.DataGridViewTextBoxColumn dataGridViewTextBoxColumn4;
-        private System.Windows.Forms.DataGridViewComboBoxColumn dataGridViewTextBoxColumn5;
-        private System.Windows.Forms.DataGridViewComboBoxColumn dataGridViewComboBoxColumn2;
-        private System.Windows.Forms.DataGridViewTextBoxColumn dataGridViewComboBoxColumn4;
-        private System.Windows.Forms.DataGridViewComboBoxColumn Column1;
-        private System.Windows.Forms.DataGridViewTextBoxColumn Column6;
-        private System.Windows.Forms.DataGridViewTextBoxColumn Column2;
-        private System.Windows.Forms.DataGridViewTextBoxColumn Column3;
-        private System.Windows.Forms.DataGridViewTextBoxColumn Column7;
-        private System.Windows.Forms.DataGridViewTextBoxColumn Column8;
-        private System.Windows.Forms.DataGridViewComboBoxColumn Column4;
-        private System.Windows.Forms.DataGridViewComboBoxColumn Column9;
-        private System.Windows.Forms.DataGridViewTextBoxColumn Column5;
+        private System.Windows.Forms.DataGridViewTextBoxColumn colLinkDisplay;
+        private System.Windows.Forms.DataGridViewButtonColumn colLink;
+        private System.Windows.Forms.DataGridViewTextBoxColumn colRow;
+        private System.Windows.Forms.DataGridViewTextBoxColumn colCol;
+        private System.Windows.Forms.DataGridViewComboBoxColumn colOkColor;
+        private System.Windows.Forms.DataGridViewComboBoxColumn colNgColor;
+        private System.Windows.Forms.DataGridViewTextBoxColumn colFontSize;
+        private System.Windows.Forms.DataGridViewComboBoxColumn colJudgeMode;
+        private System.Windows.Forms.DataGridViewTextBoxColumn colDown;
+        private System.Windows.Forms.DataGridViewTextBoxColumn colUp;
+        private System.Windows.Forms.ContextMenuStrip cms_row;
+        private System.Windows.Forms.ToolStripMenuItem menuDeleteRow;
     }
 }

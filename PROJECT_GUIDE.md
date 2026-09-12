@@ -416,7 +416,9 @@ PLC 当前重点：
 
 | 功能 | 入口文件 | 关键位置 |
 | --- | --- | --- |
-| 全局变量窗口 | `VisionAndMotion/3 FormLib/Frm_GlobalVariable.cs` | `LoadVariable()` 加载表格；`AddCustomVariable()` 添加自定义变量；`ReindexCustomVariables()` 删除/加载后重排自定义变量编号。 |
+| 全局变量窗口 | `VisionAndMotion/3 FormLib/Frm_GlobalVariable.cs` | `LoadVariable()` 加载表格；`AddCustomVariable()` 添加自定义变量（右侧 添加 Int/Double/String/Bool 四按钮）；类型列 `Column7` 为下拉框（Int/Double/String/Bool，DataError 已吞掉旧值不在选项内的异常）；`ReindexCustomVariables()` 删除/加载后重排自定义变量编号。 |
+| 局部变量工具 | `VisionAndMotion/1 ToolLib/52 LocalVariableTool/Frm_LocalVariableTool.cs` | 表格编辑当前流程局部变量（变量名/类型下拉/当前值/备注），右侧 添加 Int/Double/String/Bool 四按钮 + 右键删除行；数据存在 `Job.localVariables`，工具只是编辑入口。窗体继承 Frm_FormBase：标题用 `lbl_title`（打开分支赋“局部变量 [ 流程 . 工具 ]”），内容区绝对定位 Location(8,32)+四向锚避开标题栏。 |
+| 局部变量数据结构 | `VisionAndMotion/2 ClassLib/DataStrct.cs`、`VisionAndMotion/2 ClassLib/Job.cs` | `LocalVariableItem`（name/valueType/value/remark）；`Job.localVariables` 与 `LocalVariableSync` 锁；`EnsureLocalVariable()`/`SetLocalVariableValue()`/`RemoveLocalVariable()`/`RenameLocalVariable()` 按名维护。 |
 | 全局变量数据结构 | `VisionAndMotion/2 ClassLib/DataStrct.cs` | `GlobelVariable.L_variable` 保存变量；`Variable.index/type/name/value/info/variableType` 保存单项。`variableType=0` 为系统变量，`1` 为自定义变量。 |
 | 编辑终端窗口 | `VisionAndMotion/3 FormLib/Frm_IOConfig.cs` | `Load()` 根据 `Frm_IOConfig.result1` 刷新树；空参数对象应显示为空树并隐藏添加按钮。 |
 | 打开编辑终端 | `VisionAndMotion/2 ClassLib/Job.cs` | `ShowIOForm()` 填充工具下拉；`ShowIOEdit()` 根据选中工具刷新 `Frm_IOConfig.result1`。 |
@@ -429,6 +431,9 @@ PLC 当前重点：
 - 当前流程源项要排除当前工具自身输出；其他流程不要按同名工具过滤，因为不同流程里可能有同名工具。
 - `ShowIOEdit()` 需要在工具没有可显示参数时刷新为空，不能沿用上一次 `Frm_IOConfig.result1`。
 - 自定义全局变量删除后要重排 `Variable.index`，添加时从当前自定义变量数量继续编号。
+- 局部变量作用域限当前流程，随项目持久化；来源串为 `《- 局部变量->变量名`。已接入运行解析的工具：脚本编辑（四类类型，含类型识别）、数据分析（`DataAnalyseTool.Run` 自解析与 `Job.Run` 喂入分支均支持）、数据显示（Label 分支全部输入行支持，经 `Frm_LinkPicker` 或流程树“源于”菜单链接）；其他工具需逐个接入运行解析后再开放菜单（`Job.IsLocalVariableSourceSupported()` 控制菜单展示）。`TryParseLoadedConnection()` 把局部变量视为非本地来源，`ConnectSource()` 与 `RebuildCodeEditSourceLines()` 不为其登记连线。
+- 删除“局部变量”工具模块会同时清空该流程的局部变量（`RemoveWorkflowNode`）：之后仍链接局部变量的输入视为失效链接，流程每次运行前会在日志提醒（`CollectDeadLocalVariableLinkToolNames()`），运行到对应工具时立即停止流程（`Job.Run` 的 `FindDeadLocalVariableLink()` 校验，置 Fail 并 break）。变量行被删除同样触发失效。
+- 数据显示（Label）输入行数不限：`Job.Run` 的 Label 分支已通用化，遍历全部 `输入项N` 条目按 `InputItemN` 喂入 `D_inputItemAndVlaue`（此前硬编码只喂前 5 项，第 6 行起运行时拿不到链接值）；未链接的行显示为空不中断流程。局部变量来源在该分支与 `DataAnalyseTool.Run` 自解析、脚本编辑一样可用。
 
 ## 10. 工具目录快速索引
 
@@ -475,6 +480,7 @@ PLC 当前重点：
 | 线线角度 | `AngleLL` | `VisionAndMotion/1 ToolLib/51 AngleSSTool/` |
 | 两点中点 | `CenterOfPP` | `VisionAndMotion/1 ToolLib/26 CenterOfTwoPointTool/` |
 | 数据分析 | `DataAnalyse` | `VisionAndMotion/1 ToolLib/49 DataAnalyseTool/` |
+| 局部变量 | `LocalVariable` | `VisionAndMotion/1 ToolLib/52 LocalVariableTool/` |
 | 脚本编辑 | `CodeEdit` | `VisionAndMotion/1 ToolLib/30 CodeEditTool/` |
 | 光源_奥普特 | `Light_OPT` | `VisionAndMotion/1 ToolLib/27 OPTLightTool/` |
 | 光源控制 | `OPTLightControl` | `VisionAndMotion/1 ToolLib/33 OptLightControlTool/` |
@@ -494,7 +500,7 @@ PLC 当前重点：
 - 输入项只包含序号、名称、类型和变量链接，不再支持固定值。链接菜单按 `全局变量`、`当前流程`、`其他流程` 组织，只提供标量字符串类流程输出以及 `Int/Double/String/Bool` 全局变量。流程树通过“源于”修改脚本输入时，`Job.ConnectSource()` 会同步更新 `CodeEditTool.L_inputItems` 及已打开的脚本窗体；脚本窗体保存后反向同步流程树。
 - 流程运行分支在 `VisionAndMotion/2 ClassLib/Job.cs` 的 `ToolType.CodeEdit` 区域，输入取值由 `CodeEditTool.L_inputItems` 解析，结果通过动态名称直接回写流程树输出。
 - 输入和输出均可自定义变量名称及 `Int`、`Double`、`String`、`Bool` 类型，不再限制为固定的 `imput1..10/output1..10`。
-- 输入和输出表格均显示自动递增序号，新建项生成不重复的 `inputN`、`outputN` 默认名称，名称仍可自定义。
+- 输入和输出表格均显示自动递增序号，新建项生成不重复的 `inputN`、`outputN` 默认名称，名称仍可自定义；右键某一行弹出“删除该行”菜单，保存后由 `SyncCodeEditIONodes()` 同步流程树端口与连线。
 - `sourceCode` 保存完整 C# 类源码，不再由系统包裹成方法体。固定入口为 `VMPro.CodeEditRuntime.UserScript`，执行入口为 `public void Execute(Dictionary<string, object> inputs, Dictionary<string, object> outputs)`。输入按名称从 `inputs` 读取，结果按名称写入 `outputs`；用户可自由添加局部临时变量、成员变量、辅助方法和辅助类，不要求输入输出对应类字段。
 - 新建脚本工具默认不创建输入输出实例，用户自行添加。用户源码模板只保留 `#region InputInitialization` 和 `#region FunctionImplementation` 两个内部折叠标记，对应的中文分区标题独立显示；`Read<T>` 类型转换由编译时注入的隐藏 `ScriptBase` 提供，不再显示在编辑区。旧的系统生成模板打开时会自动迁移折叠标记、移除辅助方法区域并继承 `ScriptBase`。
 - 代码区提供“生成初始化”按钮：点击后同时重写 `#region InputInitialization` 内的输入初始化内容，并在 `#region FunctionImplementation` 里维护输出初始化和输出回写块。输入按左侧名称和类型生成 `Read<T>(inputs, "name")` 代码，并把链接来源写入相邻注释；输出按左侧定义生成同名局部变量，例如 `double result = default(double);`，用户功能代码可直接给 `result` 赋值，区域末尾再自动生成 `outputs["result"] = result;` 回写到流程输出。初始化注释通过 `CodeEditTool.FormatCommentText()` 仅在相邻中文字符之间加入空格，实际 `VariableSource` 链接值保持不变。代码区还提供“编译”按钮并检查 `UserScript` 和字典式 `Execute` 入口，保存时也会强制编译；运行后若未写入左侧定义的某个输出名称，会报告缺失输出，并在流程运行失败提示中显示脚本错误信息。
@@ -502,7 +508,7 @@ PLC 当前重点：
 - 脚本运行前，`Job.SyncCodeEditInputsBeforeRun()` 会再次以流程 `ToolInfo.input` 的连接为准同步 `VariableSource` 和类型；`CodeEditTool.ApplyInputItems()` 随后解析链接实际值、按配置类型转换并写入传给脚本的 `inputs` 字典，确保流程连接值进入对应输入名称。
 - 脚本输出的来源只能是脚本内对 `outputs` 字典的写入，不允许在流程树再使用“源于”覆盖。`Job.IsCodeEditOutputNode()` 同时用于右键菜单过滤和 `ConnectSource()` 入口保护；脚本输出节点右键只保留“删除项”。
 - 初始化区域和功能实现区域使用 `////////////////////// 输 入 初 始 化 区 域 //////////////////////` 样式，不再在长斜线前另加 `//`；系统中文标题和说明的汉字之间加入空格，两个功能区域内部的上下空白行也已加大。代码编辑器启用 C# 语法高亮、行号、自动缩进、4 空格 Tab、代码折叠和横向滚动，关闭视觉自动折行；字体使用 `NSimSun/新宋体`，中文恢复字体原始显示大小，不再缩小字形，也不统一加宽英文代码字符。`FastColoredTextBox.Font` 对该中文代码字体不回退到 `Courier New`。加载和保存时统一为 Windows `CRLF` 换行。`VMPro.csproj` 通过项目引用依赖 `CodeEdit/FastColoredTextBox/2 FastColoredTextBox.csproj`，该项目也已加入 `VM Pro.sln`。
-- 输出项仍可勾选“写入全局变量”；写入目标直接使用输出项“名称”，修改名称后保存即可同步修改写入目标。脚本编辑窗口会检测未保存更改，关闭前提示保存。
+- 输出项可勾选“写入全局变量”与“写入局部变量”（两个勾选独立、可同时勾选）；写入目标直接使用输出项“名称”，修改名称后保存即可同步修改写入目标。保存时 `EnsureGlobalVariableForOutput()`/`EnsureLocalVariableForOutput()` 按输出名 upsert 对应变量并同步类型，取消勾选不删除已存在的变量。运行时 `ApplyOutputItems()` 把输出写入所属流程 `Job.localVariables`（`SetLocalVariableValue()`，不存在时自动创建）。脚本编辑输入的“链接”菜单提供“局部变量”分组（`《- 局部变量->变量名`），`CodeEditTool.GetLinkedSourceValue()` 与 `Job.ResolveCodeEditSourceValueType()` 均识别该来源。脚本编辑窗口会检测未保存更改，关闭前提示保存。
 
 - 主界面导入 `.pjt/.eng/.job` 示例流程时不要再把 `SDK_Halcon` 采集工具自动指向 `Config\Resources\Image` 的内置样图目录；`Frm_Main.ClearSampleAcqImageDirectory(Job job)` 会清空示例流程里的采集图片路径、目录、缓存和当前图像，防止流程预览继续显示样板图。
 
@@ -515,6 +521,7 @@ PLC 当前重点：
 | 修改某工具配置界面 | 对应 `1 ToolLib/<工具>/Frm_xxxTool.cs` 和 `.Designer.cs`。 |
 | 修改工具输入输出连接 | `Frm_ToolBox.cs` 添加节点处、`Job.cs` 的 `ConnectSource()`/源项菜单生成/运行分支、`Frm_IOConfig.cs`。 |
 | 修改全局变量 | `Frm_GlobalVariable.cs`、`DataStrct.cs` 的 `GlobelVariable`/`Variable`。 |
+| 修改局部变量 | `1 ToolLib/52 LocalVariableTool/Frm_LocalVariableTool.cs`、`Job.cs` 的 `localVariables` 辅助方法、`DataStrct.cs` 的 `LocalVariableItem`。 |
 | 修改流程运行顺序/失败处理 | `Job.cs`。 |
 | 修改项目保存/加载 | `Project.cs`。 |
 | 修改设备添加/删除/选择 | `Frm_DeviceManager.cs`。 |

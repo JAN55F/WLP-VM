@@ -83,7 +83,7 @@ internal static class ToolboxUiSmoke
                    tree.ItemHeight >= 38 && !tree.ShowLines && !tree.ShowPlusMinus,
                 "Toolbox catalogue is not using the modern owner-drawn tree.");
             Control grid = FindControl<Control>(toolbox, "modernToolGrid");
-            Assert(!tree.Visible && tree.Parent != null && grid.Dock == DockStyle.Fill && grid.AutoScroll,
+            Assert(!tree.Visible && tree.Parent != null && grid.Dock == DockStyle.Fill && ((ScrollableControl)grid).AutoScroll,
                 "Tool shortcuts must be rendered in the scrollable grid while retaining the tree drag source.");
             FieldInfo cardHeight = grid.GetType().GetField("CardHeight", BindingFlags.Static | BindingFlags.NonPublic);
             FieldInfo cardWidth = grid.GetType().GetField("CardWidth", BindingFlags.Static | BindingFlags.NonPublic);
@@ -96,13 +96,13 @@ internal static class ToolboxUiSmoke
             Assert(tree.Nodes.Count == 7 &&
                    categories == "图像输入与预处理,检测与识别,标定与定位,几何与 ROI,逻辑与计算,设备与通信,输出与显示",
                 "Toolbox category structure changed unexpectedly: " + categories);
-            Assert(CountLeafTools(tree) == 57,
+            Assert(CountLeafTools(tree) == 58,
                 "Toolbox lost tools while building the modern catalogue.");
 
             Label toolCount = FindControl<Label>(toolbox, "modernToolCount");
             Button expand = FindControl<Button>(toolbox, "modernExpandAll");
             Button collapse = FindControl<Button>(toolbox, "modernCollapseAll");
-            Assert(toolCount.Text.Contains("57") && expand.Image != null && collapse.Image != null,
+            Assert(toolCount.Text.Contains("58") && expand.Image != null && collapse.Image != null,
                 "Tool count or expand/collapse vector actions are missing.");
             collapse.PerformClick();
             Application.DoEvents();
@@ -119,7 +119,7 @@ internal static class ToolboxUiSmoke
             Assert(setCategoryExpanded != null && applyFilter != null, "Missing toolbox category-state refresh methods.");
             setCategoryExpanded.Invoke(toolbox, new object[] { tree.Nodes[0], true });
             applyFilter.Invoke(toolbox, null);
-            Assert(tree.Nodes[0].IsExpanded && tree.Nodes.Skip(1).All(node => !node.IsExpanded),
+            Assert(tree.Nodes[0].IsExpanded && tree.Nodes.Cast<TreeNode>().Skip(1).All(node => !node.IsExpanded),
                 "A category must retain its individual expanded state after a grid refresh.");
 
             Label infoText = GetField<Label>(toolboxType, toolbox, "lbl_toolInfo");
@@ -131,7 +131,7 @@ internal static class ToolboxUiSmoke
             searchInput.Text = "图像";
             Application.DoEvents();
             int matchingTools = CountLeafTools(tree);
-            Assert(matchingTools > 0 && matchingTools < 57 && toolCount.Text.Contains("/ 57"),
+            Assert(matchingTools > 0 && matchingTools < 58 && toolCount.Text.Contains("/ 58"),
                 "Incremental toolbox filtering did not reduce the visible catalogue.");
 
             searchInput.Text = "不存在的工具-XYZ";
@@ -142,7 +142,7 @@ internal static class ToolboxUiSmoke
 
             clearSearch.PerformClick();
             Application.DoEvents();
-            Assert(CountLeafTools(tree) == 57 && tree.Nodes[0].IsExpanded,
+            Assert(CountLeafTools(tree) == 58 && tree.Nodes[0].IsExpanded,
                 "Clearing search did not restore the complete toolbox.");
 
             Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(previewPath)));
@@ -154,6 +154,7 @@ internal static class ToolboxUiSmoke
 
             toolbox.Hide();
         }
+    }
 
         private static void VerifyWorkflowEditorMinimumSize(Assembly assembly)
         {
@@ -180,7 +181,6 @@ internal static class ToolboxUiSmoke
                    (int)minimumHeight.GetRawConstantValue() == 220,
                 "Image window must expose a usable minimum size beside the workflow editor.");
         }
-    }
 
     private static int CountLeafTools(TreeView tree)
     {

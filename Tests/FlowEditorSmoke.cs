@@ -159,7 +159,7 @@ internal static class FlowEditorSmoke
             Assert(tree.Nodes.Count == 2 && connections.Count == 1 && unresolved == 1,
                 "Two-pass workflow rebuild did not restore a later source or isolate malformed input.");
 
-            DictionaryEntry connection = connections.Cast<DictionaryEntry>().Single();
+            KeyValuePair<TreeNode, TreeNode> connection = connections.Cast<KeyValuePair<TreeNode, TreeNode>>().Single();
             TreeNode targetNode = (TreeNode)connection.Key;
             TreeNode sourceNode = (TreeNode)connection.Value;
             Assert(targetNode.Parent.Text == "前置目标" && sourceNode.Parent.Text == "后置源" &&

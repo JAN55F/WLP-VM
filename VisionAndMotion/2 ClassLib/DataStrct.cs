@@ -69,6 +69,7 @@ namespace VMPro
         Measurement,
         AngleLL,
         PLCComm,
+        LocalVariable,
     }
     [Serializable]
     internal class GlobelVariable
@@ -93,6 +94,26 @@ namespace VMPro
         }
 
 
+    }
+    /// <summary>
+    /// 流程局部变量项。只能在当前流程内使用；存储在流程 Job 上并随项目持久化，
+    /// “局部变量”工具只是编辑入口。
+    /// </summary>
+    [Serializable]
+    internal class LocalVariableItem
+    {
+        internal LocalVariableItem() { }
+        internal LocalVariableItem(string name, string valueType, object value, string remark)
+        {
+            this.name = name;
+            this.valueType = valueType;
+            this.value = value;
+            this.remark = remark;
+        }
+        internal string name = string.Empty;
+        internal string valueType = "Int";      //Int/Double/Bool/String
+        internal object value = 0;
+        internal string remark = string.Empty;
     }
     [Serializable]
     public class ToolParBase
@@ -162,6 +183,11 @@ namespace VMPro
         internal string DownLimit;
         internal string UpLimit;
         internal string OutColor;
+        /// <summary>
+        /// 条件判定方式（新版数据显示）：None=无判定（字符串）/Range=范围判定（数值，DownLimit/UpLimit 允许留空=单边不限）/Bool=布尔判定（true=OK、false=NG）。
+        /// 旧工程此字段为 null，加载时按旧 ValueType 迁移（Value→Range、Str→None）。
+        /// </summary>
+        internal string JudgeMode;
     }
     public enum JobRunMode
     {

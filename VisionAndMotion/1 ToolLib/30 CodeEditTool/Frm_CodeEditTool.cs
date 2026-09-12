@@ -35,10 +35,47 @@ namespace VMPro
         private Button btnSave = new Button();
         private bool loadingData;
         private bool hasUnsavedChanges;
+        /// <summary>右键待删除的表格与行索引；菜单点击时使用。</summary>
+        private DataGridView pendingDeleteGrid;
+        private int pendingDeleteRowIndex = -1;
+        private ContextMenuStrip gridDeleteMenu = new ContextMenuStrip();
 
         private Frm_CodeEditTool()
         {
             InitializeComponent();
+            ToolStripItem deleteRowItem = gridDeleteMenu.Items.Add("删除该行");
+            deleteRowItem.Click += deleteRowMenuItem_Click;
+            dgvInput.CellMouseClick += dgv_CellMouseClick;
+            dgvOutput.CellMouseClick += dgv_CellMouseClick;
+        }
+
+        /// <summary>
+        /// 输入/输出表格右键某一行时选中该行并弹出删除菜单。
+        /// </summary>
+        private void dgv_CellMouseClick(object sender, DataGridViewCellMouseEventArgs e)
+        {
+            pendingDeleteGrid = null;
+            pendingDeleteRowIndex = -1;
+            if (e.Button != MouseButtons.Right || e.RowIndex < 0)
+                return;
+            DataGridView grid = sender as DataGridView;
+            if (grid == null || e.RowIndex >= grid.Rows.Count)
+                return;
+            pendingDeleteGrid = grid;
+            pendingDeleteRowIndex = e.RowIndex;
+            grid.ClearSelection();
+            grid.Rows[e.RowIndex].Selected = true;
+            gridDeleteMenu.Show(grid, grid.PointToClient(Cursor.Position));
+        }
+
+        private void deleteRowMenuItem_Click(object sender, EventArgs e)
+        {
+            if (pendingDeleteGrid == null || pendingDeleteRowIndex < 0 ||
+                pendingDeleteRowIndex >= pendingDeleteGrid.Rows.Count)
+                return;
+            pendingDeleteGrid.Rows.RemoveAt(pendingDeleteRowIndex);
+            pendingDeleteGrid = null;
+            pendingDeleteRowIndex = -1;
         }
 
         private void InitializeComponent()
@@ -159,6 +196,11 @@ namespace VMPro
             writeGlobal.Name = "WriteGlobalVariable";
             writeGlobal.HeaderText = "写入全局变量";
             dgvOutput.Columns.Add(writeGlobal);
+
+            DataGridViewCheckBoxColumn writeLocal = new DataGridViewCheckBoxColumn();
+            writeLocal.Name = "WriteLocalVariable";
+            writeLocal.HeaderText = "写入局部变量";
+            dgvOutput.Columns.Add(writeLocal);
             panel.Controls.Add(dgvOutput, 0, 1);
         }
 
@@ -258,6 +300,7 @@ namespace VMPro
                     row.Cells["OutputName"].Value = item.OutputName;
                     row.Cells["ValueType"].Value = item.ValueType.ToString();
                     row.Cells["WriteGlobalVariable"].Value = item.WriteGlobalVariable;
+                    row.Cells["WriteLocalVariable"].Value = item.WriteLocalVariable;
                 }
 
                 tbxCode.Text = NormalizeLineEndings(codeEditTool.sourceCode);
@@ -287,6 +330,7 @@ namespace VMPro
             row.Cells["OutputName"].Value = GetUniqueName("output", dgvOutput, "OutputName");
             row.Cells["ValueType"].Value = CodeValueType.Double.ToString();
             row.Cells["WriteGlobalVariable"].Value = false;
+            row.Cells["WriteLocalVariable"].Value = false;
         }
 
         private string GetUniqueName(string prefix, DataGridView grid, string columnName)
@@ -334,14 +378,34 @@ namespace VMPro
         {
             ContextMenuStrip menu = new ContextMenuStrip();
             ToolStripMenuItem globalMenu = new ToolStripMenuItem("全局变量");
+            ToolStripMenuItem localMenu = new ToolStripMenuItem("局部变量");
             ToolStripMenuItem currentJobMenu = new ToolStripMenuItem("当前流程");
             ToolStripMenuItem otherJobMenu = new ToolStripMenuItem("其他流程");
             menu.Items.Add(globalMenu);
+            menu.Items.Add(localMenu);
             menu.Items.Add(currentJobMenu);
             menu.Items.Add(otherJobMenu);
             AddGlobalVariableMenu(globalMenu, rowIndex);
+            AddLocalVariableMenu(localMenu, rowIndex);
             AddJobVariableMenus(currentJobMenu, otherJobMenu, rowIndex);
             return menu;
+        }
+
+        private void AddLocalVariableMenu(ToolStripMenuItem parent, int rowIndex)
+        {
+            Job job = Project.Instance.curEngine.FindJobByName(jobName);
+            if (job == null)
+                return;
+            lock (Job.LocalVariableSync)
+            {
+                for (int i = 0; i < job.localVariables.Count; i++)
+                {
+                    LocalVariableItem variable = job.localVariables[i];
+                    if (variable == null || string.IsNullOrEmpty(variable.name))
+                        continue;
+                    AddVariableMenuItem(parent, variable.name, "《- 局部变量->" + variable.name, rowIndex);
+                }
+            }
         }
 
         private void AddGlobalVariableMenu(ToolStripMenuItem parent, int rowIndex)
@@ -702,9 +766,16 @@ namespace VMPro
             for (int i = 0; i < codeEditTool.L_outputItems.Count; i++)
             {
                 string oldGlobalName = string.Empty;
+                string oldLocalName = string.Empty;
+                bool oldWriteLocal = false;
                 if (oldOutputItems != null && i < oldOutputItems.Count && oldOutputItems[i] != null)
+                {
                     oldGlobalName = string.IsNullOrEmpty(oldOutputItems[i].GlobalVariableName) ? oldOutputItems[i].OutputName : oldOutputItems[i].GlobalVariableName;
+                    oldLocalName = oldOutputItems[i].OutputName;
+                    oldWriteLocal = oldOutputItems[i].WriteLocalVariable;
+                }
                 EnsureGlobalVariableForOutput(codeEditTool.L_outputItems[i], oldGlobalName);
+                EnsureLocalVariableForOutput(codeEditTool.L_outputItems[i], oldLocalName, oldWriteLocal);
             }
             codeEditTool.L_calcItems.Clear();
             codeEditTool.sourceCode = NormalizeLineEndings(tbxCode.Text);
@@ -736,6 +807,8 @@ namespace VMPro
                 item.ValueType = ParseValueType(GetCellString(dgvOutput.Rows[i], "ValueType"));
                 object writeGlobal = dgvOutput.Rows[i].Cells["WriteGlobalVariable"].Value;
                 item.WriteGlobalVariable = writeGlobal != null && Convert.ToBoolean(writeGlobal);
+                object writeLocal = dgvOutput.Rows[i].Cells["WriteLocalVariable"].Value;
+                item.WriteLocalVariable = writeLocal != null && Convert.ToBoolean(writeLocal);
                 item.GlobalVariableName = item.OutputName;
                 items.Add(item);
             }
@@ -786,6 +859,25 @@ namespace VMPro
                 if (Project.Instance.curEngine.globelVariable.L_variable[i].variableType == 1)
                     count++;
             return count;
+        }
+
+        /// <summary>
+        /// 保存时确保勾选“写入局部变量”的输出在所属流程中存在同名局部变量并同步类型；
+        /// 输出改名时同步更名旧局部变量。取消勾选不删除已存在的局部变量。
+        /// </summary>
+        private void EnsureLocalVariableForOutput(CodeOutputItem item, string oldLocalName, bool oldWriteLocal)
+        {
+            if (!item.WriteLocalVariable || string.IsNullOrEmpty(item.OutputName))
+                return;
+
+            Job job = Project.Instance.curEngine.FindJobByName(jobName);
+            if (job == null)
+                return;
+
+            if (oldWriteLocal && !string.IsNullOrEmpty(oldLocalName) && oldLocalName != item.OutputName)
+                job.RenameLocalVariable(oldLocalName, item.OutputName);
+
+            job.EnsureLocalVariable(item.OutputName, item.ValueType.ToString());
         }
 
         private void SyncJobTree()
