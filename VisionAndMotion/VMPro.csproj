@@ -792,6 +792,10 @@
     <Compile Include="1 ToolLib\30 CodeEditTool\Frm_CodeEditTool.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="1 ToolLib\52 LocalVariableTool\LocalVariableTool.cs" />
+    <Compile Include="1 ToolLib\52 LocalVariableTool\Frm_LocalVariableTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="1 ToolLib\04 EyeHandCalibTool\Frm_EyeHandCalibTool.cs">
       <SubType>Form</SubType>
     </Compile>

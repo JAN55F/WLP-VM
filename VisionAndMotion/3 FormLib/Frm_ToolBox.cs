@@ -2245,6 +2245,48 @@ namespace VMPro
                         break;
                     #endregion
 
+                    #region 局部变量
+                    case "局部变量":
+                    case "LocalVariable":
+                        toolName = Job.FindJobByName(jobName).GetNewToolName("局部变量");
+                        if (toolName == "TooMuch")       //此工具添加个数已达到上限100各，不让继续添加
+                            return;
+
+                        //局部变量工具每个流程只能添加一个，与输出项相同
+                        if (Job.FindJobByName(jobName).ExistLocalVariableTool())
+                        {
+                            Frm_MessageBox.Instance.MessageBoxShow("\r\n局部变量工具已存在，此工具最多只能添加一个");
+                            return;
+                        }
+
+                        if (toolInfo1 == null)
+                        {
+                            LocalVariableTool localVariableTool = new LocalVariableTool();
+                            toolInfo = new ToolInfo(ToolType.LocalVariable, localVariableTool, jobName, toolName);
+                        }
+                        else
+                        {
+                            toolInfo1.toolName = toolName;
+                            for (int i = 0; i < toolInfo1.input.Count; i++)
+                            {
+                                toolInfo1.input[i].value = string.Empty;
+                            }
+                        }
+
+                        if (insertIdx == -1)
+                        {
+                            Job.FindJobByName(jobName).L_toolList.Add(toolInfo);
+                            toolNode = Job.GetJobTree(jobName).Nodes.Add("", toolInfo.toolName, 26, 26);
+                        }
+                        else
+                        {
+                            Job.FindJobByName(jobName).L_toolList.Insert(insertIdx, toolInfo);
+                            toolNode = Job.GetJobTree(jobName).Nodes.Insert(insertIdx, "", toolName, 26, 26);
+                        }
+
+                        break;
+                    #endregion
+
                     #region 光源_奥普特
                     case "光源_奥普特":
                     case "Barcoxxdexxxx":
@@ -2721,6 +2763,7 @@ namespace VMPro
                     TreeNode ArithmeticNode = CalculateNode.Nodes.Add("", Project.Instance.configuration.language == Language.English ? "Arithmetic" : "算术", 33, 33);
                     TreeNode CSharpCodeEdit = CalculateNode.Nodes.Add("", Project.Instance.configuration.language == Language.English ? "CodeEdit" : "脚本编辑", 26, 26);
                     TreeNode DataAnalyse = CalculateNode.Nodes.Add("", Project.Instance.configuration.language == Language.English ? "CodeEdit" : "数据分析", 26, 26);
+                    CalculateNode.Nodes.Add("", Project.Instance.configuration.language == Language.English ? "LocalVariable" : "局部变量", 26, 26);
                 }
 
                 //仪器仪表
@@ -3059,6 +3102,11 @@ namespace VMPro
                     case "脚本编辑":
                     case "CodeEdit":
                         lbl_toolInfo.Text = (Project.Instance.configuration.language == Language.English ? "Notes：This tool is used to edit CSharp scripts" : "说明：此工具用于编辑CSharp脚本");
+                        break;
+
+                    case "局部变量":
+                    case "LocalVariable":
+                        lbl_toolInfo.Text = (Project.Instance.configuration.language == Language.English ? "Notes：This tool is used to edit local variables that are only visible in the current job" : "说明：此工具用于编辑只能在当前流程内使用的局部变量");
                         break;
 
                     case "仪器仪表":

@@ -407,6 +407,8 @@ namespace VMPro.CodeEditRuntime
                 toolPar.ResultPar.SetValue(item.OutputName, value);
                 if (item.WriteGlobalVariable && !string.IsNullOrEmpty(item.OutputName))
                     SetCustomGlobalVariableValue(item.OutputName, item.ValueType.ToString(), value);
+                if (item.WriteLocalVariable && !string.IsNullOrEmpty(item.OutputName))
+                    SetLocalVariableValue(item.OutputName, item.ValueType.ToString(), value);
             }
         }
 
@@ -462,6 +464,41 @@ namespace VMPro.CodeEditRuntime
             return count;
         }
 
+        /// <summary>
+        /// 把脚本输出写入所属流程的局部变量；变量不存在时按输出类型自动创建。
+        /// 运行在流程工作线程，找不到所属流程时静默跳过，不影响脚本成功状态。
+        /// </summary>
+        private void SetLocalVariableValue(string name, string valueType, object value)
+        {
+            try
+            {
+                Job ownerJob = FindOwnerJobQuietly();
+                if (ownerJob == null)
+                    return;
+                ownerJob.SetLocalVariableValue(name, valueType, value);
+            }
+            catch (Exception ex)
+            {
+                Log.SaveError(ex);
+            }
+        }
+
+        /// <summary>
+        /// 静默查找所属流程；避免 FindJobByName 在未命中时弹窗干扰后台运行线程。
+        /// </summary>
+        private Job FindOwnerJobQuietly()
+        {
+            Scheme engine = Project.Instance.curEngine;
+            if (engine == null || engine.L_jobList == null)
+                return null;
+            for (int i = 0; i < engine.L_jobList.Count; i++)
+            {
+                if (engine.L_jobList[i] != null && engine.L_jobList[i].jobName == jobName)
+                    return engine.L_jobList[i];
+            }
+            return null;
+        }
+
         internal object GetInputValue(string name) { return toolPar.InputPar.GetValue(name); }
         internal object GetOutputValue(string name) { return toolPar.ResultPar.GetValue(name); }
 
@@ -478,6 +515,11 @@ namespace VMPro.CodeEditRuntime
             string itemName = parts[1].Trim();
             if (sourceToolName == "全局变量")
                 return Project.Instance.curEngine.globelVariable.GetGlobalVariableValue(itemName);
+            if (sourceToolName == "局部变量")
+            {
+                Job ownerJob = FindOwnerJobQuietly();
+                return ownerJob == null ? null : ownerJob.GetLocalVariableValue(itemName);
+            }
 
             string sourceJobName = jobName;
             if (sourceToolName.StartsWith("[") && sourceToolName.Contains("]"))
@@ -575,6 +617,7 @@ namespace VMPro.CodeEditRuntime
         internal string OutputName = "output1";
         internal CodeValueType ValueType = CodeValueType.Double;
         internal bool WriteGlobalVariable;
+        internal bool WriteLocalVariable;
         internal string GlobalVariableName = string.Empty;
         // 旧字段保留用于兼容已有项目数据。
         internal CodeOutputSource SourceType = CodeOutputSource.自定义代码;
