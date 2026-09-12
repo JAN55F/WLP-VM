@@ -6473,21 +6473,15 @@ namespace VMPro
                                 //Frm_ColorToRGBTool.Instance.StartPosition = FormStartPosition.Manual;
                                 //Frm_ColorToRGBTool.Instance.Location = new System.Drawing.Point(System.Windows.Forms.SystemInformation.VirtualScreen.Width - Frm_ShapeMatchTool.Instance.Width - 20, 200);        //让其显示在右上方，防止挡住图像窗口
                                 //Frm_ColorToRGBTool.Instance.TopMost = true;
-                                Frm_ColorToRGBTool.Instance.Activate();
-
                                 Frm_ColorToRGBTool.Instance.jobName = this.jobName;
                                 Frm_ColorToRGBTool.Instance.toolName = L_toolList[i].toolName;
+                                ColorToRGBTool colorToRGBTool = (ColorToRGBTool)(L_toolList[i].tool);
+                                Frm_ColorToRGBTool.Instance.BindTool(colorToRGBTool, L_toolList[i].enable);
                                 Frm_ColorToRGBTool.Instance.Show();
                                 Frm_ColorToRGBTool.Instance.WindowState = FormWindowState.Normal;
-                                Frm_ColorToRGBTool.Instance.btn_runColorToRGBTool.Focus();
-                                ColorToRGBTool colorToRGBTool = (ColorToRGBTool)(L_toolList[i].tool);
-                                Frm_ColorToRGBTool.colorToRGBTool = colorToRGBTool;
+                                Frm_ColorToRGBTool.Instance.Activate();
                                 Application.DoEvents();
-
-                                if (colorToRGBTool.inputImage != null)
-                                    colorToRGBTool.ShowImage(colorToRGBTool.inputImage);
-                                else
-                                { }
+                                Frm_ColorToRGBTool.Instance.RefreshPreview();
                                 //////colorToRGBTool.ClearWindow(this.jobName);
 
                                 //将对象信息更新到界面
@@ -8492,12 +8486,19 @@ namespace VMPro
                     outputItemNum = (L_toolList[i]).output.Count;
                     bool sourceValueIsEmpty = false;      //此变量判断输入源值是否为空，若为空就终止流程执行
 
-                    if (!L_toolList[i].enable && !Configuration.SpeedMode)
+                    if (!L_toolList[i].enable)
                     {
-                        string disabledTip = Project.Instance.configuration.language == Language.English ?
-                            string.Format("Tool [{0}] is disabled, skipped", L_toolList[i].toolName) :
-                            string.Format("工具 [{0}] 已禁用，已跳过", L_toolList[i].toolName);
-                        Frm_Main.Instance.OutputMsg(disabledTip, Color.DarkGray);
+                        // 禁用不能只跳过 Run：否则下游仍会从 ToolInfo 中取得本工具上一次
+                        // 成功运行遗留的输出，表现为上游禁用而下游仍可继续运行。
+                        InvalidateDisabledToolOutputs(L_toolList[i]);
+
+                        if (!Configuration.SpeedMode)
+                        {
+                            string disabledTip = Project.Instance.configuration.language == Language.English ?
+                                string.Format("Tool [{0}] is disabled, skipped", L_toolList[i].toolName) :
+                                string.Format("工具 [{0}] 已禁用，已跳过", L_toolList[i].toolName);
+                            Frm_Main.Instance.OutputMsg(disabledTip, Color.DarkGray);
+                        }
                     }
 
                     #region ImageAcq
@@ -8640,6 +8641,8 @@ namespace VMPro
                         ColorToRGBTool colorToRGBTool = (ColorToRGBTool)L_toolList[i].tool;
                         if (!L_toolList[i].enable)
                         {
+                            // 同时释放工具实例中的缓存，防止配置窗口或后续重新运行读取旧预览结果。
+                            colorToRGBTool.ClearLastInput();
                             colorToRGBTool.toolRunStatu = (Project.Instance.configuration.language == Language.English ? ToolRunStatu.Not_Enabled : ToolRunStatu.未启用);
                             treeNode.ToolTipText = colorToRGBTool.toolRunStatu.ToString();
                             treeNode.ForeColor = Color.DarkGray;
@@ -8837,7 +8840,12 @@ namespace VMPro
                             }
                         }
                         if (sourceValueIsEmpty)
+                        {
+                            // 上游（例如已禁用的彩图转 RGB）未提供图像时，匹配工具不能
+                            // 继续沿用上一轮结果；同时将本次流程明确标记为失败。
+                            jobRunStatu = JobRunStatu.Fail;
                             break;
+                        }
                         shapeMatchTool.Run(false, false, L_toolList[i].toolName);
 
 
@@ -13025,6 +13033,31 @@ namespace VMPro
             {
                 // 退出阶段窗体句柄可能已释放，复位失败不影响流程运行结果
                 Log.SaveError(ex);
+            }
+        }
+
+        /// <summary>
+        /// 禁用工具时清空本轮可见的输出，避免下游读取前一次运行遗留的数据。
+        /// </summary>
+        private void InvalidateDisabledToolOutputs(ToolInfo toolInfo)
+        {
+            if (toolInfo == null || toolInfo.output == null)
+                return;
+
+            string unavailableTip = Project.Instance.configuration.language == Language.English ?
+                "The upstream tool is disabled; this output is unavailable." :
+                "上游工具已禁用，此输出不可用。";
+
+            for (int i = 0; i < toolInfo.output.Count; i++)
+            {
+                ToolIO output = toolInfo.output[i];
+                if (output == null)
+                    continue;
+
+                output.value = null;
+                TreeNode outputNode = GetToolIONodeByNodeText(toolInfo.toolName, "-->" + output.IOName);
+                if (outputNode != null)
+                    outputNode.ToolTipText = unavailableTip;
             }
         }
 
